@@ -1,6 +1,10 @@
 #pragma once
 #include "stdafx.h"
 
+#include "filestream.h"
+#include "memmapfilestream.h"
+#include "cipherstream.h"
+
 /*
 * Overall format is:
 * Archive Header
@@ -88,32 +92,69 @@ struct FileDataHeader
 #pragma pack ()
 
 /*container class*/
-class FileName
+struct FileName
 {
-private:
 	std::string name;
-	uint32_t offset;
+	uint32_t offset;	//relative to FileName_offset
 };
-class File
+struct File
 {
-private:
-	FileInfoEntry *fileInfoEntry = nullptr;
-	FileDataHeader *fileDataHeader = nullptr;
+	FileInfoEntry *fileInfoEntry = nullptr;	
 	FileName* filename = nullptr;
 
-	uint8_t* data = nullptr;
-	uint8_t* decompressedData = nullptr;
+	std::unique_ptr<readDataProxy> fileDataHeader;
+	const FileDataHeader* getFileDataHeader(void) const
+	{
+		return reinterpret_cast<const FileDataHeader*>(fileDataHeader->data);
+	}
+	std::unique_ptr<readDataProxy> data;
+	std::unique_ptr<readDataProxy> decompressedData;	
 };
 
 /*core class*/
+enum BigFileState
+{
+	read,write
+};
+
 class BigFile_Internal
 {
+public:
+	BigFile_Internal(void) = default;
+	BigFile_Internal(std::experimental::filesystem::path file, BigFileState state)
+	{
+		open(file, state);
+	}
+	~BigFile_Internal(void)
+	{
+		close();
+	}
+	void open(std::experimental::filesystem::path file, BigFileState state);
+	void close(void);
+
+	void extract(std::experimental::filesystem::path directory);
+
 private:
-	ArchiveHeader archiveHeader;
-	SectionHeader sectionHeader;
-	std::vector<TocEntry> tocList;
-	std::vector<FolderEntry> folderList;
-	std::vector<FileInfoEntry> fileInfoList;
-	std::vector<FileName> fileNameList;
-	std::unordered_map<uint32_t, FileName*> fileNameLookUpMap;
+	CipherStream _cipherStream;
+	std::unique_ptr<ThreadPool> _threadPool;
+	std::vector<std::future<void>> _futureList;
+	std::string _progress;
+	std::mutex _progressMutex;
+	std::queue<std::string> _errorList;
+	std::mutex _errorMutex;
+
+	BigFileState _state;
+
+	ArchiveHeader _archiveHeader;
+	SectionHeader _sectionHeader;
+	std::vector<TocEntry> _tocList;
+	std::vector<FolderEntry> _folderList;
+	std::vector<FileInfoEntry> _fileInfoList;
+	std::vector<FileName> _fileNameList;
+	std::unordered_map<uint32_t, FileName*> _fileNameLookUpTable;
+
+	uint16_t _folderNum;
+
+	void extractFolder(std::experimental::filesystem::path directory, uint16_t folderIndex);
+	void extractFile(std::experimental::filesystem::path directory, uint16_t fileIndex);
 };

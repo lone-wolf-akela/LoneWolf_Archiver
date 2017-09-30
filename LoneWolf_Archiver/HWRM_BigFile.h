@@ -14,10 +14,12 @@ public:
 	void open(std::experimental::filesystem::path file);
 	void close(void);
 
+	void extract(std::experimental::filesystem::path directory);
+
 	~BigFile(void)
 	{
 		close();
 	}
 private:
-	BigFile_Internal internal;
+	BigFile_Internal _internal;
 };

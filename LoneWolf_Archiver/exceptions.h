@@ -6,16 +6,24 @@
 
 class FileIoError : public std::runtime_error
 {
-private:
-	std::string what_message;
 public:
 	FileIoError(std::string message) : 
-		runtime_error("File IO Error."),
-		what_message(message)
+		runtime_error(message)
 	{}
+};
 
-	const char* what() const noexcept override
-	{
-		return what_message.c_str();
-	}
+class NotImplementedError : public std::runtime_error
+{
+public:
+	NotImplementedError(void):
+		runtime_error("Function not implemented")
+	{}
+};
+
+class OutOfRangeError : public std::runtime_error
+{
+public:
+	OutOfRangeError(void) :
+		runtime_error("Out of range.")
+	{}
 };

@@ -24,8 +24,10 @@
 #include <filesystem>
 
 #include <boost/iostreams/device/mapped_file.hpp>
+#include <boost/program_options.hpp>
 
 #include <zlib.h>
 
 #include "exceptions.h"
 #include "md5.h"
+#include "ThreadPool/ThreadPool.h"
