@@ -122,7 +122,10 @@ void BigFile::create(
 				bool found = false;
 				for(BuildFolderTask &subFolderTask : currentFolder->subFolderTasks)
 				{					
-					if (subFolderTask.name == iter->generic_string())
+					if (
+						boost::algorithm::to_lower_copy(subFolderTask.name) ==
+						boost::algorithm::to_lower_copy(iter->generic_string())
+						)
 					{
 						currentFolder = &subFolderTask;
 						found = true;
@@ -133,6 +136,15 @@ void BigFile::create(
 				{
 					BuildFolderTask newFolder;
 					newFolder.name = iter->generic_string();
+					auto pathEnd = iter;
+					++pathEnd;
+
+					boost::filesystem::path tmpPath("");
+					for(auto iter2= relativePath.begin();iter2!= pathEnd;++iter2)
+					{
+						tmpPath /= *iter;
+					}
+					newFolder.fullpath = tmpPath.generic_string();
 					currentFolder->subFolderTasks.push_back(newFolder);
 					currentFolder = &currentFolder->subFolderTasks.back();
 				}

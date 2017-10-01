@@ -60,13 +60,19 @@ void BigFile_Internal::open(boost::filesystem::path file, BigFileState state)
 		{
 			_fileNameLookUpTable[filename.offset] = &filename;
 		}
-
-		_folderNum = _tocList.back().lastFolderIndex;
 	}
 	break;
 	case write:
-		throw NotImplementedError();
-		break;
+	{
+		_tocList.clear();
+		_folderList.clear();
+		_fileInfoList.clear();
+		_fileNameList.clear();
+		_fileNameLookUpTable.clear();
+
+		_cipherStream.open(file, Write_NonEncrypted);
+	}
+	break;
 	default:
 		throw OutOfRangeError();
 	}
@@ -124,8 +130,8 @@ void BigFile_Internal::extract(boost::filesystem::path directory)
 	uint32_t finishedFilesNum = 0;
 	while (flagUnFinished)
 	{
-		flagUnFinished = false;		
-		while(!_futureList.empty())
+		flagUnFinished = false;
+		while (!_futureList.empty())
 		{
 			std::future_status status = _futureList.front().wait_for(std::chrono::seconds(0));
 			if (status != std::future_status::ready)
@@ -151,7 +157,7 @@ void BigFile_Internal::extract(boost::filesystem::path directory)
 			{
 				std::cout << ' ';
 			}
-			std::cout << std::endl;			
+			std::cout << std::endl;
 		}
 		int percent = int(finishedFilesNum * 100 / _fileInfoList.size());
 		outputPercentBar(percent);
@@ -186,7 +192,7 @@ void BigFile_Internal::listFiles()
 		std::cout << "  Name : '" << toc.name << "'" << std::endl;
 		std::cout << "  Alias: '" << toc.alias << "'" << std::endl;
 		std::cout << std::endl;
-		std::cout << std::left << std::setw(72)<< "File Name" 
+		std::cout << std::left << std::setw(72) << "File Name"
 			<< std::right << std::setw(16) << "Original Size"
 			<< std::right << std::setw(16) << "Stored Size"
 			<< std::right << std::setw(8) << "Ratio"
@@ -287,6 +293,73 @@ void BigFile_Internal::testArchive()
 
 void BigFile_Internal::build(BuildArchiveTask task)
 {
+	memcpy(_archiveHeader._ARCHIVE, "_ARCHIVE", 8);
+	_archiveHeader.version = 2;
+	//toolSignature
+	std::wstring tmpWstr = boost::locale::conv::to_utf<wchar_t>(task.name, std::locale(""));
+	memset(_archiveHeader.archiveName, 0, 128);
+	memcpy(_archiveHeader.archiveName, tmpWstr.c_str(), std::min(size_t(63), tmpWstr.length()) * 2);
+	//archiveSignature
+	//exactFileDataOffset
+	_cipherStream.write(&_archiveHeader, sizeof(_archiveHeader));
+	memset(&_sectionHeader, 0, sizeof(_sectionHeader));
+
+	for(BuildTOCTask &tocTask : task.buildTOCTasks)
+	{
+		TocEntry tocEntry;
+		memset(&tocEntry, 0, sizeof(tocEntry));
+		memcpy(&tocEntry.name, tocTask.name.c_str(), std::min(size_t(63), tocTask.name.length()));
+		memcpy(&tocEntry.alias, tocTask.alias.c_str(), std::min(size_t(63), tocTask.alias.length()));
+		
+		tocEntry.firstFolderIndex = uint16_t(_folderList.size());
+		tocEntry.firstFileIndex = uint16_t(_fileInfoList.size());
+		tocEntry.startHierarchyFolderIndex = uint16_t(_folderList.size());
+		
+		_folderList.push_back(FolderEntry());
+		preBuildFolder(tocTask.rootFolderTask, _folderList.back());
+
+		tocEntry.lastFolderIndex = uint16_t(_folderList.size());
+		tocEntry.lastFileIndex = uint16_t(_fileInfoList.size());
+		_tocList.push_back(tocEntry);
+	}
+
+
+	size_t sectionHeaderBegPos = _cipherStream.getpos() - sizeof(_archiveHeader);
+	_cipherStream.write(&_sectionHeader, sizeof(_sectionHeader));
+	_sectionHeader.TOC_offset = uint32_t(_cipherStream.getpos());
+	_sectionHeader.TOC_count = uint16_t(_tocList.size());
+	for (TocEntry &entry : _tocList)
+	{
+		_cipherStream.write(&entry, sizeof(entry));
+	}
+	_sectionHeader.Folder_offset = uint32_t(_cipherStream.getpos() - sizeof(_archiveHeader));
+	_sectionHeader.Folder_count = uint16_t(_folderList.size());
+	for (FolderEntry &entry : _folderList)
+	{
+		_cipherStream.write(&entry, sizeof(entry));
+	}
+	_sectionHeader.FileInfo_offset = uint32_t(_cipherStream.getpos() - sizeof(_archiveHeader));
+	_sectionHeader.FileInfo_count = uint16_t(_fileInfoList.size());
+	for (FileInfoEntry &entry : _fileInfoList)
+	{
+		_cipherStream.write(&entry, sizeof(entry));
+	}
+	_sectionHeader.FileName_offset = uint32_t(_cipherStream.getpos() - sizeof(_archiveHeader));
+	_sectionHeader.FileName_count = uint16_t(_fileNameList.size());
+	for (FileName &filename : _fileNameList)
+	{
+		_cipherStream.write(filename.name.c_str(), filename.name.length() + 1);
+	}
+
+	_archiveHeader.sectionHeaderSize = uint32_t(_cipherStream.getpos() - sectionHeaderBegPos);
+
+	for(uint16_t i=0;i<task.buildTOCTasks.size();++i)
+	{
+		buildFolder(
+			task.buildTOCTasks[i].rootFolderTask,
+			_folderList[_tocList[i].startHierarchyFolderIndex]
+		);
+	}
 }
 
 const uint8_t* BigFile_Internal::getArchiveSignature() const
@@ -304,7 +377,7 @@ void BigFile_Internal::extractFolder(boost::filesystem::path directory, uint16_t
 	}
 
 	directory /= _fileNameLookUpTable[thisfolder.fileNameOffset]->name;
-	for (uint16_t i = thisfolder.firstFileNameIndex; i < thisfolder.lastFileNameIndex; ++i)
+	for (uint16_t i = thisfolder.firstFileIndex; i < thisfolder.lastFileIndex; ++i)
 	{
 		_futureList.push(
 			_threadPool->enqueue(&BigFile_Internal::extractFile, this, directory, i)
@@ -375,18 +448,153 @@ void BigFile_Internal::extractFile(boost::filesystem::path directory, uint16_t f
 	}
 }
 
+void BigFile_Internal::preBuildFolder(BuildFolderTask& folderTask, FolderEntry& folderEntry)
+{
+	FileName folderName;
+	folderName.name = folderTask.fullpath;
+	if (_fileNameList.empty())
+	{
+		folderName.offset = 0;
+	}
+	else
+	{
+		folderName.offset =
+			uint32_t(_fileNameList.back().offset + _fileNameList.back().name.length() + 1);
+	}
+	_fileNameList.push_back(folderName);
+	folderEntry.fileNameOffset = folderName.offset;
+	folderEntry.firstSubFolderIndex = uint16_t(_folderList.size());
+	for (BuildFolderTask &subFolderTask : folderTask.subFolderTasks)
+	{
+		_folderList.push_back(FolderEntry());
+	}
+	folderEntry.lastSubFolderIndex = uint16_t(_folderList.size());
+	folderEntry.firstFileIndex = uint16_t(_fileInfoList.size());
+	for (BuildFileTask &subFileTask : folderTask.subFileTasks)
+	{
+		FileInfoEntry fileInfoEntry;
+		FileName fileName;
+		fileName.name = subFileTask.name;
+		fileName.offset =
+			uint32_t(_fileNameList.back().offset + _fileNameList.back().name.length() + 1);
+		_fileNameList.push_back(fileName);
+		fileInfoEntry.fileNameOffset = fileName.offset;
+		fileInfoEntry.compressMethod = subFileTask.compressMethod;
+		fileInfoEntry.decompressedLen = subFileTask.filesize;
+		//fileDataOffset;	
+		//compressedLen;
+		_fileInfoList.push_back(fileInfoEntry);
+	}
+	folderEntry.lastFileIndex = uint16_t(_fileInfoList.size());
+	for (uint16_t i = 0; i < folderTask.subFolderTasks.size(); ++i)
+	{
+		preBuildFolder(
+			folderTask.subFolderTasks[i],
+			_folderList[folderEntry.firstSubFolderIndex + i]
+		);
+	}
+}
+
+void BigFile_Internal::buildFolder(BuildFolderTask& folderTask, FolderEntry& folderEntry)
+{
+
+	for (uint16_t i = 0; i < folderTask.subFileTasks.size(); ++i)
+	{
+		_futureFileList.push(
+			_threadPool->enqueue(
+				&BigFile_Internal::buildFile,
+				this, folderTask.subFileTasks[i], _fileInfoList[folderEntry.firstFileIndex + i]
+			)
+		);
+	}
+	for (uint16_t i = 0; i < folderTask.subFolderTasks.size(); ++i)
+	{
+		buildFolder(
+			folderTask.subFolderTasks[i],
+			_folderList[folderEntry.firstSubFolderIndex + i]
+		);
+	}
+}
+
+std::unique_ptr<File> BigFile_Internal::buildFile(BuildFileTask& fileTask, FileInfoEntry& fileInfoEntry)
+{
+	std::unique_ptr<File> file(new File);
+	file->fileInfoEntry = &fileInfoEntry;
+	char *decompressedData = new char[fileInfoEntry.decompressedLen];
+	boost::filesystem::ifstream ifile(fileTask.realpath, std::ios::binary);
+	if (!ifile.is_open())
+	{
+		throw FileIoError("Error happened when openning file to compress.");
+	}
+	ifile.read(decompressedData, fileInfoEntry.decompressedLen);
+	ifile.close();
+	file->decompressedData = std::make_unique<readDataProxy>(true);
+	file->decompressedData->data = decompressedData;
+	decompressedData = nullptr;
+	
+	char* fileDataHeader_charArray = new char[sizeof(FileDataHeader)];
+	memset(fileDataHeader_charArray, 0, sizeof(FileDataHeader));
+	FileDataHeader *fileDataHeader = reinterpret_cast<FileDataHeader*>(fileDataHeader_charArray);
+	uLong crc = crc32(0L, Z_NULL, 0);
+	crc = crc32(
+		crc,
+		reinterpret_cast<const Bytef*>(file->decompressedData->data),
+		fileInfoEntry.decompressedLen
+	);
+	fileDataHeader->CRC = crc;
+	memcpy(
+		fileDataHeader->fileName,
+		fileTask.name.c_str(), std::min(size_t(255), fileTask.name.length() + 1)
+	);
+	fileDataHeader->modificationDate = uint32_t(
+		boost::filesystem::detail::last_write_time(fileTask.realpath)
+	);
+	file->fileDataHeader = std::make_unique<readDataProxy>(true);
+	file->fileDataHeader->data = fileDataHeader_charArray;
+	fileDataHeader_charArray = nullptr;
+	fileDataHeader = nullptr;
+
+	if (fileInfoEntry.compressMethod != Uncompressed)
+	{
+		uLong compressedLen = compressBound(fileInfoEntry.decompressedLen);
+		char* compressedData = new char[compressedLen];
+		int zRet = compress(
+			reinterpret_cast<Bytef*>(compressedData),
+			&compressedLen,
+			reinterpret_cast<const Bytef*>(file->data->data),
+			fileInfoEntry.decompressedLen
+		);
+		if (zRet != Z_OK)
+		{
+			throw FileIoError("Error happened when compressing file.");
+		}
+		file->data = std::make_unique<readDataProxy>(true);
+		file->data->data = compressedData;
+		compressedData = nullptr;
+
+		fileInfoEntry.compressedLen = compressedLen;
+	}
+	else
+	{
+		file->data = move(file->decompressedData);
+		fileInfoEntry.compressedLen = fileInfoEntry.decompressedLen;
+	}
+
+	return file;
+}
+
 void BigFile_Internal::listFolder(uint16_t folderIndex)
 {
 	FolderEntry &thisfolder = _folderList[folderIndex];
 
-	for (uint16_t i = thisfolder.firstFileNameIndex; i < thisfolder.lastFileNameIndex; ++i)
+	for (uint16_t i = thisfolder.firstFileIndex; i < thisfolder.lastFileIndex; ++i)
 	{
 		FileInfoEntry &thisfile = _fileInfoList[i];
 
 		std::string filename = (
 			boost::filesystem::path(
 				_fileNameLookUpTable[thisfolder.fileNameOffset]->name
-				) /
+			) /
 			_fileNameLookUpTable[thisfile.fileNameOffset]->name
 			).generic_string();
 
@@ -394,28 +602,28 @@ void BigFile_Internal::listFolder(uint16_t folderIndex)
 		std::string storageType;
 		switch (thisfile.compressMethod)
 		{
-		case Uncompressed: 
+		case Uncompressed:
 			storageType = "Store";
 			break;
 		case Decompress_During_Read:
 			storageType = "Compress Stream";
 			break;
-		case Decompress_All_At_Once: 
+		case Decompress_All_At_Once:
 			storageType = "Compress Buffer";
 			break;
-		default: 
+		default:
 			throw OutOfRangeError();
 		}
 
 		std::cout << std::left << std::setw(72)
 			<< "  " + filename
-			<< std::right << std::setw(16) 
+			<< std::right << std::setw(16)
 			<< thisfile.decompressedLen
 			<< std::right << std::setw(16)
 			<< thisfile.compressedLen
 			<< std::right << std::fixed << std::setw(8) << std::setprecision(3)
 			<< ratio
-			<< std::right << std::setw(16) 
+			<< std::right << std::setw(16)
 			<< storageType
 			<< std::endl;
 	}
@@ -437,7 +645,7 @@ void BigFile_Internal::testFolder(uint16_t folderIndex)
 	boost::filesystem::path path(
 		_fileNameLookUpTable[thisfolder.fileNameOffset]->name
 	);
-	for (uint16_t i = thisfolder.firstFileNameIndex; i < thisfolder.lastFileNameIndex; ++i)
+	for (uint16_t i = thisfolder.firstFileIndex; i < thisfolder.lastFileIndex; ++i)
 	{
 		_futureList.push(
 			_threadPool->enqueue(&BigFile_Internal::testFile, this, path, i)

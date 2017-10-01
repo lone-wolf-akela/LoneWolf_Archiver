@@ -21,7 +21,7 @@ public:
 
 	void read(void *dst, size_t length) override;
 	std::unique_ptr<readDataProxy> readProxy(size_t length) override;
-	void write(void *src, size_t length) override;
+	void write(const void *src, size_t length) override;
 
 	void thread_read(size_t pos, void *dst, size_t length) override;
 	std::unique_ptr<readDataProxy> thread_readProxy(size_t pos, size_t length) override;

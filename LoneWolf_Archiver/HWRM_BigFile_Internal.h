@@ -23,6 +23,7 @@ struct BuildFileTask
 struct BuildFolderTask
 {
 	std::string name;
+	std::string fullpath;
 	std::vector<BuildFolderTask> subFolderTasks;
 	std::vector<BuildFileTask> subFileTasks;
 };
@@ -89,8 +90,8 @@ struct TocEntry
 	char name[64];
 	uint16_t firstFolderIndex;
 	uint16_t lastFolderIndex;
-	uint16_t firstFileNameIndex;
-	uint16_t lastFileNameIndex;
+	uint16_t firstFileIndex;
+	uint16_t lastFileIndex;
 	uint16_t startHierarchyFolderIndex;
 };
 struct FolderEntry
@@ -98,8 +99,8 @@ struct FolderEntry
 	uint32_t fileNameOffset;		//relative to FileName_offset
 	uint16_t firstSubFolderIndex;
 	uint16_t lastSubFolderIndex;	//not included
-	uint16_t firstFileNameIndex;
-	uint16_t lastFileNameIndex;		//not included
+	uint16_t firstFileIndex;
+	uint16_t lastFileIndex;		//not included
 };
 struct FileInfoEntry
 {
@@ -169,6 +170,7 @@ private:
 	CipherStream _cipherStream;
 	std::unique_ptr<ThreadPool> _threadPool;
 	std::queue<std::future<void>> _futureList;
+	std::queue<std::future<std::unique_ptr<File>>> _futureFileList;
 	std::string _progress;
 	std::mutex _progressMutex;
 	std::queue<std::string> _errorList;
@@ -185,10 +187,11 @@ private:
 	std::vector<FileName> _fileNameList;
 	std::unordered_map<uint32_t, FileName*> _fileNameLookUpTable;
 
-	uint16_t _folderNum;
-
 	void extractFolder(boost::filesystem::path directory, uint16_t folderIndex);
 	void extractFile(boost::filesystem::path directory, uint16_t fileIndex);
+	void preBuildFolder(BuildFolderTask &folderTask, FolderEntry &folderEntry);
+	void buildFolder(BuildFolderTask &folderTask, FolderEntry &folderEntry);
+	std::unique_ptr<File> buildFile(BuildFileTask &fileTask, FileInfoEntry &fileInfoEntry);
 	void listFolder(uint16_t folderIndex);
 	void testFolder(uint16_t folderIndex);
 	void testFile(boost::filesystem::path path, uint16_t fileIndex);

@@ -99,7 +99,7 @@ std::unique_ptr<readDataProxy> CipherStream::readProxy(size_t length)
 	}
 }
 
-void CipherStream::write(void* src, size_t length)
+void CipherStream::write(const void* src, size_t length)
 {
 	throw NotImplementedError();
 }

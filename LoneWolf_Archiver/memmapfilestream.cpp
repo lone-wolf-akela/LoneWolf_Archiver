@@ -38,7 +38,7 @@ std::unique_ptr<readDataProxy> MemMapFileStream::readProxy(size_t length)
 	return proxy;
 }
 
-void MemMapFileStream::write(void * src, size_t length)
+void MemMapFileStream::write(const void * src, size_t length)
 {
 	throw NotImplementedError();
 }

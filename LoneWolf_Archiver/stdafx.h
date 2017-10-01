@@ -22,12 +22,14 @@
 #include <memory>
 #include <thread>
 #include <atomic>
+#include <functional>
 
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/regex.hpp>
+#include <boost/locale.hpp>
 
 #include <zlib.h>
 
