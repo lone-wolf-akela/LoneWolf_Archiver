@@ -544,7 +544,8 @@ std::unique_ptr<File> BigFile_Internal::buildFile(BuildFileTask& fileTask, FileI
 	fileDataHeader->CRC = crc;
 	memcpy(
 		fileDataHeader->fileName,
-		fileTask.name.c_str(), std::min(size_t(255), fileTask.name.length() + 1)
+		fileTask.name.c_str(),
+		std::min(size_t(255), fileTask.name.length() + 1)
 	);
 	fileDataHeader->modificationDate = uint32_t(
 		boost::filesystem::detail::last_write_time(fileTask.realpath)
