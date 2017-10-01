@@ -27,3 +27,11 @@ public:
 		runtime_error("Out of range.")
 	{}
 };
+
+class FormatError : public std::runtime_error
+{
+public:
+	FormatError(std::string message) :
+		runtime_error(message)
+	{}
+};

@@ -12,11 +12,11 @@ class CipherStream : public FileStream
 {
 public:
 	CipherStream(void) = default;
-	CipherStream(std::experimental::filesystem::path file, CipherStreamState state)
+	CipherStream(boost::filesystem::path file, CipherStreamState state)
 	{
 		open(file, state);
 	}
-	void open(std::experimental::filesystem::path file, CipherStreamState state);
+	void open(boost::filesystem::path file, CipherStreamState state);
 	void close(void);
 
 	void read(void *dst, size_t length) override;

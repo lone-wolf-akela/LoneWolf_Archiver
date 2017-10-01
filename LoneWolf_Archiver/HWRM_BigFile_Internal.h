@@ -5,6 +5,40 @@
 #include "memmapfilestream.h"
 #include "cipherstream.h"
 
+/*enum*/
+enum CompressMethod : uint8_t
+{
+	Uncompressed = 0x00,
+	Decompress_During_Read = 0x10,
+	Decompress_All_At_Once = 0x20
+};
+/*task struct*/
+struct BuildFileTask
+{
+	std::string name;
+	boost::filesystem::path realpath;
+	CompressMethod compressMethod;
+	uint32_t filesize;
+};
+struct BuildFolderTask
+{
+	std::string name;
+	std::vector<BuildFolderTask> subFolderTasks;
+	std::vector<BuildFileTask> subFileTasks;
+};
+struct BuildTOCTask
+{
+	std::string name;
+	std::string alias;
+	BuildFolderTask rootFolderTask;
+};
+struct BuildArchiveTask
+{
+	std::string name;
+	std::vector<BuildTOCTask> buildTOCTasks;
+};
+
+
 /*
 * Overall format is:
 * Archive Header
@@ -18,14 +52,6 @@
 * File Data for all the files (including the 264 byte header
 *		preceeding the file data of each file)
 */
-
-/*enum*/
-enum CompressMethod : uint8_t
-{
-	Uncompressed = 0x00,
-	Decompress_During_Read = 0x10,
-	Decompress_All_At_Once = 0x20
-};
 
 /*data struct*/
 #pragma pack (1)
@@ -121,7 +147,7 @@ class BigFile_Internal
 {
 public:
 	BigFile_Internal(void) = default;
-	BigFile_Internal(std::experimental::filesystem::path file, BigFileState state)
+	BigFile_Internal(boost::filesystem::path file, BigFileState state)
 	{
 		open(file, state);
 	}
@@ -129,19 +155,25 @@ public:
 	{
 		close();
 	}
-	void open(std::experimental::filesystem::path file, BigFileState state);
+	void open(boost::filesystem::path file, BigFileState state);
 	void close(void);
 
-	void extract(std::experimental::filesystem::path directory);
+	void extract(boost::filesystem::path directory);
+	void listFiles(void);
+	void testArchive(void);
+	void build(BuildArchiveTask task);
+
+	const uint8_t* getArchiveSignature(void) const;
 
 private:
 	CipherStream _cipherStream;
 	std::unique_ptr<ThreadPool> _threadPool;
-	std::vector<std::future<void>> _futureList;
+	std::queue<std::future<void>> _futureList;
 	std::string _progress;
 	std::mutex _progressMutex;
 	std::queue<std::string> _errorList;
 	std::mutex _errorMutex;
+	std::atomic_bool _testPassed;
 
 	BigFileState _state;
 
@@ -155,6 +187,9 @@ private:
 
 	uint16_t _folderNum;
 
-	void extractFolder(std::experimental::filesystem::path directory, uint16_t folderIndex);
-	void extractFile(std::experimental::filesystem::path directory, uint16_t fileIndex);
+	void extractFolder(boost::filesystem::path directory, uint16_t folderIndex);
+	void extractFile(boost::filesystem::path directory, uint16_t fileIndex);
+	void listFolder(uint16_t folderIndex);
+	void testFolder(uint16_t folderIndex);
+	void testFile(boost::filesystem::path path, uint16_t fileIndex);
 };

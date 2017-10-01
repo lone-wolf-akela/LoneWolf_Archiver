@@ -7,12 +7,12 @@ class MemMapFileStream : public FileStream
 {
 public:
 	MemMapFileStream(void) = default;
-	explicit MemMapFileStream(std::experimental::filesystem::path file)
+	explicit MemMapFileStream(boost::filesystem::path file)
 	{
 		open(file);
 	}
 
-	void open(std::experimental::filesystem::path file);
+	void open(boost::filesystem::path file);
 	void close(void);
 
 	void read(void *dst, size_t length) override;

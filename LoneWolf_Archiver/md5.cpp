@@ -87,7 +87,7 @@ MD5::MD5(const std::string &str)
 }
 
 /* Construct a MD5 object with a file. */
-MD5::MD5(std::ifstream &in)
+MD5::MD5(boost::filesystem::ifstream &in)
 {
 	reset();
 	update(in);
@@ -130,7 +130,7 @@ void MD5::update(const std::string &str)
 }
 
 /* Updating the context with a file. */
-void MD5::update(std::ifstream &in) 
+void MD5::update(boost::filesystem::ifstream &in)
 {
 
 	if (!in)

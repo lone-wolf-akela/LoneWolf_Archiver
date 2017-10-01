@@ -2,9 +2,9 @@
 
 #include "memmapfilestream.h"
 
-void MemMapFileStream::open(std::experimental::filesystem::path file)
+void MemMapFileStream::open(boost::filesystem::path file)
 {
-	_filesize = std::experimental::filesystem::file_size(file);
+	_filesize = file_size(file);
 
 	boost::iostreams::mapped_file_params params;
 	params.path = file.generic_string();

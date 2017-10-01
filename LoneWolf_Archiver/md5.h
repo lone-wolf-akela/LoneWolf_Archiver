@@ -2,7 +2,7 @@
 #define MD5_H
 
 #include <string>
-#include <fstream>
+#include <boost/filesystem/fstream.hpp>
 
 /* Type define */
 typedef unsigned char byte;
@@ -15,10 +15,10 @@ public:
 	MD5();
 	MD5(const void *input, size_t length);
 	explicit MD5(const std::string &str);
-	explicit MD5(std::ifstream &in);
+	explicit MD5(boost::filesystem::ifstream &in);
 	void update(const void *input, size_t length);
 	void update(const std::string &str);
-	void update(std::ifstream &in);
+	void update(boost::filesystem::ifstream &in);
 	const byte* digest();
 	std::string toString();
 	void reset();

@@ -2,7 +2,7 @@
 
 #include "HWRM_BigFile_Internal.h"
 
-void BigFile_Internal::open(std::experimental::filesystem::path file, BigFileState state)
+void BigFile_Internal::open(boost::filesystem::path file, BigFileState state)
 {
 	_state = state;
 	switch (state)
@@ -78,7 +78,7 @@ void BigFile_Internal::close()
 }
 
 static void outputPercentBar(int percent);
-void BigFile_Internal::extract(std::experimental::filesystem::path directory)
+void BigFile_Internal::extract(boost::filesystem::path directory)
 {
 	if (_state != read)
 	{
@@ -104,9 +104,11 @@ void BigFile_Internal::extract(std::experimental::filesystem::path directory)
 	}
 
 	_threadPool = std::make_unique<ThreadPool>(coreNum);
-	_futureList.clear();
+	{
+		std::queue<std::future<void>> empty;
+		swap(_futureList, empty);
+	}
 	_progress = "";
-
 	{
 		std::queue<std::string> empty;
 		swap(_errorList, empty);
@@ -119,13 +121,13 @@ void BigFile_Internal::extract(std::experimental::filesystem::path directory)
 
 	std::cout << "Extracting..." << std::endl;
 	bool flagUnFinished = true;
+	uint32_t finishedFilesNum = 0;
 	while (flagUnFinished)
 	{
-		flagUnFinished = false;
-		uint32_t finishedFilesNum = 0;
-		for (auto &result : _futureList)
+		flagUnFinished = false;		
+		while(!_futureList.empty())
 		{
-			std::future_status status = result.wait_for(std::chrono::seconds(0));
+			std::future_status status = _futureList.front().wait_for(std::chrono::seconds(0));
 			if (status != std::future_status::ready)
 			{
 				flagUnFinished = true;
@@ -134,6 +136,7 @@ void BigFile_Internal::extract(std::experimental::filesystem::path directory)
 			else
 			{
 				++finishedFilesNum;
+				_futureList.pop();
 			}
 		}
 		while (!_errorList.empty())
@@ -170,7 +173,128 @@ void BigFile_Internal::extract(std::experimental::filesystem::path directory)
 	std::cout << "Finished!" << std::endl;
 }
 
-void BigFile_Internal::extractFolder(std::experimental::filesystem::path directory, uint16_t folderIndex)
+void BigFile_Internal::listFiles()
+{
+	if (_state != read)
+	{
+		throw OutOfRangeError();
+	}
+
+	for (TocEntry &toc : _tocList)
+	{
+		std::cout << "TOCEntry" << std::endl;
+		std::cout << "  Name : '" << toc.name << "'" << std::endl;
+		std::cout << "  Alias: '" << toc.alias << "'" << std::endl;
+		std::cout << std::endl;
+		std::cout << std::left << std::setw(72)<< "File Name" 
+			<< std::right << std::setw(16) << "Original Size"
+			<< std::right << std::setw(16) << "Stored Size"
+			<< std::right << std::setw(8) << "Ratio"
+			<< std::right << std::setw(16) << "Storage Type"
+			<< std::endl;
+
+		listFolder(toc.startHierarchyFolderIndex);
+	}
+
+	std::cout << std::endl;
+}
+
+void BigFile_Internal::testArchive()
+{
+	if (_state != read)
+	{
+		throw OutOfRangeError();
+	}
+
+	unsigned coreNum = std::thread::hardware_concurrency();
+	if (coreNum < 2)
+	{
+		coreNum = 2;
+	}
+
+	_threadPool = std::make_unique<ThreadPool>(coreNum);
+	{
+		std::queue<std::future<void>> empty;
+		swap(_futureList, empty);
+	}
+	_progress = "";
+	{
+		std::queue<std::string> empty;
+		swap(_errorList, empty);
+	}
+	_testPassed = true;
+
+	for (TocEntry &toc : _tocList)
+	{
+		testFolder(toc.startHierarchyFolderIndex);
+	}
+
+	std::cout << "Archive Self Testing" << std::endl;
+	std::cout << "TEST: RUNNING - Archive Self Integrity Check" << std::endl;
+	bool flagUnFinished = true;
+	uint32_t finishedFilesNum = 0;
+	while (flagUnFinished)
+	{
+		flagUnFinished = false;
+		while (!_futureList.empty())
+		{
+			std::future_status status = _futureList.front().wait_for(std::chrono::seconds(0));
+			if (status != std::future_status::ready)
+			{
+				flagUnFinished = true;
+				break;
+			}
+			else
+			{
+				++finishedFilesNum;
+				_futureList.pop();
+			}
+		}
+		while (!_errorList.empty())
+		{
+			_errorMutex.lock();
+			std::string tmpStr = _errorList.front();
+			_errorList.pop();
+			_errorMutex.unlock();
+
+			std::cerr << '\r' << tmpStr;
+			for (auto i = tmpStr.length(); i < 70; ++i)
+			{
+				std::cout << ' ';
+			}
+			std::cout << std::endl;
+		}
+		int percent = int(finishedFilesNum * 100 / _fileInfoList.size());
+		outputPercentBar(percent);
+
+		std::string tmpStr = _progress;
+		if (tmpStr.length() > 50)
+		{
+			std::cout << tmpStr.substr(0, 47) << "...";
+		}
+		else
+		{
+			std::cout << tmpStr << std::string(50 - tmpStr.length(), ' ');
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	}
+	outputPercentBar(100);
+	std::cout << std::string(50, ' ') << std::endl;
+	std::cout << "TEST: " << (_testPassed ? "PASSED" : "FAILED")
+		<< "  - Archive Self Integrity Check" << std::endl;
+}
+
+void BigFile_Internal::build(BuildArchiveTask task)
+{
+}
+
+const uint8_t* BigFile_Internal::getArchiveSignature() const
+{
+	return _archiveHeader.archiveSignature;
+}
+
+void BigFile_Internal::extractFolder(boost::filesystem::path directory, uint16_t folderIndex)
 {
 	FolderEntry &thisfolder = _folderList[folderIndex];
 
@@ -182,7 +306,7 @@ void BigFile_Internal::extractFolder(std::experimental::filesystem::path directo
 	directory /= _fileNameLookUpTable[thisfolder.fileNameOffset]->name;
 	for (uint16_t i = thisfolder.firstFileNameIndex; i < thisfolder.lastFileNameIndex; ++i)
 	{
-		_futureList.push_back(
+		_futureList.push(
 			_threadPool->enqueue(&BigFile_Internal::extractFile, this, directory, i)
 		);
 	}
@@ -190,7 +314,7 @@ void BigFile_Internal::extractFolder(std::experimental::filesystem::path directo
 
 class ZlibError {};
 
-void BigFile_Internal::extractFile(std::experimental::filesystem::path directory, uint16_t fileIndex)
+void BigFile_Internal::extractFile(boost::filesystem::path directory, uint16_t fileIndex)
 {
 
 	File thisfile;
@@ -200,7 +324,7 @@ void BigFile_Internal::extractFile(std::experimental::filesystem::path directory
 		pos - sizeof(FileDataHeader), sizeof(FileDataHeader)
 	);
 	thisfile.data = _cipherStream.thread_readProxy(pos, thisfile.fileInfoEntry->compressedLen);
-	std::experimental::filesystem::path filepath = directory / thisfile.getFileDataHeader()->fileName;
+	boost::filesystem::path filepath = directory / thisfile.getFileDataHeader()->fileName;
 
 	try
 	{
@@ -229,13 +353,15 @@ void BigFile_Internal::extractFile(std::experimental::filesystem::path directory
 		}
 		create_directories(directory);
 
-		std::ofstream ofile(filepath, std::ios::binary);
+		boost::filesystem::ofstream ofile(filepath, std::ios::binary);
 		if (!ofile.is_open())
 		{
 			throw FileIoError("Error happened when openning file for output.");
 		}
 		ofile.write(thisfile.decompressedData->data, thisfile.fileInfoEntry->decompressedLen);
 		ofile.close();
+
+		last_write_time(filepath, thisfile.getFileDataHeader()->modificationDate);
 
 		_progressMutex.lock();
 		_progress = thisfile.getFileDataHeader()->fileName;
@@ -249,7 +375,140 @@ void BigFile_Internal::extractFile(std::experimental::filesystem::path directory
 	}
 }
 
+void BigFile_Internal::listFolder(uint16_t folderIndex)
+{
+	FolderEntry &thisfolder = _folderList[folderIndex];
 
+	for (uint16_t i = thisfolder.firstFileNameIndex; i < thisfolder.lastFileNameIndex; ++i)
+	{
+		FileInfoEntry &thisfile = _fileInfoList[i];
+
+		std::string filename = (
+			boost::filesystem::path(
+				_fileNameLookUpTable[thisfolder.fileNameOffset]->name
+				) /
+			_fileNameLookUpTable[thisfile.fileNameOffset]->name
+			).generic_string();
+
+		double ratio = double(thisfile.compressedLen) / double(thisfile.decompressedLen);
+		std::string storageType;
+		switch (thisfile.compressMethod)
+		{
+		case Uncompressed: 
+			storageType = "Store";
+			break;
+		case Decompress_During_Read:
+			storageType = "Compress Stream";
+			break;
+		case Decompress_All_At_Once: 
+			storageType = "Compress Buffer";
+			break;
+		default: 
+			throw OutOfRangeError();
+		}
+
+		std::cout << std::left << std::setw(72)
+			<< "  " + filename
+			<< std::right << std::setw(16) 
+			<< thisfile.decompressedLen
+			<< std::right << std::setw(16)
+			<< thisfile.compressedLen
+			<< std::right << std::fixed << std::setw(8) << std::setprecision(3)
+			<< ratio
+			<< std::right << std::setw(16) 
+			<< storageType
+			<< std::endl;
+	}
+	for (uint16_t i = thisfolder.firstSubFolderIndex; i < thisfolder.lastSubFolderIndex; ++i)
+	{
+		listFolder(i);
+	}
+}
+
+void BigFile_Internal::testFolder(uint16_t folderIndex)
+{
+	FolderEntry &thisfolder = _folderList[folderIndex];
+
+	for (uint16_t i = thisfolder.firstSubFolderIndex; i < thisfolder.lastSubFolderIndex; ++i)
+	{
+		testFolder(i);
+	}
+
+	boost::filesystem::path path(
+		_fileNameLookUpTable[thisfolder.fileNameOffset]->name
+	);
+	for (uint16_t i = thisfolder.firstFileNameIndex; i < thisfolder.lastFileNameIndex; ++i)
+	{
+		_futureList.push(
+			_threadPool->enqueue(&BigFile_Internal::testFile, this, path, i)
+		);
+	}
+}
+
+void BigFile_Internal::testFile(boost::filesystem::path path, uint16_t fileIndex)
+{
+	File thisfile;
+	thisfile.fileInfoEntry = &_fileInfoList[fileIndex];
+	size_t pos = _archiveHeader.exactFileDataOffset + thisfile.fileInfoEntry->fileDataOffset;
+	thisfile.fileDataHeader = _cipherStream.thread_readProxy(
+		pos - sizeof(FileDataHeader), sizeof(FileDataHeader)
+	);
+	thisfile.data = _cipherStream.thread_readProxy(pos, thisfile.fileInfoEntry->compressedLen);
+	boost::filesystem::path filepath = path / thisfile.getFileDataHeader()->fileName;
+
+	try
+	{
+		//解压
+		//无压缩文件的“解压后数据”直接来自“压缩后数据”
+		if (thisfile.fileInfoEntry->compressMethod == Uncompressed)
+		{
+			thisfile.decompressedData = move(thisfile.data);
+		}
+		else
+		{
+			uLongf outLen = thisfile.fileInfoEntry->decompressedLen;
+			char *tmpData = new char[outLen];
+			int zRet = uncompress(
+				reinterpret_cast<Bytef*>(tmpData),
+				&outLen,
+				reinterpret_cast<const Bytef*>(thisfile.data->data),
+				thisfile.fileInfoEntry->compressedLen
+			);
+			if (zRet != Z_OK || outLen != thisfile.fileInfoEntry->decompressedLen)
+			{
+				throw ZlibError();
+			}
+			thisfile.decompressedData = std::make_unique<readDataProxy>(true);
+			thisfile.decompressedData->data = tmpData;
+		}
+
+		//check crc
+		uLong crc = crc32(0L, Z_NULL, 0);
+		crc = crc32(
+			crc,
+			reinterpret_cast<const Bytef*>(thisfile.decompressedData->data),
+			thisfile.fileInfoEntry->decompressedLen
+		);
+		if (crc != thisfile.getFileDataHeader()->CRC)
+		{
+			_testPassed = false;
+			_errorMutex.lock();
+			_errorList.push("File CRC mismatch: " + filepath.generic_string());
+			_errorMutex.unlock();
+		}
+
+		_progressMutex.lock();
+		_progress = thisfile.getFileDataHeader()->fileName;
+		_progressMutex.unlock();
+	}
+	catch (ZlibError)
+	{
+		_testPassed = false;
+		_errorMutex.lock();
+		_errorList.push("Failed to decompress file: " + filepath.generic_string());
+		_errorMutex.unlock();
+	}
+}
 
 
 //UGLY BAR
