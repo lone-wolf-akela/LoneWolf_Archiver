@@ -7,7 +7,7 @@ void MemMapFileStream::open(boost::filesystem::path file)
 	_filesize = file_size(file);
 
 	boost::iostreams::mapped_file_params params;
-	params.path = file.generic_string();
+	params.path = file.string();
 	params.flags = boost::iostreams::mapped_file::mapmode::readonly;
 	_filesrc.open(params);
 
@@ -24,10 +24,12 @@ void MemMapFileStream::close(void)
 	_filesrc.close();
 }
 
-void MemMapFileStream::read(void * dst, size_t length)
+size_t MemMapFileStream::read(void * dst, size_t length)
 {
-	memcpy(dst, _readptr, length);
-	movepos(length);
+	size_t lengthToRead = std::min(size_t(_filesize - getpos()), length);
+	memcpy(dst, _readptr, lengthToRead);
+	movepos(lengthToRead);
+	return lengthToRead;	
 }
 
 std::unique_ptr<readDataProxy> MemMapFileStream::readProxy(size_t length)

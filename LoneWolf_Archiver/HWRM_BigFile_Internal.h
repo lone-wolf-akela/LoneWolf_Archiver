@@ -158,6 +158,10 @@ public:
 	}
 	void open(boost::filesystem::path file, BigFileState state);
 	void close(void);
+	void setCoreNum(unsigned coreNum);
+	void setCompressLevel(int level);
+	void skipToolSignature(bool skip);
+	void writeEncryption(bool enc);
 
 	void extract(boost::filesystem::path directory);
 	void listFiles(void);
@@ -169,15 +173,17 @@ public:
 private:
 	CipherStream _cipherStream;
 	std::unique_ptr<ThreadPool> _threadPool;
-	std::queue<std::future<void>> _futureList;
-	std::queue<std::future<std::unique_ptr<File>>> _futureFileList;
-	std::string _progress;
-	std::mutex _progressMutex;
+	std::queue<std::future<std::string>> _futureList;
+	std::queue<std::future<std::tuple<std::unique_ptr<File>,std::string>>> _futureFileList;
 	std::queue<std::string> _errorList;
 	std::mutex _errorMutex;
 	std::atomic_bool _testPassed;
 
 	BigFileState _state;
+	unsigned _coreNum;
+	int _compressLevel;
+	bool _skipToolSignature;
+	bool _writeEncryption;
 
 	ArchiveHeader _archiveHeader;
 	SectionHeader _sectionHeader;
@@ -185,14 +191,18 @@ private:
 	std::vector<FolderEntry> _folderList;
 	std::vector<FileInfoEntry> _fileInfoList;
 	std::vector<FileName> _fileNameList;
+	std::vector<FileName> _folderNameList;
 	std::unordered_map<uint32_t, FileName*> _fileNameLookUpTable;
 
-	void extractFolder(boost::filesystem::path directory, uint16_t folderIndex);
-	void extractFile(boost::filesystem::path directory, uint16_t fileIndex);
-	void preBuildFolder(BuildFolderTask &folderTask, FolderEntry &folderEntry);
-	void buildFolder(BuildFolderTask &folderTask, FolderEntry &folderEntry);
-	std::unique_ptr<File> buildFile(BuildFileTask &fileTask, FileInfoEntry &fileInfoEntry);
-	void listFolder(uint16_t folderIndex);
-	void testFolder(uint16_t folderIndex);
-	void testFile(boost::filesystem::path path, uint16_t fileIndex);
+	void _extractFolder(boost::filesystem::path directory, uint16_t folderIndex);
+	std::string _extractFile(boost::filesystem::path directory, uint16_t fileIndex);
+	void _preBuildFolder(BuildFolderTask &folderTask, uint16_t folderIndex);
+	void _buildFolder(BuildFolderTask &folderTask, FolderEntry &folderEntry);
+	std::tuple<std::unique_ptr<File>, std::string> _buildFile(
+		BuildFileTask &fileTask, 
+		FileInfoEntry *fileInfoEntry
+	);
+	void _listFolder(uint16_t folderIndex);
+	void _testFolder(uint16_t folderIndex);
+	std::string _testFile(boost::filesystem::path path, uint16_t fileIndex);
 };

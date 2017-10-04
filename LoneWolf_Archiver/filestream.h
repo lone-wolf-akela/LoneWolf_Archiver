@@ -29,7 +29,7 @@ class FileStream
 public:
 	virtual ~FileStream() = default;
 
-	virtual void read(void *dst, size_t length) = 0;
+	virtual size_t read(void *dst, size_t length) = 0;
 	virtual std::unique_ptr<readDataProxy> readProxy(size_t length) = 0;
 	virtual void write(const void *src, size_t length) = 0;
 

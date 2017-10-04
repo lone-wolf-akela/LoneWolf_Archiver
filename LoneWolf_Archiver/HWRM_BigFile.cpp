@@ -2,14 +2,34 @@
 
 #include "HWRM_BigFile.h"
 
-void BigFile::open(boost::filesystem::path file)
+void BigFile::open(boost::filesystem::path file, BigFileState state)
 {
-	_internal.open(file, read);
+	_internal.open(file, state);
 }
 
 void BigFile::close()
 {
 	_internal.close();
+}
+
+void BigFile::setCoreNum(unsigned coreNum)
+{
+	_internal.setCoreNum(coreNum);
+}
+
+void BigFile::setCompressLevel(int level)
+{
+	_internal.setCompressLevel(level);
+}
+
+void BigFile::skipToolSignature(bool skip)
+{
+	_internal.skipToolSignature(skip);
+}
+
+void BigFile::writeEncryption(bool enc)
+{
+	_internal.writeEncryption(enc);
 }
 
 void BigFile::extract(boost::filesystem::path directory)
@@ -27,46 +47,51 @@ void BigFile::testArchive()
 	_internal.testArchive();
 }
 
-static void EscapeRegex(std::string &regex)
+static bool match(char const *needle, char const *haystack) 
 {
-	boost::replace_all(regex, "\\", "\\\\");
-	boost::replace_all(regex, "^", "\\^");
-	boost::replace_all(regex, ".", "\\.");
-	boost::replace_all(regex, "$", "\\$");
-	boost::replace_all(regex, "|", "\\|");
-	boost::replace_all(regex, "(", "\\(");
-	boost::replace_all(regex, ")", "\\)");
-	boost::replace_all(regex, "[", "\\[");
-	boost::replace_all(regex, "]", "\\]");
-	boost::replace_all(regex, "*", "\\*");
-	boost::replace_all(regex, "+", "\\+");
-	boost::replace_all(regex, "?", "\\?");
-	boost::replace_all(regex, "/", "\\/");
+	for (; *needle != '\0'; ++needle) {
+		switch (*needle) {
+		case '?':
+			if (*haystack == '\0')
+				return false;
+			++haystack;
+			break;
+		case '*': {
+			if (needle[1] == '\0')
+				return true;
+			size_t max = strlen(haystack);
+			for (size_t i = 0; i < max; i++)
+				if (match(needle + 1, haystack + i))
+					return true;
+			return false;
+		}
+		default:
+			if (*haystack != *needle)
+				return false;
+			++haystack;
+		}
+	}
+	return *haystack == '\0';
 }
 
-static bool MatchTextWithWildcards(const std::string &text, std::string wildcardPattern, bool caseSensitive)
+void BigFile::create(boost::filesystem::path root, boost::filesystem::path build)
 {
-	// Escape all regex special chars
-	EscapeRegex(wildcardPattern);
+	std::cout << "Reading Build Config..." << std::endl;
 
-	// Convert chars '*?' back to their regex equivalents
-	boost::replace_all(wildcardPattern, "\\?", ".");
-	boost::replace_all(wildcardPattern, "\\*", ".*");
+	//though there seems no problem, I guess I'd still make sure the root path ends with '\' or '/'
+	std::string rootstr = root.string();
+	if (rootstr != "" && rootstr.back() != '\\' && rootstr.back() != '/')
+	{
+		rootstr += '\\';
+	}
+	//and we must make sure it's all lower case
+	boost::to_lower(rootstr);
+	root = rootstr;
 
-	boost::regex pattern(wildcardPattern, caseSensitive ? boost::regex::normal : boost::regex::icase);
-
-	return regex_match(text, pattern);
-}
-
-void BigFile::create(
-	boost::filesystem::path root,
-	boost::filesystem::path build
-)
-{
 	_parseBuildfile(build);
 	BuildArchiveTask task;
 	task.name = _buildArchiveSetting.name;
-	for(BuildTOCSetting &tocSet : _buildArchiveSetting.buildTOCSetting)
+	for (BuildTOCSetting &tocSet : _buildArchiveSetting.buildTOCSetting)
 	{
 		BuildTOCTask tocTask;
 		tocTask.name = tocSet.name;
@@ -74,57 +99,78 @@ void BigFile::create(
 		tocTask.rootFolderTask.name = "";
 
 		boost::filesystem::path tocRootPath(root);
+
+		//though there seems no problem, I guess I'd still make sure the path ends with '\' or '/'
+		if (
+			tocSet.relativeroot != "" &&
+			tocSet.relativeroot.back() != '\\'&&
+			tocSet.relativeroot.back() != '/'
+			)
+		{
+			tocSet.relativeroot += '\\';
+		}
+
 		tocRootPath /= tocSet.relativeroot;
 		tocRootPath = system_complete(tocRootPath);
 
-		for(std::string &file : tocSet.files)
+		for (std::wstring &file : tocSet.files)
 		{
 			BuildFileTask fileTask;
-			fileTask.realpath = file;
-			fileTask.realpath = system_complete(fileTask.realpath);	
-			fileTask.name = fileTask.realpath.filename().generic_string();
+			fileTask.realpath = boost::filesystem::path(file);
+			fileTask.realpath = system_complete(fileTask.realpath);
+			fileTask.name = boost::to_lower_copy(fileTask.realpath.filename().string());
 
 			fileTask.filesize = uint32_t(file_size(fileTask.realpath));
 			fileTask.compressMethod = tocSet.defcompression;
 
 			bool skipfile = false;
-			for(BuildFileSetting &fileSet: tocSet.buildFileSettings)
+			for (BuildFileSetting &fileSet : tocSet.buildFileSettings)
 			{
 				if (
-					MatchTextWithWildcards(fileTask.name, fileSet.wildcard, false) &&
 					(fileSet.minsize == -1 || fileTask.filesize >= uint32_t(fileSet.minsize)) &&
-					(fileSet.maxsize == -1 || fileTask.filesize <= uint32_t(fileSet.maxsize))
+					(fileSet.maxsize == -1 || fileTask.filesize <= uint32_t(fileSet.maxsize)) &&
+					match(fileSet.wildcard.c_str(), fileTask.name.c_str())
 					)
 				{
 					switch (fileSet.command)
 					{
-					case BuildFileSetting::Override: 
+					case BuildFileSetting::Override:
 						fileTask.compressMethod = fileSet.ct;
 						break;
 					case BuildFileSetting::SkipFile:
 						skipfile = true;
 						break;
-					default: 
+					default:
 						throw OutOfRangeError();
 					}
+					break;
 				}
 			}
-			if(skipfile)
+			if (skipfile)
 			{
 				continue;
+			}
+			//if the file size is 0 and is not skipped, then force it uncompressed
+			if (fileTask.filesize == 0)
+			{
+				fileTask.compressMethod = Uncompressed;
 			}
 
 			boost::filesystem::path relativePath = relative(fileTask.realpath, tocRootPath);
 			relativePath = relativePath.remove_filename();
 			BuildFolderTask *currentFolder = &tocTask.rootFolderTask;
+
+			boost::filesystem::path currentPath("");
 			for (auto iter = relativePath.begin(); iter != relativePath.end(); ++iter)
 			{
+				currentPath /= *iter;
+
 				bool found = false;
-				for(BuildFolderTask &subFolderTask : currentFolder->subFolderTasks)
-				{					
+				for (BuildFolderTask &subFolderTask : currentFolder->subFolderTasks)
+				{
 					if (
-						boost::algorithm::to_lower_copy(subFolderTask.name) ==
-						boost::algorithm::to_lower_copy(iter->generic_string())
+						boost::to_lower_copy(subFolderTask.name) ==
+						boost::to_lower_copy(iter->string())
 						)
 					{
 						currentFolder = &subFolderTask;
@@ -135,16 +181,8 @@ void BigFile::create(
 				if (!found)
 				{
 					BuildFolderTask newFolder;
-					newFolder.name = iter->generic_string();
-					auto pathEnd = iter;
-					++pathEnd;
-
-					boost::filesystem::path tmpPath("");
-					for(auto iter2= relativePath.begin();iter2!= pathEnd;++iter2)
-					{
-						tmpPath /= *iter;
-					}
-					newFolder.fullpath = tmpPath.generic_string();
+					newFolder.name = iter->string();
+					newFolder.fullpath = currentPath.string();
 					currentFolder->subFolderTasks.push_back(newFolder);
 					currentFolder = &currentFolder->subFolderTasks.back();
 				}
@@ -157,11 +195,151 @@ void BigFile::create(
 	_internal.build(task);
 }
 
-void BigFile::generate(
-	boost::filesystem::path root,
-	boost::filesystem::path build
-)
+// 对文件夹深度优先遍历获取所有文件名放入容器中  
+static std::vector<boost::filesystem::path> getAllFileNames(const boost::filesystem::path &rootPath)
 {
+	std::vector<boost::filesystem::path> vecOut;
+	for (
+		boost::filesystem::directory_iterator iter(rootPath);
+		iter != boost::filesystem::directory_iterator();
+		++iter
+		)
+	{
+		if (is_directory(*iter))
+		{
+			auto tmp = getAllFileNames(*iter);
+			vecOut.insert(vecOut.end(), tmp.begin(), tmp.end());
+		}
+		else
+		{
+			vecOut.emplace_back(*iter);
+		}
+	}
+	return vecOut;
+}
+
+static char fileSettingStr[] =
+R"CONFIG(FileSettingsStart defcompression="1"
+Override wildcard="*.*" minsize="-1" maxsize="100" ct="0"
+Override wildcard="*.mp3" minsize="-1" maxsize="-1" ct="0"
+Override wildcard="*.wav" minsize="-1" maxsize="-1" ct="0"
+Override wildcard="*.jpg" minsize="-1" maxsize="-1" ct="0"
+Override wildcard="*.lua" minsize="-1" maxsize="-1" ct="2"
+Override wildcard="*.fda" minsize="-1" maxsize="-1" ct="0"
+Override wildcard="*.txt" minsize="-1" maxsize="-1" ct="2"
+Override wildcard="*.ship" minsize="-1" maxsize="-1" ct="2"
+Override wildcard="*.resource" minsize="-1" maxsize="-1" ct="2"
+Override wildcard="*.pebble" minsize="-1" maxsize="-1" ct="2"
+Override wildcard="*.level" minsize="-1" maxsize="-1" ct="2"
+Override wildcard="*.wepn" minsize="-1" maxsize="-1" ct="2"
+Override wildcard="*.subs" minsize="-1" maxsize="-1" ct="2"
+Override wildcard="*.miss" minsize="-1" maxsize="-1" ct="2"
+Override wildcard="*.events" minsize="-1" maxsize="-1" ct="2"
+Override wildcard="*.madstate" minsize="-1" maxsize="-1" ct="2"
+Override wildcard="*.script" minsize="-1" maxsize="-1" ct="2"
+Override wildcard="*.ti" minsize="-1" maxsize="-1" ct="2"
+Override wildcard="*.st" minsize="-1" maxsize="-1" ct="2"
+Override wildcard="*.vp" minsize="-1" maxsize="-1" ct="2"
+Override wildcard="*.wf" minsize="-1" maxsize="-1" ct="2"
+SkipFile wildcard="Keeper.txt" minsize="-1" maxsize="-1"
+SkipFile wildcard="*.big" minsize="-1" maxsize="-1"
+SkipFile wildcard="*_.*" minsize="-1" maxsize="-1"
+FileSettingsEnd
+)CONFIG";
+
+void BigFile::generate(boost::filesystem::path file, boost::filesystem::path root, bool allInOne)
+{
+	std::cout << "Generating Build Configs..." << std::endl << std::endl;
+
+	std::string modName = file.filename().replace_extension().string();
+
+	std::vector<boost::filesystem::path> locales;
+	std::vector<std::tuple<boost::filesystem::path, std::string>> buildTasks;	
+	
+	//get all locales
+	for (
+		boost::filesystem::directory_iterator iter(root/"locale");
+		iter != boost::filesystem::directory_iterator();
+		++iter
+		)
+	{
+		if (is_directory(*iter))
+		{
+			locales.push_back(system_complete(iter->path()));
+		}
+	}
+	
+	std::string buildfilename = "buildfile.txt";
+	boost::filesystem::ofstream buildfile(buildfilename);
+	buildTasks.push_back(make_tuple(file, buildfilename));
+	if (!buildfile.is_open())
+	{
+		throw FileIoError("Error happened when creating buildfile config.");
+	}	
+	//first data buildfile
+	buildfile << "Archive name=\"MOD" << modName << "\"" << std::endl;
+	buildfile << "TOCStart name=\"TOCMOD" << modName
+		<< "\" alias=\"Data\" relativeroot=\"\"" << std::endl;
+	buildfile << fileSettingStr;
+	//all files here
+	std::vector<boost::filesystem::path> allFiles = getAllFileNames(root);
+	for (boost::filesystem::path &dataFile : allFiles)
+	{
+		dataFile = system_complete(dataFile);
+		bool isLocale = false;
+		for (boost::filesystem::path &locale : locales)
+		{
+			if(boost::istarts_with(dataFile.string(), locale.string()))
+			{
+				isLocale = true;
+				break;
+			}
+		}
+		if (!isLocale)
+		{
+			buildfile << boost::locale::conv::from_utf(system_complete(dataFile).wstring(), "UTF-8")
+				<< std::endl;
+		}
+	}
+	buildfile << "TOCEnd" << std::endl;
+
+	for(boost::filesystem::path &locale : locales)
+	{
+		std::string localeName = locale.rbegin()->string();
+		if(!allInOne)
+		{
+			buildfile.close();
+			buildfilename = "buildfile_" + localeName + ".txt";
+			file = file.remove_filename() / (localeName + ".big");
+			buildTasks.push_back(make_tuple(file, buildfilename));
+			buildfile.open(buildfilename);
+			if (!buildfile.is_open())
+			{
+				throw FileIoError("Error happened when creating buildfile config.");
+			}
+			buildfile << "Archive name=\"MOD" << modName << localeName << "\"" << std::endl;
+		}
+		buildfile << "TOCStart name=\"TOCMOD" << modName << localeName
+			<< "\" alias=\"Locale\" relativeroot=\"Locale\\" << localeName << "\"" << std::endl;
+		buildfile << fileSettingStr;
+		//all files here
+		std::vector<boost::filesystem::path> allLocaleFiles = getAllFileNames(locale);
+		for (boost::filesystem::path &localeFile : allLocaleFiles)
+		{
+			buildfile << boost::locale::conv::from_utf(system_complete(localeFile).wstring(), "UTF-8")
+				<< std::endl;
+		}
+		buildfile << "TOCEnd" << std::endl;
+	}
+	buildfile.close();
+
+	for (auto &buildTask : buildTasks)
+	{
+		std::cout << "Creating: " << std::get<0>(buildTask) << std::endl;
+		open(std::get<0>(buildTask), write);
+		create(root, std::get<1>(buildTask));
+		close();
+	}
 }
 
 std::string BigFile::getArchiveSignature() const
@@ -193,7 +371,9 @@ static BuildfileCommand getCommand(std::istream &input)
 		}
 	}
 	getline(input, tmpStr);
-	boost::algorithm::trim(tmpStr);
+	//all commands should be lower case
+	boost::to_lower(tmpStr);
+	boost::trim(tmpStr);
 	bool escape = false;
 	std::vector<std::string> tmpStrVec;
 	tmpStrVec.push_back("");
@@ -256,6 +436,15 @@ void BigFile::_parseBuildfile(boost::filesystem::path buildfile)
 	{
 		throw FileIoError("Error happened when openning buildfile.");
 	}
+	//test if the file has BOM
+	char BOM[4];
+	input.read(BOM, 3);
+	BOM[3] = 0;
+	if(strcmp(BOM,"\xef\xbb\xbf"))
+	{
+		//no BOM, go back
+		input.seekg(0);
+	}
 
 	while (input.peek() != EOF)
 	{
@@ -276,11 +465,11 @@ void BigFile::_parseBuildfile(boost::filesystem::path buildfile)
 		}
 
 		BuildfileCommand command = getCommand(input);
-		if(command.command=="Archive")
+		if(command.command=="archive")
 		{
 			_buildArchiveSetting.name = command.params["name"];
 		}
-		else if(command.command == "TOCStart")
+		else if(command.command == "tocstart")
 		{
 			BuildTOCSetting thisTOC;
 			thisTOC.name = command.params["name"];
@@ -288,7 +477,7 @@ void BigFile::_parseBuildfile(boost::filesystem::path buildfile)
 			thisTOC.relativeroot = command.params["relativeroot"];
 
 			command = getCommand(input);
-			if (command.command == "FileSettingsStart")
+			if (command.command == "filesettingsstart")
 			{
 				thisTOC.defcompression =
 					command.params["defcompression"] == "0" ? Uncompressed :
@@ -297,13 +486,13 @@ void BigFile::_parseBuildfile(boost::filesystem::path buildfile)
 					throw FormatError("Buildfile format error");
 
 				command = getCommand(input);
-				while(command.command!="FileSettingsEnd")
+				while(command.command!="filesettingsend")
 				{
 					BuildFileSetting thisFileSet;
-					thisFileSet.wildcard = command.params["wildcard"];
+					thisFileSet.wildcard = boost::to_lower_copy(command.params["wildcard"]);
 					thisFileSet.minsize = typeConvert<std::string, int>(command.params["minsize"]);
-					thisFileSet.maxsize = typeConvert<std::string, int>(command.params["minsize"]);
-					if (command.command == "Override")
+					thisFileSet.maxsize = typeConvert<std::string, int>(command.params["maxsize"]);
+					if (command.command == "override")
 					{
 						thisFileSet.command = BuildFileSetting::Override;
 						thisFileSet.ct =
@@ -312,7 +501,7 @@ void BigFile::_parseBuildfile(boost::filesystem::path buildfile)
 							command.params["ct"] == "2" ? Decompress_All_At_Once :
 							throw FormatError("Buildfile format error");
 					}
-					else if (command.command == "SkipFile")
+					else if (command.command == "skipfile")
 					{
 						thisFileSet.command = BuildFileSetting::SkipFile;
 					}
@@ -328,11 +517,15 @@ void BigFile::_parseBuildfile(boost::filesystem::path buildfile)
 			}
 			std::string file;
 			getline(input, file);
-			while (file != "TOCEnd")
-			{
-				thisTOC.files.push_back(file);
+			//make sure the path is lower case
+			boost::to_lower(file);
+			while (file != "tocend")
+			{								
+				thisTOC.files.push_back(boost::locale::conv::to_utf<wchar_t>(file, "UTF-8"));
 				getline(input, file);
+				boost::to_lower(file);
 			}
+			sort(thisTOC.files.begin(), thisTOC.files.end());
 			_buildArchiveSetting.buildTOCSetting.push_back(thisTOC);
 		}
 	}

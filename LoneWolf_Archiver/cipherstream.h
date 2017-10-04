@@ -19,7 +19,7 @@ public:
 	void open(boost::filesystem::path file, CipherStreamState state);
 	void close(void);
 
-	void read(void *dst, size_t length) override;
+	size_t read(void *dst, size_t length) override;
 	std::unique_ptr<readDataProxy> readProxy(size_t length) override;
 	void write(const void *src, size_t length) override;
 
@@ -30,13 +30,17 @@ public:
 	size_t getpos(void) override;
 	void movepos(signed_size_t diff) override;
 	
+	void writeKey(void);
+	void writeEncryptionEnd(void);
+
 	CipherStreamState getState(void);
 private:
-	void cipherInit(void);
-	void cipher_magic(void);
+	void _cipherInit(void);	
+	void _cipher_magic(void);
 
 	CipherStreamState _state;
 	MemMapFileStream _memmapStream;
+	boost::filesystem::fstream _filestream;
 
 	uint32_t _cipherBegBackPos;
 	uint32_t _cipherBegPos;

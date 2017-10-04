@@ -22,7 +22,7 @@ struct BuildTOCSetting
 	std::string relativeroot;
 	CompressMethod defcompression;
 	std::vector<BuildFileSetting> buildFileSettings;
-	std::vector<std::string> files;
+	std::vector<std::wstring> files;
 };
 struct BuildArchiveSetting
 {
@@ -34,25 +34,23 @@ class BigFile
 {
 public:
 	BigFile() = default;
-	BigFile(boost::filesystem::path file)
+	BigFile(boost::filesystem::path file, BigFileState state = read)
 	{
-		open(file);
+		open(file, state);
 	}
 
-	void open(boost::filesystem::path file);
+	void open(boost::filesystem::path file, BigFileState state = read);
 	void close(void);
+	void setCoreNum(unsigned coreNum);
+	void setCompressLevel(int level);
+	void skipToolSignature(bool skip);
+	void writeEncryption(bool enc);
 
 	void extract(boost::filesystem::path directory);
 	void listFiles(void);
 	void testArchive(void);
-	void create(
-		boost::filesystem::path root,
-		boost::filesystem::path build
-	);
-	void generate(
-		boost::filesystem::path root,
-		boost::filesystem::path build
-	);
+	void create(boost::filesystem::path root, boost::filesystem::path build);
+	void generate(boost::filesystem::path file, boost::filesystem::path root, bool allInOne);
 	std::string getArchiveSignature(void) const;
 
 	~BigFile(void)

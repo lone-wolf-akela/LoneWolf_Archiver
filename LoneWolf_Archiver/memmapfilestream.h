@@ -15,7 +15,7 @@ public:
 	void open(boost::filesystem::path file);
 	void close(void);
 
-	void read(void *dst, size_t length) override;
+	size_t read(void *dst, size_t length) override;
 	std::unique_ptr<readDataProxy> readProxy(size_t length) override;
 	void write(const void *src, size_t length) override;
 

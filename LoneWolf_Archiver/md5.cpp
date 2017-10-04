@@ -143,7 +143,7 @@ void MD5::update(boost::filesystem::ifstream &in)
 		in.read(buffer, BUFFER_SIZE);
 		length = in.gcount();
 		if (length > 0)
-			update(buffer, length);
+			update(buffer, size_t(length));
 	}
 	in.close();
 }

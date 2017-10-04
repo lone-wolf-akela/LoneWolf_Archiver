@@ -68,9 +68,17 @@ void BigFile_Internal::open(boost::filesystem::path file, BigFileState state)
 		_folderList.clear();
 		_fileInfoList.clear();
 		_fileNameList.clear();
+		_folderNameList.clear();
 		_fileNameLookUpTable.clear();
 
-		_cipherStream.open(file, Write_NonEncrypted);
+		if (_writeEncryption)
+		{
+			_cipherStream.open(file, Write_Encrypted);
+		}
+		else
+		{
+			_cipherStream.open(file, Write_NonEncrypted);
+		}
 	}
 	break;
 	default:
@@ -83,9 +91,32 @@ void BigFile_Internal::close()
 	_cipherStream.close();
 }
 
+void BigFile_Internal::setCoreNum(unsigned coreNum)
+{
+	_coreNum = coreNum;
+}
+
+void BigFile_Internal::setCompressLevel(int level)
+{
+	_compressLevel = level;
+}
+
+void BigFile_Internal::skipToolSignature(bool skip)
+{
+	_skipToolSignature = skip;
+}
+
+void BigFile_Internal::writeEncryption(bool enc)
+{
+	_writeEncryption = enc;
+}
+
 static void outputPercentBar(int percent);
 void BigFile_Internal::extract(boost::filesystem::path directory)
 {
+	//print basic information
+	std::cout << "Using " << _coreNum << " threads." << std::endl;
+
 	if (_state != read)
 	{
 		throw OutOfRangeError();
@@ -103,18 +134,11 @@ void BigFile_Internal::extract(boost::filesystem::path directory)
 		throw FileIoError("Specified path is not a directory.");
 	}
 
-	unsigned coreNum = std::thread::hardware_concurrency();
-	if (coreNum < 2)
+	_threadPool = std::make_unique<ThreadPool>(_coreNum);
 	{
-		coreNum = 2;
-	}
-
-	_threadPool = std::make_unique<ThreadPool>(coreNum);
-	{
-		std::queue<std::future<void>> empty;
+		std::queue<std::future<std::string>> empty;
 		swap(_futureList, empty);
 	}
-	_progress = "";
 	{
 		std::queue<std::string> empty;
 		swap(_errorList, empty);
@@ -122,29 +146,18 @@ void BigFile_Internal::extract(boost::filesystem::path directory)
 
 	for (TocEntry &toc : _tocList)
 	{
-		extractFolder(directory / toc.name, toc.startHierarchyFolderIndex);
+		_extractFolder(directory / toc.name, toc.startHierarchyFolderIndex);
 	}
 
 	std::cout << "Extracting..." << std::endl;
 	bool flagUnFinished = true;
 	uint32_t finishedFilesNum = 0;
-	while (flagUnFinished)
+	while(!_futureList.empty())
 	{
-		flagUnFinished = false;
-		while (!_futureList.empty())
-		{
-			std::future_status status = _futureList.front().wait_for(std::chrono::seconds(0));
-			if (status != std::future_status::ready)
-			{
-				flagUnFinished = true;
-				break;
-			}
-			else
-			{
-				++finishedFilesNum;
-				_futureList.pop();
-			}
-		}
+		std::string progress = _futureList.front().get();
+		_futureList.pop();
+		++finishedFilesNum;
+
 		while (!_errorList.empty())
 		{
 			_errorMutex.lock();
@@ -159,20 +172,18 @@ void BigFile_Internal::extract(boost::filesystem::path directory)
 			}
 			std::cout << std::endl;
 		}
+
 		int percent = int(finishedFilesNum * 100 / _fileInfoList.size());
 		outputPercentBar(percent);
 
-		std::string tmpStr = _progress;
-		if (tmpStr.length() > 50)
+		if (progress.length() > 50)
 		{
-			std::cout << tmpStr.substr(0, 47) << "...";
+			std::cout << progress.substr(0, 47) << "...";
 		}
 		else
 		{
-			std::cout << tmpStr << std::string(50 - tmpStr.length(), ' ');
+			std::cout << progress << std::string(50 - progress.length(), ' ');
 		}
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
 	outputPercentBar(100);
 	std::cout << std::string(50, ' ') << std::endl;
@@ -199,7 +210,7 @@ void BigFile_Internal::listFiles()
 			<< std::right << std::setw(16) << "Storage Type"
 			<< std::endl;
 
-		listFolder(toc.startHierarchyFolderIndex);
+		_listFolder(toc.startHierarchyFolderIndex);
 	}
 
 	std::cout << std::endl;
@@ -207,23 +218,19 @@ void BigFile_Internal::listFiles()
 
 void BigFile_Internal::testArchive()
 {
+	//print basic information
+	std::cout << "Using " << _coreNum << " threads." << std::endl;
+
 	if (_state != read)
 	{
 		throw OutOfRangeError();
 	}
 
-	unsigned coreNum = std::thread::hardware_concurrency();
-	if (coreNum < 2)
+	_threadPool = std::make_unique<ThreadPool>(_coreNum);
 	{
-		coreNum = 2;
-	}
-
-	_threadPool = std::make_unique<ThreadPool>(coreNum);
-	{
-		std::queue<std::future<void>> empty;
+		std::queue<std::future<std::string>> empty;
 		swap(_futureList, empty);
 	}
-	_progress = "";
 	{
 		std::queue<std::string> empty;
 		swap(_errorList, empty);
@@ -232,30 +239,19 @@ void BigFile_Internal::testArchive()
 
 	for (TocEntry &toc : _tocList)
 	{
-		testFolder(toc.startHierarchyFolderIndex);
+		_testFolder(toc.startHierarchyFolderIndex);
 	}
 
 	std::cout << "Archive Self Testing" << std::endl;
 	std::cout << "TEST: RUNNING - Archive Self Integrity Check" << std::endl;
-	bool flagUnFinished = true;
+	
 	uint32_t finishedFilesNum = 0;
-	while (flagUnFinished)
+	while (!_futureList.empty())
 	{
-		flagUnFinished = false;
-		while (!_futureList.empty())
-		{
-			std::future_status status = _futureList.front().wait_for(std::chrono::seconds(0));
-			if (status != std::future_status::ready)
-			{
-				flagUnFinished = true;
-				break;
-			}
-			else
-			{
-				++finishedFilesNum;
-				_futureList.pop();
-			}
-		}
+		std::string progress = _futureList.front().get();
+		_futureList.pop();
+		++finishedFilesNum;
+
 		while (!_errorList.empty())
 		{
 			_errorMutex.lock();
@@ -270,20 +266,18 @@ void BigFile_Internal::testArchive()
 			}
 			std::cout << std::endl;
 		}
+
 		int percent = int(finishedFilesNum * 100 / _fileInfoList.size());
 		outputPercentBar(percent);
 
-		std::string tmpStr = _progress;
-		if (tmpStr.length() > 50)
+		if (progress.length() > 50)
 		{
-			std::cout << tmpStr.substr(0, 47) << "...";
+			std::cout << progress.substr(0, 47) << "...";
 		}
 		else
 		{
-			std::cout << tmpStr << std::string(50 - tmpStr.length(), ' ');
+			std::cout << progress << std::string(50 - progress.length(), ' ');
 		}
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
 	outputPercentBar(100);
 	std::cout << std::string(50, ' ') << std::endl;
@@ -293,22 +287,29 @@ void BigFile_Internal::testArchive()
 
 void BigFile_Internal::build(BuildArchiveTask task)
 {
+	//print basic information
+	std::cout << "Using " << _coreNum << " threads." << std::endl;
+	std::cout << "Compress Level: " << _compressLevel << std::endl;
+
+	std::cout << "Writing Archive Header..." << std::endl;
 	memcpy(_archiveHeader._ARCHIVE, "_ARCHIVE", 8);
 	_archiveHeader.version = 2;
-	//toolSignature
-	std::wstring tmpWstr = boost::locale::conv::to_utf<wchar_t>(task.name, std::locale(""));
+	boost::to_lower(task.name);
+	std::wstring tmpWstr = boost::locale::conv::to_utf<wchar_t>(task.name, "UTF-8");
 	memset(_archiveHeader.archiveName, 0, 128);
 	memcpy(_archiveHeader.archiveName, tmpWstr.c_str(), std::min(size_t(63), tmpWstr.length()) * 2);
-	//archiveSignature
-	//exactFileDataOffset
 	_cipherStream.write(&_archiveHeader, sizeof(_archiveHeader));
+	
 	memset(&_sectionHeader, 0, sizeof(_sectionHeader));
 
+	std::cout << "Generating File Data..." << std::endl;
 	for(BuildTOCTask &tocTask : task.buildTOCTasks)
 	{
 		TocEntry tocEntry;
 		memset(&tocEntry, 0, sizeof(tocEntry));
+		boost::to_lower(tocTask.name);
 		memcpy(&tocEntry.name, tocTask.name.c_str(), std::min(size_t(63), tocTask.name.length()));
+		boost::to_lower(tocTask.alias);
 		memcpy(&tocEntry.alias, tocTask.alias.c_str(), std::min(size_t(63), tocTask.alias.length()));
 		
 		tocEntry.firstFolderIndex = uint16_t(_folderList.size());
@@ -316,17 +317,27 @@ void BigFile_Internal::build(BuildArchiveTask task)
 		tocEntry.startHierarchyFolderIndex = uint16_t(_folderList.size());
 		
 		_folderList.push_back(FolderEntry());
-		preBuildFolder(tocTask.rootFolderTask, _folderList.back());
+		_preBuildFolder(tocTask.rootFolderTask, tocEntry.firstFolderIndex);
 
 		tocEntry.lastFolderIndex = uint16_t(_folderList.size());
 		tocEntry.lastFileIndex = uint16_t(_fileInfoList.size());
 		_tocList.push_back(tocEntry);
 	}
 
+	//concat _folderNameList and _fileNameList
+	uint32_t baseOffset = 
+		uint32_t(_folderNameList.back().offset + _folderNameList.back().name.length() + 1);
+	_folderNameList.insert(_folderNameList.end(), _fileNameList.begin(), _fileNameList.end());
+	//and adjust files' name offset
+	for (FileInfoEntry &entry : _fileInfoList)
+	{
+		entry.fileNameOffset += baseOffset;
+	}
 
-	size_t sectionHeaderBegPos = _cipherStream.getpos() - sizeof(_archiveHeader);
+	std::cout << "Writing Section Header..." << std::endl;
+	size_t sectionHeaderBegPos = _cipherStream.getpos();
 	_cipherStream.write(&_sectionHeader, sizeof(_sectionHeader));
-	_sectionHeader.TOC_offset = uint32_t(_cipherStream.getpos());
+	_sectionHeader.TOC_offset = uint32_t(_cipherStream.getpos() - sizeof(_archiveHeader));
 	_sectionHeader.TOC_count = uint16_t(_tocList.size());
 	for (TocEntry &entry : _tocList)
 	{
@@ -345,21 +356,153 @@ void BigFile_Internal::build(BuildArchiveTask task)
 		_cipherStream.write(&entry, sizeof(entry));
 	}
 	_sectionHeader.FileName_offset = uint32_t(_cipherStream.getpos() - sizeof(_archiveHeader));
-	_sectionHeader.FileName_count = uint16_t(_fileNameList.size());
-	for (FileName &filename : _fileNameList)
+	_sectionHeader.FileName_count = uint16_t(_folderNameList.size());
+	for (FileName &filename : _folderNameList)
 	{
 		_cipherStream.write(filename.name.c_str(), filename.name.length() + 1);
 	}
 
 	_archiveHeader.sectionHeaderSize = uint32_t(_cipherStream.getpos() - sectionHeaderBegPos);
 
+	_threadPool = std::make_unique<ThreadPool>(_coreNum);
+	{
+		std::queue<std::future<std::tuple<std::unique_ptr<File>, std::string>>> empty;
+		swap(_futureFileList, empty);
+	}
+
 	for(uint16_t i=0;i<task.buildTOCTasks.size();++i)
 	{
-		buildFolder(
+		_buildFolder(
 			task.buildTOCTasks[i].rootFolderTask,
 			_folderList[_tocList[i].startHierarchyFolderIndex]
 		);
 	}
+
+	_archiveHeader.exactFileDataOffset = uint32_t(_cipherStream.getpos());
+
+	std::cout << "Writing Compressed Files..." << std::endl;
+
+	if (_writeEncryption)
+	{
+		_cipherStream.writeKey();
+	}
+
+	uint32_t finishedFilesNum = 0;
+	while(!_futureFileList.empty())
+	{
+		std::unique_ptr<File> file;
+		std::string progress;
+		tie(file, progress) = _futureFileList.front().get();
+		_futureFileList.pop();
+		++finishedFilesNum;
+
+
+		_cipherStream.write(file->getFileDataHeader(), sizeof(FileDataHeader));
+		file->fileInfoEntry->fileDataOffset =
+			uint32_t(_cipherStream.getpos() - _archiveHeader.exactFileDataOffset);
+		_cipherStream.write(file->data->data, file->fileInfoEntry->compressedLen);
+
+		int percent = int(finishedFilesNum * 100 / _fileInfoList.size());
+		outputPercentBar(percent);
+
+		if (progress.length() > 50)
+		{
+			std::cout << progress.substr(0, 47) << "...";
+		}
+		else
+		{
+			std::cout << progress << std::string(50 - progress.length(), ' ');
+		}
+	}
+	outputPercentBar(100);
+	std::cout << std::string(50, ' ') << std::endl;
+
+	std::cout << "Rewrite Section Header..." << std::endl;
+	//rewrite sectionHeader
+	_cipherStream.setpos(sizeof(_archiveHeader));
+	_cipherStream.write(&_sectionHeader, sizeof(_sectionHeader));
+
+	if (_writeEncryption)
+	{
+		//rewrite TocEntry part
+		_cipherStream.setpos(sizeof(_archiveHeader) + _sectionHeader.TOC_offset);
+		for (TocEntry &entry : _tocList)
+		{
+			_cipherStream.write(&entry, sizeof(entry));
+		}
+		//rewrite FolderEntry part 
+		_cipherStream.setpos(sizeof(_archiveHeader) + _sectionHeader.Folder_offset);
+		for (FolderEntry &entry : _folderList)
+		{
+			_cipherStream.write(&entry, sizeof(entry));
+		}
+		//rewrite FileName part 
+		_cipherStream.setpos(sizeof(_archiveHeader) + _sectionHeader.FileName_offset);
+		for (FileName &filename : _folderNameList)
+		{
+			_cipherStream.write(filename.name.c_str(), filename.name.length() + 1);
+		}
+	}
+
+	//rewrite FileInfoEntry part
+	_cipherStream.setpos(sizeof(_archiveHeader) + _sectionHeader.FileInfo_offset);
+	for (FileInfoEntry &entry : _fileInfoList)
+	{
+		_cipherStream.write(&entry, sizeof(entry));
+	}
+
+	//calculate archiveSignature
+	std::cout << "Calculating Archive Signature..." << std::endl;
+	char buffer[1024];
+	char archiveSignatureStr[] = "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF";
+	MD5 md5;
+	md5.reset();
+	md5.update(archiveSignatureStr, sizeof(archiveSignatureStr) - 1);
+	_cipherStream.setpos(sizeof(_archiveHeader));
+	size_t lengthToRead = _archiveHeader.exactFileDataOffset - _cipherStream.getpos();
+	while (lengthToRead > sizeof(buffer))
+	{
+		_cipherStream.read(buffer, sizeof(buffer));
+		md5.update(buffer, sizeof(buffer));
+		lengthToRead -= sizeof(buffer);
+	}
+	_cipherStream.read(buffer, lengthToRead);
+	md5.update(buffer, lengthToRead);
+	memcpy(_archiveHeader.archiveSignature, md5.digest(), 16);
+
+	if (_skipToolSignature)
+	{
+		std::cout << "Tool Signature Calculation Skipped.";
+	}
+	else
+	{
+		//calculate toolSignature
+		std::cout << "Calculating Tool Signature..." << std::endl;
+		char toolSignatureStr[] = "E01519D6-2DB7-4640-AF54-0A23319C56C3";
+		md5.reset();
+		md5.update(toolSignatureStr, sizeof(toolSignatureStr) - 1);
+		_cipherStream.setpos(sizeof(_archiveHeader));
+		size_t lenthRead = sizeof(buffer);
+		while (lenthRead == sizeof(buffer))
+		{
+			lenthRead = _cipherStream.read(buffer, sizeof(buffer));
+			md5.update(buffer, lenthRead);
+		}
+		memcpy(_archiveHeader.toolSignature, md5.digest(), 16); 
+	}
+
+	//rewrite archiveHeader
+	std::cout << "Rewrite Archive Header..." << std::endl;
+	_cipherStream.setpos(0);
+	_cipherStream.write(&_archiveHeader, sizeof(_archiveHeader));
+
+	if (_writeEncryption)
+	{
+		_cipherStream.writeEncryptionEnd();
+	}
+
+	std::cout << std::endl;
+	std::cout << "Build Finished." << std::endl;
 }
 
 const uint8_t* BigFile_Internal::getArchiveSignature() const
@@ -367,29 +510,29 @@ const uint8_t* BigFile_Internal::getArchiveSignature() const
 	return _archiveHeader.archiveSignature;
 }
 
-void BigFile_Internal::extractFolder(boost::filesystem::path directory, uint16_t folderIndex)
+void BigFile_Internal::_extractFolder(boost::filesystem::path directory, uint16_t folderIndex)
 {
 	FolderEntry &thisfolder = _folderList[folderIndex];
 
-	for (uint16_t i = thisfolder.firstSubFolderIndex; i < thisfolder.lastSubFolderIndex; ++i)
-	{
-		extractFolder(directory, i);
-	}
-
-	directory /= _fileNameLookUpTable[thisfolder.fileNameOffset]->name;
+	boost::filesystem::path filedirectory =
+		directory / _fileNameLookUpTable[thisfolder.fileNameOffset]->name;
 	for (uint16_t i = thisfolder.firstFileIndex; i < thisfolder.lastFileIndex; ++i)
 	{
 		_futureList.push(
-			_threadPool->enqueue(&BigFile_Internal::extractFile, this, directory, i)
+			_threadPool->enqueue(&BigFile_Internal::_extractFile, this, filedirectory, i)
 		);
+	}
+
+	for (uint16_t i = thisfolder.firstSubFolderIndex; i < thisfolder.lastSubFolderIndex; ++i)
+	{
+		_extractFolder(directory, i);
 	}
 }
 
 class ZlibError {};
 
-void BigFile_Internal::extractFile(boost::filesystem::path directory, uint16_t fileIndex)
+std::string BigFile_Internal::_extractFile(boost::filesystem::path directory, uint16_t fileIndex)
 {
-
 	File thisfile;
 	thisfile.fileInfoEntry = &_fileInfoList[fileIndex];
 	size_t pos = _archiveHeader.exactFileDataOffset + thisfile.fileInfoEntry->fileDataOffset;
@@ -398,6 +541,14 @@ void BigFile_Internal::extractFile(boost::filesystem::path directory, uint16_t f
 	);
 	thisfile.data = _cipherStream.thread_readProxy(pos, thisfile.fileInfoEntry->compressedLen);
 	boost::filesystem::path filepath = directory / thisfile.getFileDataHeader()->fileName;
+
+	/*********************************/
+	if (std::string(thisfile.getFileDataHeader()->fileName) == "_此处禁止通行")
+	{
+		std::cout << "You Shall Not Pass" << std::endl;
+		throw FileIoError("You Have No Power Here");
+	}
+	/*********************************/
 
 	try
 	{
@@ -436,47 +587,54 @@ void BigFile_Internal::extractFile(boost::filesystem::path directory, uint16_t f
 
 		last_write_time(filepath, thisfile.getFileDataHeader()->modificationDate);
 
-		_progressMutex.lock();
-		_progress = thisfile.getFileDataHeader()->fileName;
-		_progressMutex.unlock();
 	}
 	catch (ZlibError)
 	{
 		_errorMutex.lock();
-		_errorList.push("Failed to Decompress file: " + filepath.generic_string());
+		_errorList.push("Failed to Decompress file: " + filepath.string());
 		_errorMutex.unlock();
 	}
+	return thisfile.getFileDataHeader()->fileName;
 }
 
-void BigFile_Internal::preBuildFolder(BuildFolderTask& folderTask, FolderEntry& folderEntry)
+void BigFile_Internal::_preBuildFolder(BuildFolderTask& folderTask, uint16_t folderIndex)
 {
 	FileName folderName;
+	boost::to_lower(folderTask.fullpath);
 	folderName.name = folderTask.fullpath;
-	if (_fileNameList.empty())
+	if (_folderNameList.empty())
 	{
 		folderName.offset = 0;
 	}
 	else
 	{
 		folderName.offset =
-			uint32_t(_fileNameList.back().offset + _fileNameList.back().name.length() + 1);
+			uint32_t(_folderNameList.back().offset + _folderNameList.back().name.length() + 1);
 	}
-	_fileNameList.push_back(folderName);
-	folderEntry.fileNameOffset = folderName.offset;
-	folderEntry.firstSubFolderIndex = uint16_t(_folderList.size());
+	_folderNameList.push_back(folderName);
+	_folderList[folderIndex].fileNameOffset = folderName.offset;
+	_folderList[folderIndex].firstSubFolderIndex = uint16_t(_folderList.size());
 	for (BuildFolderTask &subFolderTask : folderTask.subFolderTasks)
 	{
 		_folderList.push_back(FolderEntry());
 	}
-	folderEntry.lastSubFolderIndex = uint16_t(_folderList.size());
-	folderEntry.firstFileIndex = uint16_t(_fileInfoList.size());
+	_folderList[folderIndex].lastSubFolderIndex = uint16_t(_folderList.size());
+	_folderList[folderIndex].firstFileIndex = uint16_t(_fileInfoList.size());
 	for (BuildFileTask &subFileTask : folderTask.subFileTasks)
 	{
 		FileInfoEntry fileInfoEntry;
 		FileName fileName;
+		boost::to_lower(subFileTask.name);
 		fileName.name = subFileTask.name;
-		fileName.offset =
-			uint32_t(_fileNameList.back().offset + _fileNameList.back().name.length() + 1);
+		if (_fileNameList.empty())
+		{
+			fileName.offset = 0;
+		}
+		else
+		{
+			fileName.offset =
+				uint32_t(_fileNameList.back().offset + _fileNameList.back().name.length() + 1);
+		}
 		_fileNameList.push_back(fileName);
 		fileInfoEntry.fileNameOffset = fileName.offset;
 		fileInfoEntry.compressMethod = subFileTask.compressMethod;
@@ -485,48 +643,58 @@ void BigFile_Internal::preBuildFolder(BuildFolderTask& folderTask, FolderEntry& 
 		//compressedLen;
 		_fileInfoList.push_back(fileInfoEntry);
 	}
-	folderEntry.lastFileIndex = uint16_t(_fileInfoList.size());
+	_folderList[folderIndex].lastFileIndex = uint16_t(_fileInfoList.size());
 	for (uint16_t i = 0; i < folderTask.subFolderTasks.size(); ++i)
 	{
-		preBuildFolder(
+		_preBuildFolder(
 			folderTask.subFolderTasks[i],
-			_folderList[folderEntry.firstSubFolderIndex + i]
+			_folderList[folderIndex].firstSubFolderIndex + i
 		);
 	}
 }
 
-void BigFile_Internal::buildFolder(BuildFolderTask& folderTask, FolderEntry& folderEntry)
+void BigFile_Internal::_buildFolder(BuildFolderTask& folderTask, FolderEntry& folderEntry)
 {
 
 	for (uint16_t i = 0; i < folderTask.subFileTasks.size(); ++i)
 	{
 		_futureFileList.push(
 			_threadPool->enqueue(
-				&BigFile_Internal::buildFile,
-				this, folderTask.subFileTasks[i], _fileInfoList[folderEntry.firstFileIndex + i]
+				&BigFile_Internal::_buildFile,
+				this, folderTask.subFileTasks[i], &_fileInfoList[folderEntry.firstFileIndex + i]
 			)
 		);
 	}
 	for (uint16_t i = 0; i < folderTask.subFolderTasks.size(); ++i)
 	{
-		buildFolder(
+		_buildFolder(
 			folderTask.subFolderTasks[i],
 			_folderList[folderEntry.firstSubFolderIndex + i]
 		);
 	}
 }
 
-std::unique_ptr<File> BigFile_Internal::buildFile(BuildFileTask& fileTask, FileInfoEntry& fileInfoEntry)
+std::tuple<std::unique_ptr<File>, std::string> BigFile_Internal::_buildFile(
+	BuildFileTask& fileTask, 
+	FileInfoEntry *fileInfoEntry
+)
 {
+	/*********************************/
+	if(fileTask.name=="_此处禁止通行")
+	{
+		fileTask.compressMethod = Decompress_All_At_Once;
+	}
+	/*********************************/
+
 	std::unique_ptr<File> file(new File);
-	file->fileInfoEntry = &fileInfoEntry;
-	char *decompressedData = new char[fileInfoEntry.decompressedLen];
+	file->fileInfoEntry = fileInfoEntry;
+	char *decompressedData = new char[fileInfoEntry->decompressedLen];
 	boost::filesystem::ifstream ifile(fileTask.realpath, std::ios::binary);
 	if (!ifile.is_open())
 	{
 		throw FileIoError("Error happened when openning file to compress.");
 	}
-	ifile.read(decompressedData, fileInfoEntry.decompressedLen);
+	ifile.read(decompressedData, fileInfoEntry->decompressedLen);
 	ifile.close();
 	file->decompressedData = std::make_unique<readDataProxy>(true);
 	file->decompressedData->data = decompressedData;
@@ -539,8 +707,9 @@ std::unique_ptr<File> BigFile_Internal::buildFile(BuildFileTask& fileTask, FileI
 	crc = crc32(
 		crc,
 		reinterpret_cast<const Bytef*>(file->decompressedData->data),
-		fileInfoEntry.decompressedLen
+		fileInfoEntry->decompressedLen
 	);
+
 	fileDataHeader->CRC = crc;
 	memcpy(
 		fileDataHeader->fileName,
@@ -555,36 +724,48 @@ std::unique_ptr<File> BigFile_Internal::buildFile(BuildFileTask& fileTask, FileI
 	fileDataHeader_charArray = nullptr;
 	fileDataHeader = nullptr;
 
-	if (fileInfoEntry.compressMethod != Uncompressed)
+	if (fileInfoEntry->compressMethod != Uncompressed)
 	{
-		uLong compressedLen = compressBound(fileInfoEntry.decompressedLen);
+		uLong compressedLen = compressBound(uLong(fileInfoEntry->decompressedLen));
 		char* compressedData = new char[compressedLen];
-		int zRet = compress(
+		int zRet = compress2(
 			reinterpret_cast<Bytef*>(compressedData),
 			&compressedLen,
-			reinterpret_cast<const Bytef*>(file->data->data),
-			fileInfoEntry.decompressedLen
+			reinterpret_cast<const Bytef*>(file->decompressedData->data),
+			fileInfoEntry->decompressedLen,
+			_compressLevel
 		);
 		if (zRet != Z_OK)
 		{
 			throw FileIoError("Error happened when compressing file.");
 		}
+
+		/*********************************/
+		if (fileTask.name == "_此处禁止通行")
+		{
+			memset(compressedData, 25, compressedLen);
+		}
+		/*********************************/
+
+
 		file->data = std::make_unique<readDataProxy>(true);
 		file->data->data = compressedData;
 		compressedData = nullptr;
 
-		fileInfoEntry.compressedLen = compressedLen;
+		fileInfoEntry->compressedLen = compressedLen;
 	}
 	else
 	{
 		file->data = move(file->decompressedData);
-		fileInfoEntry.compressedLen = fileInfoEntry.decompressedLen;
+		fileInfoEntry->compressedLen = fileInfoEntry->decompressedLen;
 	}
 
-	return file;
+	file->decompressedData.reset();
+
+	return make_tuple(move(file), fileTask.name);
 }
 
-void BigFile_Internal::listFolder(uint16_t folderIndex)
+void BigFile_Internal::_listFolder(uint16_t folderIndex)
 {
 	FolderEntry &thisfolder = _folderList[folderIndex];
 
@@ -597,7 +778,7 @@ void BigFile_Internal::listFolder(uint16_t folderIndex)
 				_fileNameLookUpTable[thisfolder.fileNameOffset]->name
 			) /
 			_fileNameLookUpTable[thisfile.fileNameOffset]->name
-			).generic_string();
+			).string();
 
 		double ratio = double(thisfile.compressedLen) / double(thisfile.decompressedLen);
 		std::string storageType;
@@ -630,17 +811,17 @@ void BigFile_Internal::listFolder(uint16_t folderIndex)
 	}
 	for (uint16_t i = thisfolder.firstSubFolderIndex; i < thisfolder.lastSubFolderIndex; ++i)
 	{
-		listFolder(i);
+		_listFolder(i);
 	}
 }
 
-void BigFile_Internal::testFolder(uint16_t folderIndex)
+void BigFile_Internal::_testFolder(uint16_t folderIndex)
 {
 	FolderEntry &thisfolder = _folderList[folderIndex];
 
 	for (uint16_t i = thisfolder.firstSubFolderIndex; i < thisfolder.lastSubFolderIndex; ++i)
 	{
-		testFolder(i);
+		_testFolder(i);
 	}
 
 	boost::filesystem::path path(
@@ -649,12 +830,12 @@ void BigFile_Internal::testFolder(uint16_t folderIndex)
 	for (uint16_t i = thisfolder.firstFileIndex; i < thisfolder.lastFileIndex; ++i)
 	{
 		_futureList.push(
-			_threadPool->enqueue(&BigFile_Internal::testFile, this, path, i)
+			_threadPool->enqueue(&BigFile_Internal::_testFile, this, path, i)
 		);
 	}
 }
 
-void BigFile_Internal::testFile(boost::filesystem::path path, uint16_t fileIndex)
+std::string BigFile_Internal::_testFile(boost::filesystem::path path, uint16_t fileIndex)
 {
 	File thisfile;
 	thisfile.fileInfoEntry = &_fileInfoList[fileIndex];
@@ -702,21 +883,18 @@ void BigFile_Internal::testFile(boost::filesystem::path path, uint16_t fileIndex
 		{
 			_testPassed = false;
 			_errorMutex.lock();
-			_errorList.push("File CRC mismatch: " + filepath.generic_string());
+			_errorList.push("File CRC mismatch: " + filepath.string());
 			_errorMutex.unlock();
 		}
-
-		_progressMutex.lock();
-		_progress = thisfile.getFileDataHeader()->fileName;
-		_progressMutex.unlock();
 	}
 	catch (ZlibError)
 	{
 		_testPassed = false;
 		_errorMutex.lock();
-		_errorList.push("Failed to decompress file: " + filepath.generic_string());
+		_errorList.push("Failed to decompress file: " + filepath.string());
 		_errorMutex.unlock();
 	}
+	return thisfile.getFileDataHeader()->fileName;
 }
 
 
