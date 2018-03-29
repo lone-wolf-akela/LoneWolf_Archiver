@@ -141,7 +141,7 @@ struct File
 /*core class*/
 enum BigFileState
 {
-	read,write
+	Read,Write
 };
 
 class BigFile_Internal

@@ -34,12 +34,12 @@ class BigFile
 {
 public:
 	BigFile() = default;
-	BigFile(boost::filesystem::path file, BigFileState state = read)
+	BigFile(boost::filesystem::path file, BigFileState state = Read)
 	{
 		open(file, state);
 	}
 
-	void open(boost::filesystem::path file, BigFileState state = read);
+	void open(boost::filesystem::path file, BigFileState state = Read);
 	void close(void);
 	void setCoreNum(unsigned coreNum);
 	void setCompressLevel(int level);
@@ -60,6 +60,7 @@ public:
 private:
 	BigFile_Internal _internal;
 	BuildArchiveSetting _buildArchiveSetting;
+	std::vector<std::string> _archiveIgnoreSet;
 
 	void _parseBuildfile(boost::filesystem::path buildfile);
 };

@@ -5,14 +5,8 @@
 
 #pragma once
 
-#include "targetver.h"
+#include <cstdio>
 
-#include <stdio.h>
-#include <tchar.h>
-
-
-
-// TODO: 在此处引用程序需要的其他头文件
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -31,7 +25,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/locale.hpp>
 
-#include "zlib-1.2.11/zlib.h"
+#include <zlib.h>
 
 #include "exceptions.h"
 #include "md5.h"

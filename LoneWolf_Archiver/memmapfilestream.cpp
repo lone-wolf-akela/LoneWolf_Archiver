@@ -26,7 +26,7 @@ void MemMapFileStream::close(void)
 
 size_t MemMapFileStream::read(void * dst, size_t length)
 {
-	size_t lengthToRead = std::min(size_t(_filesize - getpos()), length);
+	size_t lengthToRead = (std::min)(size_t(_filesize - getpos()), length);
 	memcpy(dst, _readptr, lengthToRead);
 	movepos(lengthToRead);
 	return lengthToRead;	

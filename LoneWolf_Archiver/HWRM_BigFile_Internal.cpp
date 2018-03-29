@@ -7,7 +7,7 @@ void BigFile_Internal::open(boost::filesystem::path file, BigFileState state)
 	_state = state;
 	switch (state)
 	{
-	case read:
+	case Read:
 	{
 		_tocList.clear();
 		_folderList.clear();
@@ -62,7 +62,7 @@ void BigFile_Internal::open(boost::filesystem::path file, BigFileState state)
 		}
 	}
 	break;
-	case write:
+	case Write:
 	{
 		_tocList.clear();
 		_folderList.clear();
@@ -117,7 +117,7 @@ void BigFile_Internal::extract(boost::filesystem::path directory)
 	//print basic information
 	std::cout << "Using " << _coreNum << " threads." << std::endl;
 
-	if (_state != read)
+	if (_state != Read)
 	{
 		throw OutOfRangeError();
 	}
@@ -192,7 +192,7 @@ void BigFile_Internal::extract(boost::filesystem::path directory)
 
 void BigFile_Internal::listFiles()
 {
-	if (_state != read)
+	if (_state != Read)
 	{
 		throw OutOfRangeError();
 	}
@@ -221,7 +221,7 @@ void BigFile_Internal::testArchive()
 	//print basic information
 	std::cout << "Using " << _coreNum << " threads." << std::endl;
 
-	if (_state != read)
+	if (_state != Read)
 	{
 		throw OutOfRangeError();
 	}
@@ -297,7 +297,7 @@ void BigFile_Internal::build(BuildArchiveTask task)
 	boost::to_lower(task.name);
 	std::wstring tmpWstr = boost::locale::conv::to_utf<wchar_t>(task.name, "UTF-8");
 	memset(_archiveHeader.archiveName, 0, 128);
-	memcpy(_archiveHeader.archiveName, tmpWstr.c_str(), std::min(size_t(63), tmpWstr.length()) * 2);
+	memcpy(_archiveHeader.archiveName, tmpWstr.c_str(), (std::min)(size_t(63), tmpWstr.length()) * 2);
 	_cipherStream.write(&_archiveHeader, sizeof(_archiveHeader));
 	
 	memset(&_sectionHeader, 0, sizeof(_sectionHeader));
@@ -308,9 +308,9 @@ void BigFile_Internal::build(BuildArchiveTask task)
 		TocEntry tocEntry;
 		memset(&tocEntry, 0, sizeof(tocEntry));
 		boost::to_lower(tocTask.name);
-		memcpy(&tocEntry.name, tocTask.name.c_str(), std::min(size_t(63), tocTask.name.length()));
+		memcpy(&tocEntry.name, tocTask.name.c_str(), (std::min)(size_t(63), tocTask.name.length()));
 		boost::to_lower(tocTask.alias);
-		memcpy(&tocEntry.alias, tocTask.alias.c_str(), std::min(size_t(63), tocTask.alias.length()));
+		memcpy(&tocEntry.alias, tocTask.alias.c_str(), (std::min)(size_t(63), tocTask.alias.length()));
 		
 		tocEntry.firstFolderIndex = uint16_t(_folderList.size());
 		tocEntry.firstFileIndex = uint16_t(_fileInfoList.size());
@@ -714,7 +714,7 @@ std::tuple<std::unique_ptr<File>, std::string> BigFile_Internal::_buildFile(
 	memcpy(
 		fileDataHeader->fileName,
 		fileTask.name.c_str(),
-		std::min(size_t(255), fileTask.name.length() + 1)
+		(std::min)(size_t(255), fileTask.name.length() + 1)
 	);
 	fileDataHeader->modificationDate = uint32_t(
 		boost::filesystem::detail::last_write_time(fileTask.realpath)

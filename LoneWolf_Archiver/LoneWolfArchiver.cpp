@@ -5,57 +5,10 @@
 
 #include "HWRM_BigFile.h"
 
-//#define DEBUG_EX
-//#define DEBUG_BD
-//#define DEBUG_GN
-//#define DEBUG_GNONE
-
 namespace po = boost::program_options;
 
 int main(int argc, char *argv[])
 {
-#if defined(DEBUG_BD)
-	argc = 7;
-	argv = new char*[argc];
-	argv[0] = "";
-	argv[1] = "-a";
-	argv[2] = "F:/DataStore/迅雷下载/家园2重制版/fx.big";
-	argv[3] = "-c";
-	argv[4] = "D:/buildfile.txt";
-	argv[5] = "-r";
-	argv[6] = "F:/tmp/新建文件夹/FXG/";
-#endif
-#if defined(DEBUG_GN)
-	argc = 6;
-	argv = new char*[argc];
-	argv[0] = "";
-	argv[1] = "-a";
-	argv[2] = "F:/DataStore/迅雷下载/家园2重制版/fx.big";
-	argv[3] = "-g";
-	argv[4] = "-r";
-	argv[5] = "F:/tmp/新建文件夹/FXG/";
-#endif
-#if defined(DEBUG_GNONE)
-	argc = 7;
-	argv = new char*[argc];
-	argv[0] = "";
-	argv[1] = "-a";
-	argv[2] = "F:/DataStore/迅雷下载/家园2重制版/fx.big";
-	argv[3] = "-g";
-	argv[4] = "-r";
-	argv[5] = "F:/tmp/新建文件夹/FXG/";
-	argv[6] = "--allinone";
-#endif
-#if defined(DEBUG_EX)
-	argc = 5;
-	argv = new char*[argc];
-	argv[0] = "";
-	argv[1] = "-a";
-	argv[2] = "F:/DataStore/迅雷下载/家园2重制版/fx.big";
-	argv[3] = "-e";
-	argv[4] = "f:/tmp/";
-#endif
-
 	po::options_description desc("LoneWolfArchiver.exe Usage");
 	desc.add_options()		
 		(
@@ -138,6 +91,7 @@ int main(int argc, char *argv[])
 		std::cout << "  LoneWolfArchiver -c filestoadd.txt -a newarchive.sga" << std::endl;
 		return 1;
 	}
+
 	if((vm.count("generate") || vm.count("create")) && !vm.count("root"))
 	{
 		std::cerr << "-r <rootpath>, required argument when building the archive." << std::endl;
@@ -175,7 +129,7 @@ int main(int argc, char *argv[])
 	else if(vm.count("create"))
 	{
 		showTime = true;
-		BigFile file(vm["archive"].as<std::string>(), write);
+		BigFile file(vm["archive"].as<std::string>(), Write);
 
 		file.setCompressLevel(vm["level"].as<int>());
 		file.setCoreNum(vm["thread"].as<unsigned>());
