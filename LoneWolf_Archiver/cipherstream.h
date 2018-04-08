@@ -33,7 +33,7 @@ public:
 	void writeKey(void);
 	void writeEncryptionEnd(void);
 
-	CipherStreamState getState(void);
+	CipherStreamState getState(void) const;
 private:
 	void _cipherInit(void);	
 	void _cipher_magic(void);

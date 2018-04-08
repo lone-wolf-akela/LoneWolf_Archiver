@@ -1,5 +1,6 @@
-﻿// LoneWolfArchiver.cpp: 定义控制台应用程序的入口点。
-//
+﻿/**\file LoneWolfArchiver.cpp
+ * \brief	Program entry point.
+ */
 
 #include "stdafx.h"
 
@@ -7,8 +8,9 @@
 
 namespace po = boost::program_options;
 
-int main(int argc, char *argv[])
+int main(const int argc, char *argv[])
 {
+	//parse command line
 	po::options_description desc("LoneWolfArchiver.exe Usage");
 	desc.add_options()		
 		(
@@ -65,7 +67,7 @@ int main(int argc, char *argv[])
 	{
 		notify(vm);
 	}
-	catch(po::required_option)
+	catch(po::required_option&)
 	{
 		std::cerr << "-a <archivefile>, argument missing, required argument." << std::endl;
 		std::cout << std::endl;
@@ -116,8 +118,10 @@ int main(int argc, char *argv[])
 	}
 	/************************/
 
+	//remember when do we begin
 	bool showTime = false;
-	auto start = std::chrono::system_clock::now();
+	const auto start = std::chrono::system_clock::now();
+
 	if(vm.count("extract"))
 	{
 		showTime = true;
@@ -171,7 +175,9 @@ int main(int argc, char *argv[])
 		BigFile file(vm["archive"].as<std::string>());
 		std::cout << file.getArchiveSignature();
 	}
-	auto end = std::chrono::system_clock::now();
+
+	//print the time we use if needed
+	const auto end = std::chrono::system_clock::now();
 	std::chrono::duration<double, std::ratio<1>> diff = end - start;
 	if (showTime)
 	{

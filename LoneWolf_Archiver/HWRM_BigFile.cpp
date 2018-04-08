@@ -47,6 +47,12 @@ void BigFile::testArchive()
 	_internal.testArchive();
 }
 
+/**
+ * \brief simple function to match filename with wildcard
+ * \param needle	filename with wildcard
+ * \param haystack	actual filename to test
+ * \return if the	name match the wildcard
+ */
 static bool match(char const *needle, char const *haystack) 
 {
 	for (; *needle != '\0'; ++needle) {
@@ -59,7 +65,7 @@ static bool match(char const *needle, char const *haystack)
 		case '*': {
 			if (needle[1] == '\0')
 				return true;
-			size_t max = strlen(haystack);
+			const size_t max = strlen(haystack);
 			for (size_t i = 0; i < max; i++)
 				if (match(needle + 1, haystack + i))
 					return true;
@@ -85,7 +91,7 @@ void BigFile::create(boost::filesystem::path root, boost::filesystem::path build
 		{
 			std::string tmpStr;
 			getline(input, tmpStr);
-			if (tmpStr != "")
+			if (!tmpStr.empty())
 			{
 				_archiveIgnoreSet.push_back(boost::to_lower_copy(tmpStr));
 			}
@@ -100,7 +106,7 @@ void BigFile::create(boost::filesystem::path root, boost::filesystem::path build
 
 	//though there seems no problem, I guess I'd still make sure the root path ends with '\' or '/'
 	std::string rootstr = root.string();
-	if (rootstr != "" && rootstr.back() != '\\' && rootstr.back() != '/')
+	if (!rootstr.empty() && rootstr.back() != '\\' && rootstr.back() != '/')
 	{
 		rootstr += '\\';
 	}
@@ -122,7 +128,7 @@ void BigFile::create(boost::filesystem::path root, boost::filesystem::path build
 
 		//though there seems no problem, I guess I'd still make sure the path ends with '\' or '/'
 		if (
-			tocSet.relativeroot != "" &&
+			!tocSet.relativeroot.empty() &&
 			tocSet.relativeroot.back() != '\\'&&
 			tocSet.relativeroot.back() != '/'
 			)
@@ -433,7 +439,7 @@ std::string BigFile::getArchiveSignature() const
 {
 	std::stringstream stream;
 	std::string tmpStr;
-	const uint8_t *ptr = _internal.getArchiveSignature();
+	const std::byte *ptr = _internal.getArchiveSignature();
 
 	for (int i = 0; i < 16; ++i)
 	{
@@ -463,7 +469,7 @@ static BuildfileCommand getCommand(std::istream &input)
 	boost::trim(tmpStr);
 	bool escape = false;
 	std::vector<std::string> tmpStrVec;
-	tmpStrVec.push_back("");
+	tmpStrVec.emplace_back("");
 	for (char &c : tmpStr)
 	{
 		switch (c)
@@ -480,7 +486,7 @@ static BuildfileCommand getCommand(std::istream &input)
 			}
 			else
 			{
-				tmpStrVec.push_back("");
+				tmpStrVec.emplace_back("");
 			}
 			break;
 		default:
@@ -491,12 +497,12 @@ static BuildfileCommand getCommand(std::istream &input)
 	result.command = tmpStrVec[0];
 	for (size_t i = 1; i < tmpStrVec.size(); ++i)
 	{
-		auto found = tmpStrVec[i].find_first_of("=");
+		const auto found = tmpStrVec[i].find_first_of("=");
 		if (found == std::string::npos)
 		{
 			throw FormatError("Buildfile format error");
 		}
-		std::string tmpParamName = tmpStrVec[i].substr(0, found);
+		const std::string tmpParamName = tmpStrVec[i].substr(0, found);
 		result.params[tmpParamName] = tmpStrVec[i].substr(found + 1);
 		trim_if(result.params[tmpParamName], boost::is_any_of("\""));
 	}
@@ -504,15 +510,6 @@ static BuildfileCommand getCommand(std::istream &input)
 	return result;
 }
 
-template <typename A,typename B>
-static B typeConvert(A a)
-{
-	B b;
-	std::stringstream stream;
-	stream << a;
-	stream >> b;
-	return b;
-}
 
 void BigFile::_parseBuildfile(boost::filesystem::path buildfile)
 {
@@ -577,8 +574,9 @@ void BigFile::_parseBuildfile(boost::filesystem::path buildfile)
 				{
 					BuildFileSetting thisFileSet;
 					thisFileSet.wildcard = boost::to_lower_copy(command.params["wildcard"]);
-					thisFileSet.minsize = typeConvert<std::string, int>(command.params["minsize"]);
-					thisFileSet.maxsize = typeConvert<std::string, int>(command.params["maxsize"]);
+					
+					thisFileSet.minsize = std::stoi(command.params["minsize"]);
+					thisFileSet.maxsize = std::stoi(command.params["maxsize"]);
 					if (command.command == "override")
 					{
 						thisFileSet.command = BuildFileSetting::Override;

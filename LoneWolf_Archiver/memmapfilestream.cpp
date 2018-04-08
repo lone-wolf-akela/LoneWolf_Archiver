@@ -16,7 +16,7 @@ void MemMapFileStream::open(boost::filesystem::path file)
 		throw FileIoError("Error happened when opening file for memory mapping.");
 	}
 
-	_readptr = _filesrc.data();
+	_readptr = reinterpret_cast<const std::byte*>(_filesrc.data());
 }
 
 void MemMapFileStream::close(void)
@@ -26,7 +26,8 @@ void MemMapFileStream::close(void)
 
 size_t MemMapFileStream::read(void * dst, size_t length)
 {
-	size_t lengthToRead = (std::min)(size_t(_filesize - getpos()), length);
+	//brackets around std::min is required to prevent some problems
+	const size_t lengthToRead = (std::min)(size_t(_filesize - getpos()), length);
 	memcpy(dst, _readptr, lengthToRead);
 	movepos(lengthToRead);
 	return lengthToRead;	
@@ -53,7 +54,7 @@ void MemMapFileStream::thread_read(size_t pos, void* dst, size_t length)
 std::unique_ptr<readDataProxy> MemMapFileStream::thread_readProxy(size_t pos, size_t length)
 {
 	std::unique_ptr<readDataProxy> proxy(new readDataProxy(false));
-	proxy->data = _filesrc.data() + pos;
+	proxy->data = reinterpret_cast<const std::byte*>(_filesrc.data()) + pos;
 	return proxy;
 }
 
@@ -63,19 +64,19 @@ void MemMapFileStream::setpos(size_t pos)
 	{
 		throw OutOfRangeError();
 	}
-	_readptr = _filesrc.data() + pos;
+	_readptr = reinterpret_cast<const std::byte*>(_filesrc.data()) + pos;
 }
 
 size_t MemMapFileStream::getpos(void)
 {
-	return _readptr - _filesrc.data();
+	return _readptr - reinterpret_cast<const std::byte*>(_filesrc.data());
 }
 
 void MemMapFileStream::movepos(signed_size_t diff)
 {
 	if (
-		(diff < 0 && _readptr - _filesrc.data() < -diff) ||
-		(diff > 0 && uintmax_t(_readptr - _filesrc.data()) + diff > _filesize)
+		(diff < 0 && getpos() < size_t(-diff)) ||
+		(diff > 0 && getpos() + diff > _filesize)
 		)
 	{
 		throw OutOfRangeError();
@@ -83,7 +84,7 @@ void MemMapFileStream::movepos(signed_size_t diff)
 	_readptr += diff;
 }
 
-const char* MemMapFileStream::getReadptr() const
+const std::byte* MemMapFileStream::getReadptr() const
 {
 	return _readptr;
 }

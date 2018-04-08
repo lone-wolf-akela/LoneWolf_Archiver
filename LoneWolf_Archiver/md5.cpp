@@ -136,12 +136,11 @@ void MD5::update(boost::filesystem::ifstream &in)
 	if (!in)
 		throw FileIoError("Error happened when read the file to calculate its md5.");
 
-	std::streamsize length;
 	char buffer[BUFFER_SIZE];
 	while (!in.eof()) 
 	{
 		in.read(buffer, BUFFER_SIZE);
-		length = in.gcount();
+		const std::streamsize length = in.gcount();
 		if (length > 0)
 			update(buffer, size_t(length));
 	}
@@ -155,19 +154,19 @@ context.
 void MD5::update(const byte *input, size_t length) 
 {
 
-	uint32 i, index, partLen;
+	uint32 i;
 
 	_finished = false;
 
 	/* Compute number of bytes mod 64 */
-	index = uint32((_count[0] >> 3) & 0x3f);
+	uint32 index = uint32((_count[0] >> 3) & 0x3f);
 
 	/* update number of bits */
 	if((_count[0] += (uint32(length) << 3)) < (uint32(length) << 3))
 		_count[1]++;
 	_count[1] += (uint32(length) >> 29);
 
-	partLen = 64 - index;
+	const uint32 partLen = 64 - index;
 
 	/* transform as many times as possible. */
 	if(length >= partLen) 
@@ -199,7 +198,6 @@ void MD5::final()
 	byte bits[8];
 	uint32 oldState[4];
 	uint32 oldCount[2];
-	uint32 index, padLen;
 
 	/* Save current state and count. */
 	memcpy(oldState, _state, 16);
@@ -209,8 +207,8 @@ void MD5::final()
 	encode(_count, bits, 8);
 
 	/* Pad out to 56 mod 64. */
-	index = uint32((_count[0] >> 3) & 0x3f);
-	padLen = (index < 56) ? (56 - index) : (120 - index);
+	const uint32 index = uint32((_count[0] >> 3) & 0x3f);
+	const uint32 padLen = (index < 56) ? (56 - index) : (120 - index);
 	update(PADDING, padLen);
 
 	/* Append length (before padding) */
@@ -345,9 +343,9 @@ std::string MD5::bytesToHexString(const byte *input, size_t length)
 	str.reserve(length << 1);
 	for(size_t i = 0; i < length; i++) 
 	{
-		int t = input[i];
-		int a = t / 16;
-		int b = t % 16;
+		const int t = input[i];
+		const int a = t / 16;
+		const int b = t % 16;
 		str.append(1, HEX[a]);
 		str.append(1, HEX[b]);
 	}

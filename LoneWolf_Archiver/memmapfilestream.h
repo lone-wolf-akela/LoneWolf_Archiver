@@ -26,10 +26,10 @@ public:
 	size_t getpos(void) override;
 	void movepos(signed_size_t diff) override;
 
-	const char *getReadptr(void) const;
+	const std::byte *getReadptr(void) const;
 	uintmax_t getFileSize(void) const;
 private:
 	boost::iostreams::mapped_file_source _filesrc;
 	uintmax_t _filesize;
-	const char *_readptr;
+	const std::byte *_readptr;
 };

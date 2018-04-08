@@ -35,3 +35,11 @@ public:
 		runtime_error(message)
 	{}
 };
+
+class ZlibError : public std::runtime_error
+{
+public:
+	ZlibError(std::string message = "") :
+		runtime_error(message)
+	{}
+};

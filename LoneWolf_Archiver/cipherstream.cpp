@@ -11,7 +11,7 @@ void CipherStream::open(boost::filesystem::path file, CipherStreamState state)
 	case Read_EncryptionUnknown:
 	{
 		_memmapStream.open(file);
-		if (strncmp(_memmapStream.getReadptr(), "_ARCHIVE", 8))
+		if (strncmp(reinterpret_cast<const char*>(_memmapStream.getReadptr()), "_ARCHIVE", 8))
 		{
 			_state = Read_Encrypted;
 			_cipherInit();
@@ -43,7 +43,7 @@ void CipherStream::open(boost::filesystem::path file, CipherStreamState state)
 
 		std::random_device rd;
 		std::mt19937 mt(rd());
-		std::uniform_int_distribution<uint32_t> dis;
+		const std::uniform_int_distribution<uint32_t> dis;
 
 		_keySize = 256;
 		_cipherKey = std::unique_ptr<uint32_t[]>(new uint32_t[_keySize / sizeof(uint32_t)]);
@@ -85,8 +85,8 @@ size_t CipherStream::read(void* dst, size_t length)
 	case Read_Encrypted:
 	{
 		uint8_t *tmpDst = reinterpret_cast<uint8_t*>(dst);
-		size_t begpos = _memmapStream.getpos();
-		size_t lengthRead = _memmapStream.read(dst, length);
+		const size_t begpos = _memmapStream.getpos();
+		const size_t lengthRead = _memmapStream.read(dst, length);
 		for (size_t i = 0; i < lengthRead; ++i)
 		{
 			tmpDst[i] +=
@@ -100,8 +100,8 @@ size_t CipherStream::read(void* dst, size_t length)
 
 	case Write_NonEncrypted:
 	{
-		_filestream.read(reinterpret_cast<char*>(dst), length);
-		size_t lengthRead = size_t(_filestream.gcount());
+		ext::read(_filestream, dst, length);
+		const size_t lengthRead = size_t(_filestream.gcount());
 		if(_filestream.eof())
 		{
 			_filestream.clear();
@@ -116,13 +116,10 @@ size_t CipherStream::read(void* dst, size_t length)
 
 	case Write_Encrypted:
 	{
-		uint8_t *uint8Dst = reinterpret_cast<uint8_t*>(dst);
-		char *charDst = reinterpret_cast<char*>(dst);
+		const size_t begpos = getpos();
 
-		size_t begpos = getpos();
-
-		_filestream.read(charDst, length);
-		size_t lengthRead = size_t(_filestream.gcount());
+		ext::read(_filestream, dst, length);
+		const size_t lengthRead = size_t(_filestream.gcount());
 		if (_filestream.eof())
 		{
 			_filestream.clear();
@@ -135,7 +132,7 @@ size_t CipherStream::read(void* dst, size_t length)
 		
 		for (size_t i = 0; i < lengthRead; ++i)
 		{
-			uint8Dst[i] +=
+			reinterpret_cast<uint8_t*>(dst)[i] +=
 				*(reinterpret_cast<uint8_t*>(_cipherKey.get()) + (begpos + i) % _keySize);
 		}
 
@@ -155,7 +152,7 @@ std::unique_ptr<readDataProxy> CipherStream::readProxy(size_t length)
 	case Read_Encrypted:
 	{
 		std::unique_ptr<readDataProxy> proxy = std::make_unique<readDataProxy>(true);
-		char *tmpData = new char[length];
+		std::byte *tmpData = new std::byte[length];
 		read(tmpData, length);
 		proxy->data = tmpData;
 		return proxy;
@@ -178,7 +175,7 @@ void CipherStream::write(const void* src, size_t length)
 	case Write_Encrypted:
 	{
 		const uint8_t *uint8Src = reinterpret_cast<const uint8_t*>(src);
-		size_t begpos = getpos();
+		const size_t begpos = getpos();
 
 		std::unique_ptr<uint8_t[]> buffer(new uint8_t[length]);
 		for (size_t i = 0; i < length; ++i)
@@ -186,7 +183,7 @@ void CipherStream::write(const void* src, size_t length)
 			buffer[i] = *(uint8Src + i) -
 				*(reinterpret_cast<uint8_t*>(_cipherKey.get()) + (begpos + i) % _keySize);
 		}
-		_filestream.write(reinterpret_cast<char*>(buffer.get()), length);
+		ext::write(_filestream, buffer.get(), length);
 		_filestream.seekg(_filestream.tellp());
 		if (!_filestream.good())
 		{
@@ -197,7 +194,7 @@ void CipherStream::write(const void* src, size_t length)
 
 	case Write_NonEncrypted: 
 	{
-		_filestream.write(reinterpret_cast<const char*>(src), length);
+		ext::write(_filestream, src, length);
 		_filestream.seekg(_filestream.tellp());
 		if (!_filestream.good())
 		{
@@ -249,7 +246,7 @@ std::unique_ptr<readDataProxy> CipherStream::thread_readProxy(size_t pos, size_t
 	case Read_Encrypted:
 	{
 		std::unique_ptr<readDataProxy> proxy = std::make_unique<readDataProxy>(true);
-		char *tmpData = new char[length];
+		std::byte *tmpData = new std::byte[length];
 		thread_read(pos, tmpData, length);
 		proxy->data = tmpData;
 		return proxy;
@@ -328,7 +325,7 @@ void CipherStream::movepos(signed_size_t diff)
 	}
 }
 
-CipherStreamState CipherStream::getState()
+CipherStreamState CipherStream::getState() const
 {
 	return _state;
 }
@@ -352,9 +349,9 @@ void CipherStream::writeKey()
 {
 	_deadbe7a = 0xdeadbe7a;
 	_cipherBegPos = uint32_t(getpos());
-	_filestream.write(reinterpret_cast<char*>(&_deadbe7a), sizeof(_deadbe7a));
-	_filestream.write(reinterpret_cast<char*>(&_keySize), sizeof(_keySize));
-	_filestream.write(reinterpret_cast<char*>(_fileKey.get()), _keySize);
+	ext::write(_filestream, &_deadbe7a, sizeof(_deadbe7a));
+	ext::write(_filestream, &_keySize, sizeof(_keySize));
+	ext::write(_filestream, _fileKey.get(), _keySize);
 	_filestream.seekg(_filestream.tellp());
 	if (!_filestream.good())
 	{
@@ -367,9 +364,9 @@ void CipherStream::writeKey()
 void CipherStream::writeEncryptionEnd()
 {
 	_filestream.seekp(0, std::ios::end);
-	uintmax_t filesize = _filestream.tellp();
+	const uintmax_t filesize = _filestream.tellp();
 	_cipherBegBackPos = uint32_t(filesize + sizeof(_cipherBegBackPos) - _cipherBegPos);
-	_filestream.write(reinterpret_cast<char*>(&_cipherBegBackPos), sizeof(_cipherBegBackPos));
+	ext::write(_filestream, &_cipherBegBackPos, sizeof(_cipherBegBackPos));
 
 	_filestream.seekg(_filestream.tellp());
 	if (!_filestream.good())
@@ -381,11 +378,12 @@ void CipherStream::writeEncryptionEnd()
 void CipherStream::_cipher_magic()
 {
 #define ROTL(val, bits) (((val) << (bits)) | ((val) >> (32-(bits))))
-	uint32_t currentKey;
+
+	uint8_t *_cipherKey_uint8 = reinterpret_cast<uint8_t*>(_cipherKey.get());
 
 	for (uint32_t i = 0; i < _keySize; i += 4)
 	{
-		currentKey = _fileKey[i / 4];
+		uint32_t currentKey = _fileKey[i / 4];
 		for (int byte = 0; byte < 4; byte++)
 		{
 			uint32_t tempVal = ROTL(currentKey + _cipherBegPos, 8);
@@ -395,7 +393,7 @@ void CipherStream::_cipher_magic()
 				currentKey = cipherConst[uint8_t(currentKey ^ tempBytes[j])]
 					^ (currentKey >> 8);
 			}
-			*(reinterpret_cast<uint8_t*>(_cipherKey.get()) + byte + i) = uint8_t(currentKey);
+			_cipherKey_uint8[byte + i] = uint8_t(currentKey);
 		}
 	}
 #undef ROTL

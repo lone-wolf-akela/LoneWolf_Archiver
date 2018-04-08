@@ -62,12 +62,12 @@ struct ArchiveHeader
 	uint32_t version;
 
 	//E01519D6-2DB7-4640-AF54-0A23319C56C3 + 除Archive_Header外所有部分的数据的MD5
-	uint8_t toolSignature[16];
+	std::byte toolSignature[16];
 
 	wchar_t archiveName[64];
 
 	//DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF + Archive_Header之后、exact file data之前的所有数据的MD5
-	uint8_t archiveSignature[16];
+	std::byte archiveSignature[16];
 
 	uint32_t sectionHeaderSize;
 	uint32_t exactFileDataOffset;
@@ -168,7 +168,7 @@ public:
 	void testArchive(void);
 	void build(BuildArchiveTask task);
 
-	const uint8_t* getArchiveSignature(void) const;
+	const std::byte* getArchiveSignature(void) const;
 
 private:
 	CipherStream _cipherStream;
@@ -201,7 +201,7 @@ private:
 	std::tuple<std::unique_ptr<File>, std::string> _buildFile(
 		BuildFileTask &fileTask, 
 		FileInfoEntry *fileInfoEntry
-	);
+	) const;
 	void _listFolder(uint16_t folderIndex);
 	void _testFolder(uint16_t folderIndex);
 	std::string _testFile(boost::filesystem::path path, uint16_t fileIndex);
