@@ -5,14 +5,18 @@
 
 enum CipherStreamState
 {
-	Read_EncryptionUnknown, Read_Encrypted, Read_NonEncrypted, Write_Encrypted, Write_NonEncrypted
+	Read_EncryptionUnknown, 
+	Read_Encrypted, 
+	Read_NonEncrypted, 
+	Write_Encrypted, 
+	Write_NonEncrypted
 };
 
 class CipherStream : public FileStream
 {
 public:
 	CipherStream(void) = default;
-	CipherStream(boost::filesystem::path file, CipherStreamState state)
+	CipherStream(boost::filesystem::path const &file, CipherStreamState state)
 	{
 		open(file, state);
 	}
@@ -36,16 +40,16 @@ public:
 	CipherStreamState getState(void) const;
 private:
 	void _cipherInit(void);	
-	void _cipher_magic(void);
+	void _cipher_magic(void) const;
 
-	CipherStreamState _state;
+	CipherStreamState _state = Read_EncryptionUnknown;
 	MemMapFileStream _memmapStream;
 	boost::filesystem::fstream _filestream;
 
-	uint32_t _cipherBegBackPos;
-	uint32_t _cipherBegPos;
-	uint32_t _deadbe7a;
+	uint32_t _cipherBegBackPos = 0;
+	uint32_t _cipherBegPos = 0;
+	uint32_t _deadbe7a = 0;
 	std::unique_ptr<uint32_t[]> _cipherKey;
 	std::unique_ptr<uint32_t[]> _fileKey;
-	uint16_t _keySize;
+	uint16_t _keySize = 0;
 };

@@ -2,7 +2,6 @@
 #include "stdafx.h"
 
 #include "filestream.h"
-#include "memmapfilestream.h"
 #include "cipherstream.h"
 
 /*enum*/
@@ -122,7 +121,7 @@ struct FileDataHeader
 struct FileName
 {
 	std::string name;
-	uint32_t offset;	//relative to FileName_offset
+	uint32_t offset = 0;	//relative to FileName_offset
 };
 struct File
 {
@@ -148,7 +147,7 @@ class BigFile_Internal
 {
 public:
 	BigFile_Internal(void) = default;
-	BigFile_Internal(boost::filesystem::path file, BigFileState state)
+	BigFile_Internal(boost::filesystem::path const &file, BigFileState state)
 	{
 		open(file, state);
 	}
@@ -177,13 +176,13 @@ private:
 	std::queue<std::future<std::tuple<std::unique_ptr<File>,std::string>>> _futureFileList;
 	std::queue<std::string> _errorList;
 	std::mutex _errorMutex;
-	std::atomic_bool _testPassed;
+	std::atomic_bool _testPassed = false;
 
-	BigFileState _state;
-	unsigned _coreNum;
-	int _compressLevel;
-	bool _skipToolSignature;
-	bool _writeEncryption;
+	BigFileState _state = Read;
+	unsigned _coreNum = 1;
+	int _compressLevel = 6;
+	bool _skipToolSignature = true;
+	bool _writeEncryption = false;
 
 	ArchiveHeader _archiveHeader;
 	SectionHeader _sectionHeader;

@@ -7,12 +7,12 @@ class MemMapFileStream : public FileStream
 {
 public:
 	MemMapFileStream(void) = default;
-	explicit MemMapFileStream(boost::filesystem::path file)
+	explicit MemMapFileStream(boost::filesystem::path const &file)
 	{
 		open(file);
 	}
 
-	void open(boost::filesystem::path file);
+	void open(boost::filesystem::path const &file);
 	void close(void);
 
 	size_t read(void *dst, size_t length) override;
@@ -30,6 +30,6 @@ public:
 	uintmax_t getFileSize(void) const;
 private:
 	boost::iostreams::mapped_file_source _filesrc;
-	uintmax_t _filesize;
-	const std::byte *_readptr;
+	uintmax_t _filesize = 0;
+	const std::byte *_readptr = nullptr;
 };

@@ -3,14 +3,40 @@
 
 namespace ext
 {
-	inline std::istream& read(std::istream& s,void *dst, std::streamsize len)
+	struct read
 	{
-		return s.read(static_cast<char*>(dst), len);
+		read(void *dst, std::streamsize len):
+		dst(dst),len(len)
+		{}
+		void *dst;
+		std::streamsize len;
+	};
+
+	inline std::istream& operator|
+		(
+			std::istream& s,
+			read&& r
+		)
+	{
+		return s.read(static_cast<char*>(r.dst), r.len);
 	}
 
-	inline std::ostream& write(std::ostream& s,const void* src,std::streamsize len)
+	struct write
 	{
-		return s.write(static_cast<const char*>(src), len);
+		write(const void *src, std::streamsize len) :
+			src(src), len(len)
+		{}
+		const void *src;
+		std::streamsize len;
+	};
+
+	inline std::ostream& operator|
+		(
+			std::ostream& s,
+			write&& w
+		)
+	{
+		return s.write(static_cast<const char*>(w.src), w.len);
 	}
 }
 

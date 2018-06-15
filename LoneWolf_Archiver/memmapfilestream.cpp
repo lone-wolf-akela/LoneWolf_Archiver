@@ -2,7 +2,7 @@
 
 #include "memmapfilestream.h"
 
-void MemMapFileStream::open(boost::filesystem::path file)
+void MemMapFileStream::open(boost::filesystem::path const &file)
 {
 	_filesize = file_size(file);
 

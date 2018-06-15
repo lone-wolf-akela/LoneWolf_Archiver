@@ -27,8 +27,9 @@
 
 #include <zlib.h>
 
+#include <openssl/md5.h>
+
 #include "exceptions.h"
-#include "md5.h"
 #include "ThreadPool/ThreadPool.h"
 #include "extension.h"
 

@@ -16,8 +16,8 @@ public:
 		}
 	}
 
-	readDataProxy(const readDataProxy&) = delete; // non construction-copyable
-	readDataProxy& operator=(const readDataProxy&) = delete; // non copyable
+	readDataProxy(const readDataProxy&) = delete; //no copy constructor
+	readDataProxy& operator=(const readDataProxy&) = delete; //no copy assignment 
 
 	const std::byte *data = nullptr;
 private:

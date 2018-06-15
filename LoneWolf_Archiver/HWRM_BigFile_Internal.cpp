@@ -22,21 +22,21 @@ void BigFile_Internal::open(boost::filesystem::path file, BigFileState state)
 		_cipherStream.setpos(sizeof(ArchiveHeader) + _sectionHeader.TOC_offset);
 		for (uint16_t i = 0; i < _sectionHeader.TOC_count; ++i)
 		{
-			_tocList.push_back(TocEntry());
+			_tocList.emplace_back();
 			_cipherStream.read(&_tocList.back(), sizeof(TocEntry));
 		}
 
 		_cipherStream.setpos(sizeof(ArchiveHeader) + _sectionHeader.Folder_offset);
 		for (uint16_t i = 0; i < _sectionHeader.Folder_count; ++i)
 		{
-			_folderList.push_back(FolderEntry());
+			_folderList.emplace_back();
 			_cipherStream.read(&_folderList.back(), sizeof(FolderEntry));
 		}
 
 		_cipherStream.setpos(sizeof(ArchiveHeader) + _sectionHeader.FileInfo_offset);
 		for (uint16_t i = 0; i < _sectionHeader.FileInfo_count; ++i)
 		{
-			_fileInfoList.push_back(FileInfoEntry());
+			_fileInfoList.emplace_back();
 			_cipherStream.read(&_fileInfoList.back(), sizeof(FileInfoEntry));
 		}
 
@@ -44,7 +44,7 @@ void BigFile_Internal::open(boost::filesystem::path file, BigFileState state)
 		_cipherStream.setpos(filenameOffset);
 		for (uint16_t i = 0; i < _sectionHeader.FileName_count; ++i)
 		{
-			_fileNameList.push_back(FileName());
+			_fileNameList.emplace_back();
 			_fileNameList.back().offset = uint32_t(_cipherStream.getpos() - filenameOffset);
 			_fileNameList.back().name = "";
 			char c;
@@ -178,7 +178,7 @@ void BigFile_Internal::extract(boost::filesystem::path directory)
 			std::cout << std::endl;
 		}
 
-		const int percent = int(finishedFilesNum * 100 / _fileInfoList.size());
+		const auto percent = int(finishedFilesNum * 100 / _fileInfoList.size());
 		//only output when percent number change to reduce display overhead
 		if (percent != lastPercent)
 		{
@@ -278,7 +278,7 @@ void BigFile_Internal::testArchive()
 			std::cout << std::endl;
 		}
 
-		const int percent = int(finishedFilesNum * 100 / _fileInfoList.size());
+		const auto percent = int(finishedFilesNum * 100 / _fileInfoList.size());
 		outputPercentBar(percent);
 
 		if (progress.length() > 50)
@@ -336,7 +336,7 @@ void BigFile_Internal::build(BuildArchiveTask task)
 	}
 
 	//concat _folderNameList and _fileNameList
-	const uint32_t baseOffset = 
+	const auto baseOffset = 
 		uint32_t(_folderNameList.back().offset + _folderNameList.back().name.length() + 1);
 	_folderNameList.insert(_folderNameList.end(), _fileNameList.begin(), _fileNameList.end());
 	//and adjust files' name offset
@@ -414,7 +414,7 @@ void BigFile_Internal::build(BuildArchiveTask task)
 			uint32_t(_cipherStream.getpos() - _archiveHeader.exactFileDataOffset);
 		_cipherStream.write(file->data->data, file->fileInfoEntry->compressedLen);
 
-		const int percent = int(finishedFilesNum * 100 / _fileInfoList.size());
+		const auto percent = int(finishedFilesNum * 100 / _fileInfoList.size());
 		//only output when percent number change to reduce display overhead
 		if (percent != lastPercent)
 		{
@@ -472,20 +472,22 @@ void BigFile_Internal::build(BuildArchiveTask task)
 	//calculate archiveSignature
 	std::cout << "Calculating Archive Signature..." << std::endl;
 	std::byte buffer[1024];
-	MD5 md5;
-	md5.reset();
-	md5.update(ARCHIVE_SIG, sizeof(ARCHIVE_SIG) - 1);
+	std::byte md5_digest[17];
+	MD5_CTX md5_context;
+	MD5_Init(&md5_context);
+	MD5_Update(&md5_context, ARCHIVE_SIG, sizeof(ARCHIVE_SIG) - 1);
 	_cipherStream.setpos(sizeof(_archiveHeader));
 	size_t lengthToRead = _archiveHeader.exactFileDataOffset - _cipherStream.getpos();
 	while (lengthToRead > sizeof(buffer))
 	{
 		_cipherStream.read(buffer, sizeof(buffer));
-		md5.update(buffer, sizeof(buffer));
+		MD5_Update(&md5_context, buffer, sizeof(buffer));
 		lengthToRead -= sizeof(buffer);
 	}
 	_cipherStream.read(buffer, lengthToRead);
-	md5.update(buffer, lengthToRead);
-	memcpy(_archiveHeader.archiveSignature, md5.digest(), 16);
+	MD5_Update(&md5_context, buffer, lengthToRead);
+	MD5_Final(reinterpret_cast<unsigned char*>(md5_digest), &md5_context);
+	memcpy(_archiveHeader.archiveSignature, md5_digest, 16);
 
 	if (_skipToolSignature)
 	{
@@ -495,16 +497,17 @@ void BigFile_Internal::build(BuildArchiveTask task)
 	{
 		//calculate toolSignature
 		std::cout << "Calculating Tool Signature..." << std::endl;
-		md5.reset();
-		md5.update(TOOL_SIG, sizeof(TOOL_SIG) - 1);
+		MD5_Init(&md5_context);
+		MD5_Update(&md5_context, TOOL_SIG, sizeof(TOOL_SIG) - 1);
 		_cipherStream.setpos(sizeof(_archiveHeader));
 		size_t lenthRead = sizeof(buffer);
 		while (lenthRead == sizeof(buffer))
 		{
 			lenthRead = _cipherStream.read(buffer, sizeof(buffer));
-			md5.update(buffer, lenthRead);
+			MD5_Update(&md5_context, buffer, lenthRead);
 		}
-		memcpy(_archiveHeader.toolSignature, md5.digest(), 16); 
+		MD5_Final(reinterpret_cast<unsigned char*>(md5_digest), &md5_context);
+		memcpy(_archiveHeader.toolSignature, md5_digest, 16);
 	}
 
 	//rewrite archiveHeader
@@ -549,7 +552,8 @@ std::string BigFile_Internal::_extractFile(boost::filesystem::path directory, ui
 {
 	File thisfile;
 	thisfile.fileInfoEntry = &_fileInfoList[fileIndex];
-	size_t pos = _archiveHeader.exactFileDataOffset + thisfile.fileInfoEntry->fileDataOffset;
+	const size_t pos = 
+		_archiveHeader.exactFileDataOffset + thisfile.fileInfoEntry->fileDataOffset;
 	thisfile.fileDataHeader = _cipherStream.thread_readProxy(
 		pos - sizeof(FileDataHeader), sizeof(FileDataHeader)
 	);
@@ -575,9 +579,9 @@ std::string BigFile_Internal::_extractFile(boost::filesystem::path directory, ui
 		else
 		{
 			uLongf outLen = thisfile.fileInfoEntry->decompressedLen;
-			std::byte *tmpData = new std::byte[outLen];
+			std::unique_ptr<std::byte[]> tmpData(new std::byte[outLen]);
 			const int zRet = uncompress(
-				reinterpret_cast<Bytef*>(tmpData),
+				reinterpret_cast<Bytef*>(tmpData.get()),
 				&outLen,
 				reinterpret_cast<const Bytef*>(thisfile.data->data),
 				thisfile.fileInfoEntry->compressedLen
@@ -587,7 +591,7 @@ std::string BigFile_Internal::_extractFile(boost::filesystem::path directory, ui
 				throw ZlibError();
 			}
 			thisfile.decompressedData = std::make_unique<readDataProxy>(true);
-			thisfile.decompressedData->data = tmpData;
+			thisfile.decompressedData->data = tmpData.release();
 		}
 		create_directories(directory);
 
@@ -596,7 +600,7 @@ std::string BigFile_Internal::_extractFile(boost::filesystem::path directory, ui
 		{
 			throw FileIoError("Error happened when openning file for output.");
 		}
-		ext::write(ofile, thisfile.decompressedData->data,
+		ofile | ext::write(thisfile.decompressedData->data,
 			thisfile.fileInfoEntry->decompressedLen);
 		ofile.close();
 
@@ -629,15 +633,11 @@ void BigFile_Internal::_preBuildFolder(BuildFolderTask& folderTask, uint16_t fol
 	_folderNameList.push_back(folderName);
 	_folderList[folderIndex].fileNameOffset = folderName.offset;
 	_folderList[folderIndex].firstSubFolderIndex = uint16_t(_folderList.size());
-	for (BuildFolderTask &subFolderTask : folderTask.subFolderTasks)
-	{
-		_folderList.emplace_back();
-	}
+	_folderList.resize(_folderList.size() + folderTask.subFolderTasks.size());
 	_folderList[folderIndex].lastSubFolderIndex = uint16_t(_folderList.size());
 	_folderList[folderIndex].firstFileIndex = uint16_t(_fileInfoList.size());
 	for (BuildFileTask &subFileTask : folderTask.subFileTasks)
-	{
-		FileInfoEntry fileInfoEntry;
+	{		
 		FileName fileName;
 		boost::to_lower(subFileTask.name);
 		fileName.name = subFileTask.name;
@@ -651,11 +651,16 @@ void BigFile_Internal::_preBuildFolder(BuildFolderTask& folderTask, uint16_t fol
 				uint32_t(_fileNameList.back().offset + _fileNameList.back().name.length() + 1);
 		}
 		_fileNameList.push_back(fileName);
+
+		FileInfoEntry fileInfoEntry;
 		fileInfoEntry.fileNameOffset = fileName.offset;
 		fileInfoEntry.compressMethod = subFileTask.compressMethod;
 		fileInfoEntry.decompressedLen = subFileTask.filesize;
-		//fileDataOffset;	
-		//compressedLen;
+
+		//data to be fill later:
+		fileInfoEntry.fileDataOffset = 0;
+		fileInfoEntry.compressedLen = 0;
+
 		_fileInfoList.push_back(fileInfoEntry);
 	}
 	_folderList[folderIndex].lastFileIndex = uint16_t(_fileInfoList.size());
@@ -703,22 +708,21 @@ std::tuple<std::unique_ptr<File>, std::string> BigFile_Internal::_buildFile(
 
 	std::unique_ptr<File> file(new File);
 	file->fileInfoEntry = fileInfoEntry;
-	std::byte *decompressedData = new std::byte[fileInfoEntry->decompressedLen];
+	std::unique_ptr<std::byte[]> decompressedData(
+		new std::byte[fileInfoEntry->decompressedLen]);
 	boost::filesystem::ifstream ifile(fileTask.realpath, std::ios::binary);
 	if (!ifile.is_open())
 	{
 		throw FileIoError("Error happened when openning file to compress.");
 	}
-	ext::read(ifile, decompressedData, fileInfoEntry->decompressedLen);
+	ifile | ext::read(decompressedData.get(), fileInfoEntry->decompressedLen);
 	ifile.close();
 	file->decompressedData = std::make_unique<readDataProxy>(true);
-	file->decompressedData->data = decompressedData;
-	decompressedData = nullptr;
+	file->decompressedData->data = decompressedData.release();
 	
-	std::byte* fileDataHeader_charArray = new std::byte[sizeof(FileDataHeader)];
-	memset(fileDataHeader_charArray, 0, sizeof(FileDataHeader));
-	FileDataHeader *fileDataHeader = reinterpret_cast<FileDataHeader*>(fileDataHeader_charArray);
-	uLong crc = crc32(0L, Z_NULL, 0);
+	std::unique_ptr<FileDataHeader> fileDataHeader(new FileDataHeader);
+	memset(fileDataHeader.get(), 0, sizeof(FileDataHeader));
+	uLong crc = crc32(0L, nullptr, 0);
 	crc = crc32(
 		crc,
 		reinterpret_cast<const Bytef*>(file->decompressedData->data),
@@ -735,16 +739,14 @@ std::tuple<std::unique_ptr<File>, std::string> BigFile_Internal::_buildFile(
 		boost::filesystem::detail::last_write_time(fileTask.realpath)
 	);
 	file->fileDataHeader = std::make_unique<readDataProxy>(true);
-	file->fileDataHeader->data = fileDataHeader_charArray;
-	fileDataHeader_charArray = nullptr;
-	fileDataHeader = nullptr;
+	file->fileDataHeader->data = reinterpret_cast<std::byte*>(fileDataHeader.release());
 
 	if (fileInfoEntry->compressMethod != Uncompressed)
 	{
 		uLong compressedLen = compressBound(uLong(fileInfoEntry->decompressedLen));
-		std::byte* compressedData = new std::byte[compressedLen];
-		int zRet = compress2(
-			reinterpret_cast<Bytef*>(compressedData),
+		std::unique_ptr<std::byte[]> compressedData(new std::byte[compressedLen]);
+		const int zRet = compress2(
+			reinterpret_cast<Bytef*>(compressedData.get()),
 			&compressedLen,
 			reinterpret_cast<const Bytef*>(file->decompressedData->data),
 			fileInfoEntry->decompressedLen,
@@ -758,14 +760,13 @@ std::tuple<std::unique_ptr<File>, std::string> BigFile_Internal::_buildFile(
 		/*********************************/
 		if (fileTask.name == "_此处禁止通行")
 		{
-			memset(compressedData, 25, compressedLen);
+			memset(compressedData.get(), 25, compressedLen);
 		}
 		/*********************************/
 
 
 		file->data = std::make_unique<readDataProxy>(true);
-		file->data->data = compressedData;
-		compressedData = nullptr;
+		file->data->data = compressedData.release();
 
 		fileInfoEntry->compressedLen = compressedLen;
 	}
@@ -854,7 +855,8 @@ std::string BigFile_Internal::_testFile(boost::filesystem::path path, uint16_t f
 {
 	File thisfile;
 	thisfile.fileInfoEntry = &_fileInfoList[fileIndex];
-	size_t pos = _archiveHeader.exactFileDataOffset + thisfile.fileInfoEntry->fileDataOffset;
+	const size_t pos = 
+		_archiveHeader.exactFileDataOffset + thisfile.fileInfoEntry->fileDataOffset;
 	thisfile.fileDataHeader = _cipherStream.thread_readProxy(
 		pos - sizeof(FileDataHeader), sizeof(FileDataHeader)
 	);
@@ -872,9 +874,9 @@ std::string BigFile_Internal::_testFile(boost::filesystem::path path, uint16_t f
 		else
 		{
 			uLongf outLen = thisfile.fileInfoEntry->decompressedLen;
-			std::byte *tmpData = new std::byte[outLen];
+			std::unique_ptr<std::byte[]> tmpData(new std::byte[outLen]);
 			const int zRet = uncompress(
-				reinterpret_cast<Bytef*>(tmpData),
+				reinterpret_cast<Bytef*>(tmpData.get()),
 				&outLen,
 				reinterpret_cast<const Bytef*>(thisfile.data->data),
 				thisfile.fileInfoEntry->compressedLen
@@ -884,11 +886,11 @@ std::string BigFile_Internal::_testFile(boost::filesystem::path path, uint16_t f
 				throw ZlibError();
 			}
 			thisfile.decompressedData = std::make_unique<readDataProxy>(true);
-			thisfile.decompressedData->data = tmpData;
+			thisfile.decompressedData->data = tmpData.release();
 		}
 
 		//check crc
-		uLong crc = crc32(0L, Z_NULL, 0);
+		uLong crc = crc32(0L, nullptr, 0);
 		crc = crc32(
 			crc,
 			reinterpret_cast<const Bytef*>(thisfile.decompressedData->data),

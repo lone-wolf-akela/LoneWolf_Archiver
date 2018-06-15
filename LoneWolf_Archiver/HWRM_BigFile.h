@@ -28,19 +28,19 @@ struct BuildfileCommand
 struct BuildFileSetting
 {
 	///command type: use special setting for these files ("Override") or skip these files and not pack them into the archive ("SkipFile")
-	enum{ Override , SkipFile} command;
+	enum{ Override , SkipFile} command = Override;
 
 	///filename rule
 	std::string wildcard;
 
 	///min file size
-	int minsize;
+	int minsize = 0;
 	
 	///max file size
-	int maxsize;
+	int maxsize = 0;
 
 	///compression Method
-	CompressMethod ct;
+	CompressMethod ct = Uncompressed;
 };
 
 
@@ -60,7 +60,7 @@ struct BuildTOCSetting
 	std::string relativeroot;
 
 	///default compression Method
-	CompressMethod defcompression;
+	CompressMethod defcompression = Uncompressed;
 
 	///a list of all BuildFileSetting in this TOC
 	std::vector<BuildFileSetting> buildFileSettings;
@@ -94,23 +94,30 @@ class BigFile
 {
 public:
 	BigFile() = default;
-	BigFile(boost::filesystem::path file, BigFileState state = Read)
+	BigFile(boost::filesystem::path const &file, BigFileState state = Read)
 	{
 		open(file, state);
 	}
 
-	void open(boost::filesystem::path file, BigFileState state = Read);
+	void open(boost::filesystem::path const &file, BigFileState state = Read);
 	void close(void);
 	void setCoreNum(unsigned coreNum);
 	void setCompressLevel(int level);
 	void skipToolSignature(bool skip);
 	void writeEncryption(bool enc);
 
-	void extract(boost::filesystem::path directory);
+	void extract(boost::filesystem::path const &directory);
 	void listFiles(void);
 	void testArchive(void);
-	void create(boost::filesystem::path root, boost::filesystem::path build);
-	void generate(boost::filesystem::path file, boost::filesystem::path root, bool allInOne);
+	void create(
+		boost::filesystem::path root, 
+		boost::filesystem::path const &build
+	);
+	void generate(
+		boost::filesystem::path file,
+		boost::filesystem::path const &root, 
+		bool allInOne
+	);
 	std::string getArchiveSignature(void) const;
 
 	~BigFile(void)

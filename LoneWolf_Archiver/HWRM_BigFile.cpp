@@ -2,7 +2,7 @@
 
 #include "HWRM_BigFile.h"
 
-void BigFile::open(boost::filesystem::path file, BigFileState state)
+void BigFile::open(boost::filesystem::path const &file, BigFileState state)
 {
 	_internal.open(file, state);
 }
@@ -32,7 +32,7 @@ void BigFile::writeEncryption(bool enc)
 	_internal.writeEncryption(enc);
 }
 
-void BigFile::extract(boost::filesystem::path directory)
+void BigFile::extract(boost::filesystem::path const &directory)
 {
 	_internal.extract(directory);
 }
@@ -80,7 +80,10 @@ static bool match(char const *needle, char const *haystack)
 	return *haystack == '\0';
 }
 
-void BigFile::create(boost::filesystem::path root, boost::filesystem::path build)
+void BigFile::create(
+	boost::filesystem::path root, 
+	boost::filesystem::path const &build
+)
 {
 	//check ArchiveIgnore.txt
 	_archiveIgnoreSet.clear();
@@ -318,7 +321,11 @@ FileSettingsEnd
  * \param allInOne	should we pack all locale files in the same .big file with other files, 
  *					or pack them in their own .big?
  */
-void BigFile::generate(boost::filesystem::path file, boost::filesystem::path root, bool allInOne)
+void BigFile::generate(
+	boost::filesystem::path file,
+	boost::filesystem::path const &root,
+	bool allInOne
+)
 {
 	std::cout << "Generating Build Configs..." << std::endl << std::endl;
 
@@ -524,7 +531,7 @@ void BigFile::_parseBuildfile(boost::filesystem::path buildfile)
 	char BOM[4];
 	input.read(BOM, 3);
 	BOM[3] = 0;
-	if(strcmp(BOM,"\xef\xbb\xbf"))
+	if(0 != strcmp(BOM,"\xef\xbb\xbf"))
 	{
 		//no BOM, go back
 		input.seekg(0);

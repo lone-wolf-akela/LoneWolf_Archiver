@@ -7,7 +7,7 @@
 class FileIoError : public std::runtime_error
 {
 public:
-	FileIoError(std::string message) : 
+	explicit FileIoError(std::string const& message):
 		runtime_error(message)
 	{}
 };
@@ -31,7 +31,7 @@ public:
 class FormatError : public std::runtime_error
 {
 public:
-	FormatError(std::string message) :
+	explicit FormatError(std::string const& message) :
 		runtime_error(message)
 	{}
 };
@@ -39,7 +39,7 @@ public:
 class ZlibError : public std::runtime_error
 {
 public:
-	ZlibError(std::string message = "") :
+	explicit ZlibError(std::string const& message = "") :
 		runtime_error(message)
 	{}
 };

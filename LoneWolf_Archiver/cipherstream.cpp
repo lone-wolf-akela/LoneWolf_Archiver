@@ -11,7 +11,8 @@ void CipherStream::open(boost::filesystem::path file, CipherStreamState state)
 	case Read_EncryptionUnknown:
 	{
 		_memmapStream.open(file);
-		if (strncmp(reinterpret_cast<const char*>(_memmapStream.getReadptr()), "_ARCHIVE", 8))
+		if (0 != strncmp(reinterpret_cast<const char*>(_memmapStream.getReadptr()), 
+			"_ARCHIVE", 8))
 		{
 			_state = Read_Encrypted;
 			_cipherInit();
@@ -100,9 +101,9 @@ size_t CipherStream::read(void* dst, size_t length)
 
 	case Write_NonEncrypted:
 	{
-		ext::read(_filestream, dst, length);
-		const size_t lengthRead = size_t(_filestream.gcount());
-		if(_filestream.eof())
+		_filestream | ext::read(dst, length);
+		const auto lengthRead = size_t(_filestream.gcount());
+		if (_filestream.eof())
 		{
 			_filestream.clear();
 		}
@@ -118,8 +119,8 @@ size_t CipherStream::read(void* dst, size_t length)
 	{
 		const size_t begpos = getpos();
 
-		ext::read(_filestream, dst, length);
-		const size_t lengthRead = size_t(_filestream.gcount());
+		_filestream | ext::read(dst, length);
+		const auto lengthRead = size_t(_filestream.gcount());
 		if (_filestream.eof())
 		{
 			_filestream.clear();
@@ -129,7 +130,7 @@ size_t CipherStream::read(void* dst, size_t length)
 		{
 			throw FileIoError("Filestream failed.");
 		}
-		
+
 		for (size_t i = 0; i < lengthRead; ++i)
 		{
 			reinterpret_cast<uint8_t*>(dst)[i] +=
@@ -139,7 +140,7 @@ size_t CipherStream::read(void* dst, size_t length)
 		return lengthRead;
 	}
 
-	case Read_EncryptionUnknown:	
+	case Read_EncryptionUnknown:
 	default:
 		throw OutOfRangeError();
 	}
@@ -152,9 +153,9 @@ std::unique_ptr<readDataProxy> CipherStream::readProxy(size_t length)
 	case Read_Encrypted:
 	{
 		std::unique_ptr<readDataProxy> proxy = std::make_unique<readDataProxy>(true);
-		std::byte *tmpData = new std::byte[length];
-		read(tmpData, length);
-		proxy->data = tmpData;
+		std::unique_ptr<std::byte[]> tmpData(new std::byte[length]);
+		read(tmpData.get(), length);
+		proxy->data = tmpData.release();
 		return proxy;
 	}
 	case Read_NonEncrypted:
@@ -174,7 +175,7 @@ void CipherStream::write(const void* src, size_t length)
 	{
 	case Write_Encrypted:
 	{
-		const uint8_t *uint8Src = reinterpret_cast<const uint8_t*>(src);
+		auto *uint8Src = reinterpret_cast<const uint8_t*>(src);
 		const size_t begpos = getpos();
 
 		std::unique_ptr<uint8_t[]> buffer(new uint8_t[length]);
@@ -183,7 +184,8 @@ void CipherStream::write(const void* src, size_t length)
 			buffer[i] = *(uint8Src + i) -
 				*(reinterpret_cast<uint8_t*>(_cipherKey.get()) + (begpos + i) % _keySize);
 		}
-		ext::write(_filestream, buffer.get(), length);
+
+		_filestream | ext::write(buffer.get(), length);
 		_filestream.seekg(_filestream.tellp());
 		if (!_filestream.good())
 		{
@@ -192,9 +194,9 @@ void CipherStream::write(const void* src, size_t length)
 	}
 	break;
 
-	case Write_NonEncrypted: 
+	case Write_NonEncrypted:
 	{
-		ext::write(_filestream, src, length);
+		_filestream | ext::write(src, length);
 		_filestream.seekg(_filestream.tellp());
 		if (!_filestream.good())
 		{
@@ -206,7 +208,7 @@ void CipherStream::write(const void* src, size_t length)
 	case Read_EncryptionUnknown:
 	case Read_NonEncrypted:
 	case Read_Encrypted:
-	default: 
+	default:
 		throw OutOfRangeError();
 	}
 }
@@ -246,9 +248,9 @@ std::unique_ptr<readDataProxy> CipherStream::thread_readProxy(size_t pos, size_t
 	case Read_Encrypted:
 	{
 		std::unique_ptr<readDataProxy> proxy = std::make_unique<readDataProxy>(true);
-		std::byte *tmpData = new std::byte[length];
-		thread_read(pos, tmpData, length);
-		proxy->data = tmpData;
+		std::unique_ptr<std::byte[]> tmpData(new std::byte[length]);
+		thread_read(pos, tmpData.get(), length);
+		proxy->data = tmpData.release();
 		return proxy;
 	}
 	case Read_NonEncrypted:
@@ -274,8 +276,8 @@ void CipherStream::setpos(size_t pos)
 	case Write_Encrypted:
 	case Write_NonEncrypted:
 		_filestream.seekp(pos);
-		_filestream.seekg(pos);	
-		if(!_filestream.good())
+		_filestream.seekg(pos);
+		if (!_filestream.good())
 		{
 			throw FileIoError("Filestream failed.");
 		}
@@ -307,20 +309,20 @@ size_t CipherStream::getpos()
 
 void CipherStream::movepos(signed_size_t diff)
 {
-	switch(_state)
+	switch (_state)
 	{
 	case Read_Encrypted:
 	case Read_NonEncrypted:
 		_memmapStream.movepos(diff);
 		break;
 
-	case Write_Encrypted: 
+	case Write_Encrypted:
 	case Write_NonEncrypted:
 		setpos(getpos() + diff);
 		break;
 
 	case Read_EncryptionUnknown:
-	default: 
+	default:
 		throw OutOfRangeError();
 	}
 }
@@ -349,9 +351,9 @@ void CipherStream::writeKey()
 {
 	_deadbe7a = 0xdeadbe7a;
 	_cipherBegPos = uint32_t(getpos());
-	ext::write(_filestream, &_deadbe7a, sizeof(_deadbe7a));
-	ext::write(_filestream, &_keySize, sizeof(_keySize));
-	ext::write(_filestream, _fileKey.get(), _keySize);
+	_filestream | ext::write(&_deadbe7a, sizeof(_deadbe7a));
+	_filestream | ext::write(&_keySize, sizeof(_keySize));
+	_filestream | ext::write(_fileKey.get(), _keySize);
 	_filestream.seekg(_filestream.tellp());
 	if (!_filestream.good())
 	{
@@ -366,7 +368,7 @@ void CipherStream::writeEncryptionEnd()
 	_filestream.seekp(0, std::ios::end);
 	const uintmax_t filesize = _filestream.tellp();
 	_cipherBegBackPos = uint32_t(filesize + sizeof(_cipherBegBackPos) - _cipherBegPos);
-	ext::write(_filestream, &_cipherBegBackPos, sizeof(_cipherBegBackPos));
+	_filestream | ext::write(&_cipherBegBackPos, sizeof(_cipherBegBackPos));
 
 	_filestream.seekg(_filestream.tellp());
 	if (!_filestream.good())
@@ -375,7 +377,7 @@ void CipherStream::writeEncryptionEnd()
 	}
 }
 
-void CipherStream::_cipher_magic()
+void CipherStream::_cipher_magic() const
 {
 #define ROTL(val, bits) (((val) << (bits)) | ((val) >> (32-(bits))))
 
