@@ -7,9 +7,51 @@
 #include "HWRM_BigFile.h"
 
 namespace po = boost::program_options;
+namespace fi = boost::filesystem;
+
+struct
+{
+	unsigned threadNum = std::thread::hardware_concurrency();
+	int compressLevel = 6;
+	bool keepSign = false;	
+	bool encryption = false;
+	std::vector<std::string> ignoreList;
+}options;
 
 int main(const int argc, char *argv[])
 {
+	//parse json
+	{
+		fi::ifstream configfile("archive_config.json");
+		if (!configfile)
+		{
+			std::cout << "Failed to read 'archive_config.json'. Using default settings..." << std::endl;
+		}
+		else
+		{		
+			try
+			{
+				Json::Value config;
+				configfile >> config;
+				if (0 != config.get("thread_number",0).asUInt())
+				{
+					options.threadNum = config.get("thread_number", 0).asUInt();
+				}
+				options.compressLevel = config.get("compress_level",6).asInt();
+				options.keepSign = config.get("keep_sign",false).asBool();
+				options.encryption = config.get("encryption",false).asBool();
+				for(auto &v: config.get("ignore_list", {}))
+				{
+					options.ignoreList.emplace_back(v.asString());
+				}
+			}
+			catch (Json::Exception& e)
+			{
+				std::cerr << "'archive_config.json' format invalid. Some settings may use default values:" << std::endl;
+				std::cerr << e.what() << std::endl;
+			}
+		}
+	}
 	//parse command line
 	po::options_description desc("LoneWolfArchiver.exe Usage");
 	desc.add_options()		
@@ -32,12 +74,13 @@ int main(const int argc, char *argv[])
 		(
 			"thread",
 			po::value<unsigned>()->value_name("<threadnumber>")->
-				default_value(std::thread::hardware_concurrency()),
+				default_value(options.threadNum),
 			"- Use <threadnumber> threads to compress or uncompress. Default value is system logic core number."
 		)
 		(
 			"level",
-			po::value<int>()->value_name("<compresslevel>")->default_value(6),
+			po::value<int>()->value_name("<compresslevel>")->
+				default_value(options.compressLevel),
 			"- compress level. Should be an integer between 0 and 9: 1 gives best speed, 9 gives best compression, 0 gives no compression at all. Default value is 6. (P.S. Relic's Archieve.exe uses level 9.)"
 		)
 		("allinone", "- When using --generate with --allinone, all locales and the data will be built into the same big file (as separated TOCs); otherwise, when using --generate without --allinone, all locales will be built into their own big files.")
@@ -76,6 +119,11 @@ int main(const int argc, char *argv[])
 		std::cout << "  LoneWolfArchiver -c filestoadd.txt -a newarchive.sga" << std::endl;
 		return 1;
 	}
+
+	options.threadNum = vm["thread"].as<unsigned>();
+	options.compressLevel = vm["level"].as<int>();
+	options.keepSign = options.keepSign || vm.count("sign");
+
 	if (!(
 			vm.count("create") || 
 			vm.count("generate") ||
@@ -105,18 +153,6 @@ int main(const int argc, char *argv[])
 	}
 
 	/************************/
-	bool encryption = false;
-	boost::filesystem::ifstream shojo("少女在河畔歌唱.txt");
-	if (shojo.is_open())
-	{
-		std::string magic;
-		getline(shojo, magic);
-		if (magic == "为这世界降下封印！")
-		{
-			encryption = true;
-		}
-	}
-	/************************/
 
 	//remember when do we begin
 	bool showTime = false;
@@ -127,7 +163,7 @@ int main(const int argc, char *argv[])
 		showTime = true;
 
 		BigFile file(vm["archive"].as<std::string>());
-		file.setCoreNum(vm["thread"].as<unsigned>());
+		file.setCoreNum(options.threadNum);
 		file.extract(vm["extract"].as<std::string>());
 	}
 	else if(vm.count("create"))
@@ -135,10 +171,10 @@ int main(const int argc, char *argv[])
 		showTime = true;
 		BigFile file(vm["archive"].as<std::string>(), Write);
 
-		file.setCompressLevel(vm["level"].as<int>());
-		file.setCoreNum(vm["thread"].as<unsigned>());
-		file.writeEncryption(encryption);
-		file.skipToolSignature(!vm.count("sign"));
+		file.setCompressLevel(options.compressLevel);
+		file.setCoreNum(options.threadNum);
+		file.writeEncryption(options.encryption);
+		file.skipToolSignature(!options.keepSign);
 
 		file.create(vm["root"].as<std::string>(), vm["create"].as<std::string>());
 	}
@@ -147,10 +183,10 @@ int main(const int argc, char *argv[])
 		showTime = true;
 		BigFile file;
 
-		file.setCompressLevel(vm["level"].as<int>());
-		file.setCoreNum(vm["thread"].as<unsigned>());
-		file.writeEncryption(encryption);
-		file.skipToolSignature(!vm.count("sign"));
+		file.setCompressLevel(options.compressLevel);
+		file.setCoreNum(options.threadNum);
+		file.writeEncryption(options.encryption);
+		file.skipToolSignature(!options.keepSign);
 
 		file.generate(
 			vm["archive"].as<std::string>(),
@@ -167,7 +203,7 @@ int main(const int argc, char *argv[])
 	{
 		showTime = true;
 		BigFile file(vm["archive"].as<std::string>());
-		file.setCoreNum(vm["thread"].as<unsigned>());
+		file.setCoreNum(options.threadNum);
 		file.testArchive();
 	}
 	else if(vm.count("hash"))

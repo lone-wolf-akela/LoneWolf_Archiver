@@ -105,6 +105,7 @@ public:
 	void setCompressLevel(int level);
 	void skipToolSignature(bool skip);
 	void writeEncryption(bool enc);
+	void setIgnoreList(std::vector<std::string> list);
 
 	void extract(boost::filesystem::path const &directory);
 	void listFiles(void);

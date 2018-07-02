@@ -3,40 +3,18 @@
 
 namespace ext
 {
-	struct read
+	inline auto read = boost::hof::pipable(
+		[](std::istream& s, void *dst, std::streamsize len)
+		-> std::istream&
 	{
-		read(void *dst, std::streamsize len):
-		dst(dst),len(len)
-		{}
-		void *dst;
-		std::streamsize len;
-	};
+		return s.read(static_cast<char*>(dst), len);
+	});
 
-	inline std::istream& operator|
-		(
-			std::istream& s,
-			read&& r
-		)
+	inline auto write = boost::hof::pipable(
+		[](std::ostream& s, const void *src, std::streamsize len)
+		->std::ostream&
 	{
-		return s.read(static_cast<char*>(r.dst), r.len);
-	}
-
-	struct write
-	{
-		write(const void *src, std::streamsize len) :
-			src(src), len(len)
-		{}
-		const void *src;
-		std::streamsize len;
-	};
-
-	inline std::ostream& operator|
-		(
-			std::ostream& s,
-			write&& w
-		)
-	{
-		return s.write(static_cast<const char*>(w.src), w.len);
-	}
+		return s.write(static_cast<const char*>(src), len);
+	});
 }
 

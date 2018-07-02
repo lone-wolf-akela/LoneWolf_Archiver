@@ -377,7 +377,7 @@ void CipherStream::writeEncryptionEnd()
 	}
 }
 
-void CipherStream::_cipher_magic() const
+void CipherStream::_cipher_magic()
 {
 #define ROTL(val, bits) (((val) << (bits)) | ((val) >> (32-(bits))))
 

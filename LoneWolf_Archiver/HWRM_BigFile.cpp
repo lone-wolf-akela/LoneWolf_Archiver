@@ -32,6 +32,11 @@ void BigFile::writeEncryption(bool enc)
 	_internal.writeEncryption(enc);
 }
 
+void BigFile::setIgnoreList(std::vector<std::string> list)
+{
+	_archiveIgnoreSet = list;
+}
+
 void BigFile::extract(boost::filesystem::path const &directory)
 {
 	_internal.extract(directory);
@@ -86,23 +91,9 @@ void BigFile::create(
 )
 {
 	//check ArchiveIgnore.txt
-	_archiveIgnoreSet.clear();
-	boost::filesystem::ifstream input("ArchiveIgnore.txt");
-	if(input.is_open())
+	for(std::string &line: _archiveIgnoreSet)
 	{
-		while (input.peek() != EOF)
-		{
-			std::string tmpStr;
-			getline(input, tmpStr);
-			if (!tmpStr.empty())
-			{
-				_archiveIgnoreSet.push_back(boost::to_lower_copy(tmpStr));
-			}
-		}
-	}
-	else
-	{
-		std::cout << "No ArchiveIgnore.txt Detected." << std::endl;
+		boost::to_lower(line);
 	}
 
 	std::cout << "Reading Build Config..." << std::endl;
@@ -339,18 +330,20 @@ void BigFile::generate(
 	std::vector<std::tuple<boost::filesystem::path, std::string>> buildTasks;	
 	
 	//get all locales from "locale" folder
-	for (
-		boost::filesystem::directory_iterator iter(root/"locale");
-		iter != boost::filesystem::directory_iterator();
-		++iter
-		)
+	if (is_directory(root / "locale"))
 	{
-		if (is_directory(*iter))
+		for (
+			boost::filesystem::directory_iterator iter(root / "locale");
+			iter != boost::filesystem::directory_iterator();
+			++iter
+			)
 		{
-			locales.push_back(system_complete(iter->path()));
+			if (is_directory(*iter))
+			{
+				locales.push_back(system_complete(iter->path()));
+			}
 		}
 	}
-	
 	//let's create the first build task which contains all things other than locales
 	std::string buildfilename = "buildfile.txt";
 	boost::filesystem::ofstream buildfile(buildfilename);

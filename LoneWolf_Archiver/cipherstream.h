@@ -40,7 +40,7 @@ public:
 	CipherStreamState getState(void) const;
 private:
 	void _cipherInit(void);	
-	void _cipher_magic(void) const;
+	void _cipher_magic(void);
 
 	CipherStreamState _state = Read_EncryptionUnknown;
 	MemMapFileStream _memmapStream;

@@ -18,16 +18,18 @@
 #include <random>
 #include <cstddef>
 
-
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/locale.hpp>
+#include <boost/hof.hpp>
 
 #include <zlib.h>
 
 #include <openssl/md5.h>
+
+#include <json/json.h>
 
 #include "exceptions.h"
 #include "ThreadPool/ThreadPool.h"
