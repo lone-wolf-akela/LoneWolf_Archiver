@@ -17,6 +17,8 @@
 #include <tuple>
 #include <random>
 #include <cstddef>
+#include <chrono>
+#include <typeinfo>
 
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/program_options.hpp>
@@ -37,3 +39,5 @@
 
 #define TOOL_SIG "E01519D6-2DB7-4640-AF54-0A23319C56C3"
 #define ARCHIVE_SIG "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF"
+
+using namespace std::chrono_literals;

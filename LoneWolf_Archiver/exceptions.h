@@ -43,3 +43,11 @@ public:
 		runtime_error(message)
 	{}
 };
+
+class FatalError : public std::runtime_error
+{
+public:
+	explicit FatalError(std::string const& message = "") :
+		runtime_error(message)
+	{}
+};

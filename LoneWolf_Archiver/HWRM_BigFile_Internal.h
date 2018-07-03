@@ -63,7 +63,7 @@ struct ArchiveHeader
 	//E01519D6-2DB7-4640-AF54-0A23319C56C3 + 除Archive_Header外所有部分的数据的MD5
 	std::byte toolSignature[16];
 
-	wchar_t archiveName[64];
+	char16_t archiveName[64];
 
 	//DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF + Archive_Header之后、exact file data之前的所有数据的MD5
 	std::byte archiveSignature[16];

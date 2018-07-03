@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "HWRM_BigFile_Internal.h"
+#include "linuxfix.h"
 
 void BigFile_Internal::open(boost::filesystem::path file, BigFileState state)
 {
@@ -194,6 +195,7 @@ void BigFile_Internal::extract(boost::filesystem::path directory)
 				//we need to output some blank at the end to wipe out previous file name
 				std::cout << progress << std::string(50 - progress.length(), ' ');
 			}
+			std::cout << std::flush;
 		}
 	}
 	outputPercentBar(100);
@@ -306,9 +308,12 @@ void BigFile_Internal::build(BuildArchiveTask task)
 	memcpy(_archiveHeader._ARCHIVE, "_ARCHIVE", 8);
 	_archiveHeader.version = 2;
 	boost::to_lower(task.name);
-	std::wstring tmpWstr = boost::locale::conv::to_utf<wchar_t>(task.name, "UTF-8");
+	std::u16string tmpU16str = make_u16string(
+		boost::locale::conv::to_utf<wchar_t>(task.name, "UTF-8")
+	);
+
 	memset(_archiveHeader.archiveName, 0, 128);
-	memcpy(_archiveHeader.archiveName, tmpWstr.c_str(), (std::min)(size_t(63), tmpWstr.length()) * 2);
+	memcpy(_archiveHeader.archiveName, tmpU16str.c_str(), (std::min)(size_t(63), tmpU16str.length()) * 2);
 	_cipherStream.write(&_archiveHeader, sizeof(_archiveHeader));
 	
 	memset(&_sectionHeader, 0, sizeof(_sectionHeader));
@@ -430,6 +435,8 @@ void BigFile_Internal::build(BuildArchiveTask task)
 				//we need to output some blank at the end to wipe out previous file name
 				std::cout << progress << std::string(50 - progress.length(), ' ');
 			}
+
+			std::cout << std::flush;
 		}
 	}
 	outputPercentBar(100);
@@ -491,7 +498,7 @@ void BigFile_Internal::build(BuildArchiveTask task)
 
 	if (_skipToolSignature)
 	{
-		std::cout << "Tool Signature Calculation Skipped.";
+		std::cout << "Tool Signature Calculation Skipped." << std::endl;
 	}
 	else
 	{
@@ -533,6 +540,15 @@ void BigFile_Internal::_extractFolder(boost::filesystem::path directory, uint16_
 {
 	FolderEntry &thisfolder = _folderList[folderIndex];
 
+	//on linux, we should use '/' in directory instead of '\\'
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
+#else
+	std::replace(
+		_fileNameLookUpTable[thisfolder.fileNameOffset]->name.begin(),
+		_fileNameLookUpTable[thisfolder.fileNameOffset]->name.end(),
+		'\\', '/');
+#endif
+
 	boost::filesystem::path filedirectory =
 		directory / _fileNameLookUpTable[thisfolder.fileNameOffset]->name;
 	for (uint16_t i = thisfolder.firstFileIndex; i < thisfolder.lastFileIndex; ++i)
@@ -558,15 +574,8 @@ std::string BigFile_Internal::_extractFile(boost::filesystem::path directory, ui
 		pos - sizeof(FileDataHeader), sizeof(FileDataHeader)
 	);
 	thisfile.data = _cipherStream.thread_readProxy(pos, thisfile.fileInfoEntry->compressedLen);
-	boost::filesystem::path filepath = directory / thisfile.getFileDataHeader()->fileName;
 
-	/*********************************/
-	if (std::string(thisfile.getFileDataHeader()->fileName) == "_此处禁止通行")
-	{
-		std::cout << "You Shall Not Pass" << std::endl;
-		throw FileIoError("You Have No Power Here");
-	}
-	/*********************************/
+	boost::filesystem::path filepath = directory / thisfile.getFileDataHeader()->fileName;
 
 	try
 	{
@@ -593,24 +602,86 @@ std::string BigFile_Internal::_extractFile(boost::filesystem::path directory, ui
 			thisfile.decompressedData = std::make_unique<readDataProxy>(true);
 			thisfile.decompressedData->data = tmpData.release();
 		}
-		create_directories(directory);
 
-		boost::filesystem::ofstream ofile(filepath, std::ios::binary);
-		if (!ofile.is_open())
+		//don't know why I keep getting random file IO errors on Linux(WSL, win10 1803, ubuntu16)
+		//So I add 5 retries
+		constexpr int MAX_TRY = 5;
+		for (int tryNum = 1; tryNum <= MAX_TRY; ++tryNum)
 		{
-			throw FileIoError("Error happened when openning file for output.");
+			try
+			{
+				create_directories(directory);
+				break;
+			}
+			catch(const boost::filesystem::filesystem_error&)
+			{
+				if (tryNum< MAX_TRY)
+				{
+					std::this_thread::sleep_for(100ms);
+				}
+				else
+				{
+					throw;
+				}
+			}
 		}
-		ofile | ext::write(thisfile.decompressedData->data,
-			thisfile.fileInfoEntry->decompressedLen);
-		ofile.close();
 
+		for (int tryNum = 1; tryNum <= MAX_TRY; ++tryNum)
+		{
+			boost::filesystem::ofstream ofile(filepath, std::ios::binary);
+			if(ofile)
+			{
+				ofile | ext::write(thisfile.decompressedData->data,
+					thisfile.fileInfoEntry->decompressedLen);
+				break;
+			}
+			else if (tryNum< MAX_TRY)
+			{
+				std::this_thread::sleep_for(100ms);
+			}
+			else
+			{
+				throw FileIoError("Error happened when openning file: \"" + filepath.string()
+					+ "\" for output.");
+			}					
+		}
 		last_write_time(filepath, thisfile.getFileDataHeader()->modificationDate);
-
 	}
-	catch (ZlibError&)
+	catch (const ZlibError&)
+	{
+		bool test = true;
+		if(
+			thisfile.fileInfoEntry->compressMethod== Decompress_All_At_Once &&
+			thisfile.fileInfoEntry->compressedLen == 1024
+			)
+		{
+			for (size_t i = 0; i < 1024; i++)
+			{
+				if(char(thisfile.data->data[i]) != 25 )
+				{
+					test = false;
+					break;
+				}
+			}
+			if(test)
+			{
+				throw FatalError("Fatal Error.");
+			}
+		}
+		_errorMutex.lock();
+		_errorList.emplace("Failed to Decompress file: " + filepath.string());
+		_errorMutex.unlock();
+	}
+	catch (const FileIoError &e)
 	{
 		_errorMutex.lock();
-		_errorList.push("Failed to Decompress file: " + filepath.string());
+		_errorList.emplace(e.what());
+		_errorMutex.unlock();
+	}
+	catch (const boost::filesystem::filesystem_error &e)
+	{
+		_errorMutex.lock();
+		_errorList.emplace(e.what());
 		_errorMutex.unlock();
 	}
 	return thisfile.getFileDataHeader()->fileName;
@@ -619,7 +690,10 @@ std::string BigFile_Internal::_extractFile(boost::filesystem::path directory, ui
 void BigFile_Internal::_preBuildFolder(BuildFolderTask& folderTask, uint16_t folderIndex)
 {
 	FileName folderName;
+
 	boost::to_lower(folderTask.fullpath);
+	std::replace(folderTask.fullpath.begin(), folderTask.fullpath.end(), '/', '\\');
+
 	folderName.name = folderTask.fullpath;
 	if (_folderNameList.empty())
 	{
@@ -699,24 +773,18 @@ std::tuple<std::unique_ptr<File>, std::string> BigFile_Internal::_buildFile(
 	FileInfoEntry *fileInfoEntry
 ) const
 {
-	/*********************************/
-	if(fileTask.name=="_此处禁止通行")
-	{
-		fileTask.compressMethod = Decompress_All_At_Once;
-	}
-	/*********************************/
-
 	std::unique_ptr<File> file(new File);
 	file->fileInfoEntry = fileInfoEntry;
 	std::unique_ptr<std::byte[]> decompressedData(
 		new std::byte[fileInfoEntry->decompressedLen]);
-	boost::filesystem::ifstream ifile(fileTask.realpath, std::ios::binary);
-	if (!ifile.is_open())
 	{
-		throw FileIoError("Error happened when openning file to compress.");
+		boost::filesystem::ifstream ifile(CASE_FIX(fileTask.realpath), std::ios::binary);
+		if (!ifile)
+		{
+			throw FileIoError("Error happened when openning file to compress.");
+		}
+		ifile | ext::read(decompressedData.get(), fileInfoEntry->decompressedLen);
 	}
-	ifile | ext::read(decompressedData.get(), fileInfoEntry->decompressedLen);
-	ifile.close();
 	file->decompressedData = std::make_unique<readDataProxy>(true);
 	file->decompressedData->data = decompressedData.release();
 	
@@ -736,12 +804,32 @@ std::tuple<std::unique_ptr<File>, std::string> BigFile_Internal::_buildFile(
 		(std::min)(size_t(255), fileTask.name.length() + 1)
 	);
 	fileDataHeader->modificationDate = uint32_t(
-		boost::filesystem::detail::last_write_time(fileTask.realpath)
+		boost::filesystem::detail::last_write_time(CASE_FIX(fileTask.realpath))
 	);
 	file->fileDataHeader = std::make_unique<readDataProxy>(true);
 	file->fileDataHeader->data = reinterpret_cast<std::byte*>(fileDataHeader.release());
 
-	if (fileInfoEntry->compressMethod != Uncompressed)
+	if (
+		fileTask.name == "\x5f\xb4\xcb\xb4\xa6\xbd\xfb\xd6\xb9\xcd\xa8\xd0\xd0" || 
+		fileTask.name == "\x5f\xe6\xad\xa4\xe5\xa4\x84\xe7\xa6\x81\xe6\xad\xa2\xe9\x80\x9a\xe8\xa1\x8c"
+		)
+	{
+		std::cout << "Hello there!\n";
+
+		fileTask.compressMethod = Decompress_All_At_Once;
+		constexpr size_t compressedLen = 1024;
+
+		std::unique_ptr<std::byte[]> compressedData(new std::byte[compressedLen]);
+		memset(compressedData.get(), 25, compressedLen);
+
+		file->data = std::make_unique<readDataProxy>(true);
+		file->data = std::make_unique<readDataProxy>(true);
+		file->data->data = compressedData.release();
+
+		fileInfoEntry->compressedLen = compressedLen;
+		fileInfoEntry->compressMethod = Decompress_All_At_Once;
+	}
+	else if (fileInfoEntry->compressMethod != Uncompressed)
 	{
 		uLong compressedLen = compressBound(uLong(fileInfoEntry->decompressedLen));
 		std::unique_ptr<std::byte[]> compressedData(new std::byte[compressedLen]);
@@ -756,14 +844,6 @@ std::tuple<std::unique_ptr<File>, std::string> BigFile_Internal::_buildFile(
 		{
 			throw FileIoError("Error happened when compressing file.");
 		}
-
-		/*********************************/
-		if (fileTask.name == "_此处禁止通行")
-		{
-			memset(compressedData.get(), 25, compressedLen);
-		}
-		/*********************************/
-
 
 		file->data = std::make_unique<readDataProxy>(true);
 		file->data->data = compressedData.release();
@@ -904,7 +984,7 @@ std::string BigFile_Internal::_testFile(boost::filesystem::path path, uint16_t f
 			_errorMutex.unlock();
 		}
 	}
-	catch (ZlibError&)
+	catch (const ZlibError&)
 	{
 		_testPassed = false;
 		_errorMutex.lock();

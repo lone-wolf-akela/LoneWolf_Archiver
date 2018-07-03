@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "HWRM_BigFile.h"
+#include "linuxfix.h"
 
 void BigFile::open(boost::filesystem::path const &file, BigFileState state)
 {
@@ -120,18 +121,14 @@ void BigFile::create(
 
 		boost::filesystem::path tocRootPath(root);
 
-		//though there seems no problem, I guess I'd still make sure the path ends with '\' or '/'
-		if (
-			!tocSet.relativeroot.empty() &&
-			tocSet.relativeroot.back() != '\\'&&
-			tocSet.relativeroot.back() != '/'
-			)
-		{
-			tocSet.relativeroot += '\\';
-		}
-
+		//on linux, we should use '/' in relativeroot instead of '\\'
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
+#else
+		std::replace(tocSet.relativeroot.begin(), tocSet.relativeroot.end(), '\\', '/');
+#endif
 		tocRootPath /= tocSet.relativeroot;
 		tocRootPath = system_complete(tocRootPath);
+		tocRootPath = boost::to_lower_copy(tocRootPath.wstring());
 
 		for (std::wstring &file : tocSet.files)
 		{
@@ -140,7 +137,7 @@ void BigFile::create(
 			fileTask.realpath = system_complete(fileTask.realpath);
 			fileTask.name = boost::to_lower_copy(fileTask.realpath.filename().string());
 
-			fileTask.filesize = uint32_t(file_size(fileTask.realpath));
+			fileTask.filesize = uint32_t(file_size(CASE_FIX(fileTask.realpath)));
 			fileTask.compressMethod = tocSet.defcompression;
 
 			bool skipfile = false;
@@ -213,8 +210,12 @@ void BigFile::create(
 				fileTask.compressMethod = Uncompressed;
 			}
 
-			boost::filesystem::path relativePath = relative(fileTask.realpath, tocRootPath);
+			boost::filesystem::path relativePath = boost::filesystem::relative(
+				boost::to_lower_copy(fileTask.realpath.wstring()),
+				boost::to_lower_copy(tocRootPath.wstring())
+			);
 			relativePath = relativePath.remove_filename();
+
 			BuildFolderTask *currentFolder = &tocTask.rootFolderTask;
 
 			boost::filesystem::path currentPath("");
@@ -345,86 +346,86 @@ void BigFile::generate(
 		}
 	}
 	//let's create the first build task which contains all things other than locales
-	std::string buildfilename = "buildfile.txt";
-	boost::filesystem::ofstream buildfile(buildfilename);
-	buildTasks.emplace_back(file, buildfilename);
-	if (!buildfile.is_open())
 	{
-		throw FileIoError("Error happened when creating buildfile config.");
-	}	
-
-	//first data buildfile
-	buildfile << "Archive name=\"MOD" << modName << "\"" << std::endl;
-	buildfile << "TOCStart name=\"TOCMOD" << modName
-		<< "\" alias=\"Data\" relativeroot=\"\"" << std::endl;
-	buildfile << fileSettingStr;
-
-	//find all files except locales
-	std::vector<boost::filesystem::path> allFiles = getAllFileNames(root);
-	for (boost::filesystem::path &dataFile : allFiles)
-	{
-		dataFile = system_complete(dataFile);
-		bool isLocale = false;
-		//find if it's one of the locales
-		for (boost::filesystem::path &locale : locales)
+		std::string buildfilename = "buildfile.txt";
+		boost::filesystem::ofstream buildfile(buildfilename);
+		buildTasks.emplace_back(file, buildfilename);
+		if (!buildfile)
 		{
-			if(boost::istarts_with(dataFile.string(), locale.string()))
-			{
-				isLocale = true;
-				break;
-			}
+			throw FileIoError("Error happened when creating buildfile config.");
 		}
-		if (!isLocale)
-		{
-			//make sure we use UTF-8 here
-			buildfile << boost::locale::conv::from_utf(system_complete(dataFile).wstring(), "UTF-8")
-				<< std::endl;
-		}
-	}
-	buildfile << "TOCEnd" << std::endl;
 
-	//now deal with locales
-	for(boost::filesystem::path &locale : locales)
-	{
-		//locale name is the last element in the path
-		//its a little strange that boost::filesystem::path has no back() member,
-		//so I use locale.rbegin()
-		const std::string localeName = locale.rbegin()->string();
-		
-		//if not all in one, then every locale should be a new build files
-		//or it just needs to be a new TOC entry
-		if(!allInOne)
-		{
-			buildfile.close();
-			buildfilename = "buildfile_" + localeName + ".txt";
-			
-			//locale .big files has the same path but different name with the main .big
-			file = file.remove_filename() / (localeName + ".big");
-			buildTasks.emplace_back(file, buildfilename);
-
-			buildfile.open(buildfilename);
-			if (!buildfile.is_open())
-			{
-				throw FileIoError("Error happened when creating buildfile config.");
-			}
-			buildfile << "Archive name=\"MOD" << modName << localeName << "\"" << std::endl;
-		}
-		buildfile << "TOCStart name=\"TOCMOD" << modName << localeName
-			<< "\" alias=\"Locale\" relativeroot=\"Locale\\" << localeName << "\"" << std::endl;
+		//first data buildfile
+		buildfile << "Archive name=\"MOD" << modName << "\"" << std::endl;
+		buildfile << "TOCStart name=\"TOCMOD" << modName
+			<< "\" alias=\"Data\" relativeroot=\"\"" << std::endl;
 		buildfile << fileSettingStr;
 
-		//find all files in this locale
-		std::vector<boost::filesystem::path> allLocaleFiles = getAllFileNames(locale);
-		for (boost::filesystem::path &localeFile : allLocaleFiles)
+		//find all files except locales
+		std::vector<boost::filesystem::path> allFiles = getAllFileNames(root);
+		for (boost::filesystem::path &dataFile : allFiles)
 		{
-			//use UTF-8!
-			buildfile << boost::locale::conv::from_utf(system_complete(localeFile).wstring(), "UTF-8")
-				<< std::endl;
+			dataFile = system_complete(dataFile);
+			bool isLocale = false;
+			//find if it's one of the locales
+			for (boost::filesystem::path &locale : locales)
+			{
+				if (boost::istarts_with(dataFile.string(), locale.string()))
+				{
+					isLocale = true;
+					break;
+				}
+			}
+			if (!isLocale)
+			{
+				//make sure we use UTF-8 here
+				buildfile << boost::locale::conv::from_utf(system_complete(dataFile).wstring(), "UTF-8")
+					<< std::endl;
+			}
 		}
 		buildfile << "TOCEnd" << std::endl;
-	}
-	buildfile.close();
 
+		//now deal with locales
+		for (boost::filesystem::path &locale : locales)
+		{
+			//locale name is the last element in the path
+			//its a little strange that boost::filesystem::path has no back() member,
+			//so I use locale.rbegin()
+			const std::string localeName = locale.rbegin()->string();
+
+			//if not all in one, then every locale should be a new build files
+			//or it just needs to be a new TOC entry
+			if (!allInOne)
+			{
+				buildfile.close();
+				buildfilename = "buildfile_" + localeName + ".txt";
+
+				//locale .big files has the same path but different name with the main .big
+				file = file.remove_filename() / (localeName + ".big");
+				buildTasks.emplace_back(file, buildfilename);
+
+				buildfile.open(buildfilename);
+				if (!buildfile)
+				{
+					throw FileIoError("Error happened when creating buildfile config.");
+				}
+				buildfile << "Archive name=\"MOD" << modName << localeName << "\"" << std::endl;
+			}
+			buildfile << "TOCStart name=\"TOCMOD" << modName << localeName
+				<< "\" alias=\"Locale\" relativeroot=\"Locale\\" << localeName << "\"" << std::endl;
+			buildfile << fileSettingStr;
+
+			//find all files in this locale
+			std::vector<boost::filesystem::path> allLocaleFiles = getAllFileNames(locale);
+			for (boost::filesystem::path &localeFile : allLocaleFiles)
+			{
+				//use UTF-8!
+				buildfile << boost::locale::conv::from_utf(system_complete(localeFile).wstring(), "UTF-8")
+					<< std::endl;
+			}
+			buildfile << "TOCEnd" << std::endl;
+		}
+	}
 	//with all build configs prepared, let's actually begin create our .big files
 	for (auto &buildTask : buildTasks)
 	{
@@ -516,7 +517,7 @@ void BigFile::_parseBuildfile(boost::filesystem::path buildfile)
 	_buildArchiveSetting.buildTOCSetting.clear();
 	
 	boost::filesystem::ifstream input(buildfile);
-	if (!input.is_open())
+	if (!input)
 	{
 		throw FileIoError("Error happened when openning buildfile.");
 	}
@@ -614,5 +615,4 @@ void BigFile::_parseBuildfile(boost::filesystem::path buildfile)
 			_buildArchiveSetting.buildTOCSetting.push_back(thisTOC);
 		}
 	}
-	input.close();
 }

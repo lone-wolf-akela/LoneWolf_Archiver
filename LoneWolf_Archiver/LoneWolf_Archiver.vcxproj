@@ -181,6 +181,7 @@ copy Drag_Folder_Here_to_Make_an_Archive.bat $(TargetDir)
     <ClInclude Include="filestream.h" />
     <ClInclude Include="HWRM_BigFile.h" />
     <ClInclude Include="HWRM_BigFile_Internal.h" />
+    <ClInclude Include="linuxfix.h" />
     <ClInclude Include="memmapfilestream.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="ThreadPool\ThreadPool.h" />
@@ -189,6 +190,7 @@ copy Drag_Folder_Here_to_Make_an_Archive.bat $(TargetDir)
     <ClCompile Include="cipherstream.cpp" />
     <ClCompile Include="HWRM_BigFile.cpp" />
     <ClCompile Include="HWRM_BigFile_Internal.cpp" />
+    <ClCompile Include="linuxfix.cpp" />
     <ClCompile Include="LoneWolfArchiver.cpp" />
     <ClCompile Include="memmapfilestream.cpp" />
     <ClCompile Include="stdafx.cpp">

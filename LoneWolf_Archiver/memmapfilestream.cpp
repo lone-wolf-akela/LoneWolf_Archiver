@@ -11,7 +11,7 @@ void MemMapFileStream::open(boost::filesystem::path const &file)
 	params.flags = boost::iostreams::mapped_file::mapmode::readonly;
 	_filesrc.open(params);
 
-	if (!_filesrc.is_open())
+	if (!_filesrc)
 	{
 		throw FileIoError("Error happened when opening file for memory mapping.");
 	}

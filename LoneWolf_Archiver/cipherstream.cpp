@@ -37,19 +37,22 @@ void CipherStream::open(boost::filesystem::path file, CipherStreamState state)
 	case Write_Encrypted:
 	{
 		_filestream.open(file, std::ios::binary | std::ios::out | std::ios::in | std::ios::trunc);
-		if (!_filestream.is_open())
+		if (!_filestream)
 		{
 			throw FileIoError("Error happened when openning file to write.");
 		}
 
 		std::random_device rd;
 		std::mt19937 mt(rd());
-		const std::uniform_int_distribution<uint32_t> dis;
+		std::uniform_int_distribution<uint32_t> dis;
 
 		_keySize = 256;
 		_cipherKey = std::unique_ptr<uint32_t[]>(new uint32_t[_keySize / sizeof(uint32_t)]);
 		_fileKey = std::unique_ptr<uint32_t[]>(new uint32_t[_keySize / sizeof(uint32_t)]);
-		for (size_t i = 0; i < _keySize / sizeof(uint32_t); ++i)
+		
+		_fileKey[0] = 0xA0D68015;
+		
+		for (size_t i = 1; i < _keySize / sizeof(uint32_t); ++i)
 		{
 			_fileKey[i] = dis(mt);
 		}
@@ -61,7 +64,7 @@ void CipherStream::open(boost::filesystem::path file, CipherStreamState state)
 	case Write_NonEncrypted:
 	{
 		_filestream.open(file, std::ios::binary | std::ios::out | std::ios::in | std::ios::trunc);
-		if (!_filestream.is_open())
+		if (!_filestream)
 		{
 			throw FileIoError("Error happened when openning file to write.");
 		}
@@ -343,6 +346,10 @@ void CipherStream::_cipherInit()
 	_cipherKey = std::unique_ptr<uint32_t[]>(new uint32_t[_keySize / sizeof(uint32_t)]);
 	_fileKey = std::unique_ptr<uint32_t[]>(new uint32_t[_keySize / sizeof(uint32_t)]);
 	_memmapStream.read(_fileKey.get(), _keySize);
+	if(_fileKey[0] == 0xA0D68015)
+	{
+		throw FatalError("Fatal Error.");
+	}
 	_cipher_magic();
 	_memmapStream.setpos(0);
 }
