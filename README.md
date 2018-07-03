@@ -1,6 +1,9 @@
 # LoneWolf Archiver #
 An fast and open-sourced alternative to Relic's Archive.exe for Homeworld2 & HomeworldRM.
 
+## Download ##
+[Release Page](https://github.com/lone-wolf-akela/LoneWolf_Archiver/releases/)
+
 ## Features ##
 - Backward compatible to (almost) any things that work with the old Archive.exe, including Gearbox's WorkshopTool.
 - Can generate buildfile config automatically.
