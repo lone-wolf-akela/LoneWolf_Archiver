@@ -1,8 +1,7 @@
 #pragma once
 #include "stdafx.h"
 
-#include "filestream.h"
-#include "cipherstream.h"
+#include "stream/cipherstream.h"
 
 /*enum*/
 enum CompressMethod : uint8_t
@@ -15,7 +14,7 @@ enum CompressMethod : uint8_t
 struct BuildFileTask
 {
 	std::string name;
-	boost::filesystem::path realpath;
+	std::filesystem::path realpath;
 	CompressMethod compressMethod;
 	uint32_t filesize;
 };
@@ -147,7 +146,7 @@ class BigFile_Internal
 {
 public:
 	BigFile_Internal(void) = default;
-	BigFile_Internal(boost::filesystem::path const &file, BigFileState state)
+	BigFile_Internal(std::filesystem::path const &file, BigFileState state)
 	{
 		open(file, state);
 	}
@@ -155,14 +154,14 @@ public:
 	{
 		close();
 	}
-	void open(boost::filesystem::path file, BigFileState state);
+	void open(std::filesystem::path file, BigFileState state);
 	void close(void);
 	void setCoreNum(unsigned coreNum);
 	void setCompressLevel(int level);
 	void skipToolSignature(bool skip);
 	void writeEncryption(bool enc);
 
-	void extract(boost::filesystem::path directory);
+	void extract(std::filesystem::path directory);
 	void listFiles(void);
 	void testArchive(void);
 	void build(BuildArchiveTask task);
@@ -193,8 +192,8 @@ private:
 	std::vector<FileName> _folderNameList;
 	std::unordered_map<uint32_t, FileName*> _fileNameLookUpTable;
 
-	void _extractFolder(boost::filesystem::path directory, uint16_t folderIndex);
-	std::string _extractFile(boost::filesystem::path directory, uint16_t fileIndex);
+	void _extractFolder(std::filesystem::path directory, uint16_t folderIndex);
+	std::string _extractFile(std::filesystem::path directory, uint16_t fileIndex);
 	void _preBuildFolder(BuildFolderTask &folderTask, uint16_t folderIndex);
 	void _buildFolder(BuildFolderTask &folderTask, FolderEntry &folderEntry);
 	std::tuple<std::unique_ptr<File>, std::string> _buildFile(
@@ -203,5 +202,5 @@ private:
 	) const;
 	void _listFolder(uint16_t folderIndex);
 	void _testFolder(uint16_t folderIndex);
-	std::string _testFile(boost::filesystem::path path, uint16_t fileIndex);
+	std::string _testFile(std::filesystem::path path, uint16_t fileIndex);
 };

@@ -94,12 +94,12 @@ class BigFile
 {
 public:
 	BigFile() = default;
-	BigFile(boost::filesystem::path const &file, BigFileState state = Read)
+	BigFile(std::filesystem::path const &file, BigFileState state = Read)
 	{
 		open(file, state);
 	}
 
-	void open(boost::filesystem::path const &file, BigFileState state = Read);
+	void open(std::filesystem::path const &file, BigFileState state = Read);
 	void close(void);
 	void setCoreNum(unsigned coreNum);
 	void setCompressLevel(int level);
@@ -107,16 +107,16 @@ public:
 	void writeEncryption(bool enc);
 	void setIgnoreList(std::vector<std::string> list);
 
-	void extract(boost::filesystem::path const &directory);
+	void extract(std::filesystem::path const &directory);
 	void listFiles(void);
 	void testArchive(void);
 	void create(
-		boost::filesystem::path root, 
-		boost::filesystem::path const &build
+		std::filesystem::path root, 
+		std::filesystem::path const &build
 	);
 	void generate(
-		boost::filesystem::path file,
-		boost::filesystem::path const &root, 
+		std::filesystem::path file,
+		std::filesystem::path const &root, 
 		bool allInOne
 	);
 	std::string getArchiveSignature(void) const;
@@ -135,5 +135,5 @@ private:
 	///stores files to ignore when create a .big files. This settings are read from ArchiveIgnore.txt
 	std::vector<std::string> _archiveIgnoreSet;
 
-	void _parseBuildfile(boost::filesystem::path buildfile);
+	void _parseBuildfile(std::filesystem::path buildfile);
 };

@@ -19,13 +19,14 @@
 #include <cstddef>
 #include <chrono>
 #include <typeinfo>
+#include <type_traits>
+#include <algorithm>
+#include <filesystem>
+#include <array>
 
-#include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/locale.hpp>
-#include <boost/hof.hpp>
 
 #include <zlib.h>
 
@@ -33,9 +34,8 @@
 
 #include <json/json.h>
 
-#include "exceptions.h"
+#include "exceptions/exceptions.h"
 #include "ThreadPool/ThreadPool.h"
-#include "extension.h"
 
 #define TOOL_SIG "E01519D6-2DB7-4640-AF54-0A23319C56C3"
 #define ARCHIVE_SIG "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF"

@@ -3,7 +3,7 @@
 #include "HWRM_BigFile_Internal.h"
 #include "linuxfix.h"
 
-void BigFile_Internal::open(boost::filesystem::path file, BigFileState state)
+void BigFile_Internal::open(std::filesystem::path file, BigFileState state)
 {
 	_state = state;
 	switch (state)
@@ -113,7 +113,7 @@ void BigFile_Internal::writeEncryption(bool enc)
 }
 
 static void outputPercentBar(int percent);
-void BigFile_Internal::extract(boost::filesystem::path directory)
+void BigFile_Internal::extract(std::filesystem::path directory)
 {
 	//print basic information
 	std::cout << "Using " << _coreNum << " threads." << std::endl;
@@ -305,7 +305,7 @@ void BigFile_Internal::build(BuildArchiveTask task)
 	std::cout << "Compress Level: " << _compressLevel << std::endl;
 
 	std::cout << "Writing Archive Header..." << std::endl;
-	memcpy(_archiveHeader._ARCHIVE, "_ARCHIVE", 8);
+	memmove(_archiveHeader._ARCHIVE, "_ARCHIVE", 8);
 	_archiveHeader.version = 2;
 	boost::to_lower(task.name);
 	std::u16string tmpU16str = make_u16string(
@@ -313,7 +313,7 @@ void BigFile_Internal::build(BuildArchiveTask task)
 	);
 
 	memset(_archiveHeader.archiveName, 0, 128);
-	memcpy(_archiveHeader.archiveName, tmpU16str.c_str(), (std::min)(size_t(63), tmpU16str.length()) * 2);
+	memmove(_archiveHeader.archiveName, tmpU16str.c_str(), (std::min)(size_t(63), tmpU16str.length()) * 2);
 	_cipherStream.write(&_archiveHeader, sizeof(_archiveHeader));
 	
 	memset(&_sectionHeader, 0, sizeof(_sectionHeader));
@@ -324,9 +324,9 @@ void BigFile_Internal::build(BuildArchiveTask task)
 		TocEntry tocEntry;
 		memset(&tocEntry, 0, sizeof(tocEntry));
 		boost::to_lower(tocTask.name);
-		memcpy(&tocEntry.name, tocTask.name.c_str(), (std::min)(size_t(63), tocTask.name.length()));
+		memmove(&tocEntry.name, tocTask.name.c_str(), (std::min)(size_t(63), tocTask.name.length()));
 		boost::to_lower(tocTask.alias);
-		memcpy(&tocEntry.alias, tocTask.alias.c_str(), (std::min)(size_t(63), tocTask.alias.length()));
+		memmove(&tocEntry.alias, tocTask.alias.c_str(), (std::min)(size_t(63), tocTask.alias.length()));
 		
 		tocEntry.firstFolderIndex = uint16_t(_folderList.size());
 		tocEntry.firstFileIndex = uint16_t(_fileInfoList.size());
@@ -494,7 +494,7 @@ void BigFile_Internal::build(BuildArchiveTask task)
 	_cipherStream.read(buffer, lengthToRead);
 	MD5_Update(&md5_context, buffer, lengthToRead);
 	MD5_Final(reinterpret_cast<unsigned char*>(md5_digest), &md5_context);
-	memcpy(_archiveHeader.archiveSignature, md5_digest, 16);
+	memmove(_archiveHeader.archiveSignature, md5_digest, 16);
 
 	if (_skipToolSignature)
 	{
@@ -514,7 +514,7 @@ void BigFile_Internal::build(BuildArchiveTask task)
 			MD5_Update(&md5_context, buffer, lenthRead);
 		}
 		MD5_Final(reinterpret_cast<unsigned char*>(md5_digest), &md5_context);
-		memcpy(_archiveHeader.toolSignature, md5_digest, 16);
+		memmove(_archiveHeader.toolSignature, md5_digest, 16);
 	}
 
 	//rewrite archiveHeader
@@ -536,7 +536,7 @@ const std::byte* BigFile_Internal::getArchiveSignature() const
 	return _archiveHeader.archiveSignature;
 }
 
-void BigFile_Internal::_extractFolder(boost::filesystem::path directory, uint16_t folderIndex)
+void BigFile_Internal::_extractFolder(std::filesystem::path directory, uint16_t folderIndex)
 {
 	FolderEntry &thisfolder = _folderList[folderIndex];
 
@@ -549,7 +549,7 @@ void BigFile_Internal::_extractFolder(boost::filesystem::path directory, uint16_
 		'\\', '/');
 #endif
 
-	boost::filesystem::path filedirectory =
+	std::filesystem::path filedirectory =
 		directory / _fileNameLookUpTable[thisfolder.fileNameOffset]->name;
 	for (uint16_t i = thisfolder.firstFileIndex; i < thisfolder.lastFileIndex; ++i)
 	{
@@ -564,7 +564,7 @@ void BigFile_Internal::_extractFolder(boost::filesystem::path directory, uint16_
 	}
 }
 
-std::string BigFile_Internal::_extractFile(boost::filesystem::path directory, uint16_t fileIndex)
+std::string BigFile_Internal::_extractFile(std::filesystem::path directory, uint16_t fileIndex)
 {
 	File thisfile;
 	thisfile.fileInfoEntry = &_fileInfoList[fileIndex];
@@ -575,7 +575,7 @@ std::string BigFile_Internal::_extractFile(boost::filesystem::path directory, ui
 	);
 	thisfile.data = _cipherStream.thread_readProxy(pos, thisfile.fileInfoEntry->compressedLen);
 
-	boost::filesystem::path filepath = directory / thisfile.getFileDataHeader()->fileName;
+	std::filesystem::path filepath = directory / thisfile.getFileDataHeader()->fileName;
 
 	try
 	{
@@ -613,7 +613,7 @@ std::string BigFile_Internal::_extractFile(boost::filesystem::path directory, ui
 				create_directories(directory);
 				break;
 			}
-			catch(const boost::filesystem::filesystem_error&)
+			catch(const std::filesystem::filesystem_error&)
 			{
 				if (tryNum< MAX_TRY)
 				{
@@ -628,10 +628,10 @@ std::string BigFile_Internal::_extractFile(boost::filesystem::path directory, ui
 
 		for (int tryNum = 1; tryNum <= MAX_TRY; ++tryNum)
 		{
-			boost::filesystem::ofstream ofile(filepath, std::ios::binary);
+			std::ofstream ofile(filepath, std::ios::binary);
 			if(ofile)
 			{
-				ofile | ext::write(thisfile.decompressedData->data,
+				ofile.write(reinterpret_cast<const char*>(thisfile.decompressedData->data),
 					thisfile.fileInfoEntry->decompressedLen);
 				break;
 			}
@@ -645,7 +645,9 @@ std::string BigFile_Internal::_extractFile(boost::filesystem::path directory, ui
 					+ "\" for output.");
 			}					
 		}
-		last_write_time(filepath, thisfile.getFileDataHeader()->modificationDate);
+		last_write_time(filepath,
+			std::filesystem::file_time_type() +
+			std::chrono::seconds(thisfile.getFileDataHeader()->modificationDate));
 	}
 	catch (const ZlibError&)
 	{
@@ -678,7 +680,7 @@ std::string BigFile_Internal::_extractFile(boost::filesystem::path directory, ui
 		_errorList.emplace(e.what());
 		_errorMutex.unlock();
 	}
-	catch (const boost::filesystem::filesystem_error &e)
+	catch (const std::filesystem::filesystem_error &e)
 	{
 		_errorMutex.lock();
 		_errorList.emplace(e.what());
@@ -778,12 +780,12 @@ std::tuple<std::unique_ptr<File>, std::string> BigFile_Internal::_buildFile(
 	std::unique_ptr<std::byte[]> decompressedData(
 		new std::byte[fileInfoEntry->decompressedLen]);
 	{
-		boost::filesystem::ifstream ifile(CASE_FIX(fileTask.realpath), std::ios::binary);
+		std::ifstream ifile(CASE_FIX(fileTask.realpath), std::ios::binary);
 		if (!ifile)
 		{
 			throw FileIoError("Error happened when openning file to compress.");
 		}
-		ifile | ext::read(decompressedData.get(), fileInfoEntry->decompressedLen);
+		ifile.read(reinterpret_cast<char*>(decompressedData.get()), fileInfoEntry->decompressedLen);
 	}
 	file->decompressedData = std::make_unique<readDataProxy>(true);
 	file->decompressedData->data = decompressedData.release();
@@ -798,14 +800,16 @@ std::tuple<std::unique_ptr<File>, std::string> BigFile_Internal::_buildFile(
 	);
 
 	fileDataHeader->CRC = crc;
-	memcpy(
+	memmove(
 		fileDataHeader->fileName,
 		fileTask.name.c_str(),
 		(std::min)(size_t(255), fileTask.name.length() + 1)
 	);
-	fileDataHeader->modificationDate = uint32_t(
-		boost::filesystem::detail::last_write_time(CASE_FIX(fileTask.realpath))
-	);
+	{		
+		fileDataHeader->modificationDate = uint32_t(
+			std::chrono::duration_cast<std::chrono::seconds>(
+				last_write_time(CASE_FIX(fileTask.realpath)).time_since_epoch()).count());
+	}
 	file->fileDataHeader = std::make_unique<readDataProxy>(true);
 	file->fileDataHeader->data = reinterpret_cast<std::byte*>(fileDataHeader.release());
 
@@ -870,7 +874,7 @@ void BigFile_Internal::_listFolder(uint16_t folderIndex)
 		FileInfoEntry &thisfile = _fileInfoList[i];
 
 		const std::string filename = (
-			boost::filesystem::path(
+			std::filesystem::path(
 				_fileNameLookUpTable[thisfolder.fileNameOffset]->name
 			) /
 			_fileNameLookUpTable[thisfile.fileNameOffset]->name
@@ -920,7 +924,7 @@ void BigFile_Internal::_testFolder(uint16_t folderIndex)
 		_testFolder(i);
 	}
 
-	boost::filesystem::path path(
+	std::filesystem::path path(
 		_fileNameLookUpTable[thisfolder.fileNameOffset]->name
 	);
 	for (uint16_t i = thisfolder.firstFileIndex; i < thisfolder.lastFileIndex; ++i)
@@ -931,7 +935,7 @@ void BigFile_Internal::_testFolder(uint16_t folderIndex)
 	}
 }
 
-std::string BigFile_Internal::_testFile(boost::filesystem::path path, uint16_t fileIndex)
+std::string BigFile_Internal::_testFile(std::filesystem::path path, uint16_t fileIndex)
 {
 	File thisfile;
 	thisfile.fileInfoEntry = &_fileInfoList[fileIndex];
@@ -941,7 +945,7 @@ std::string BigFile_Internal::_testFile(boost::filesystem::path path, uint16_t f
 		pos - sizeof(FileDataHeader), sizeof(FileDataHeader)
 	);
 	thisfile.data = _cipherStream.thread_readProxy(pos, thisfile.fileInfoEntry->compressedLen);
-	boost::filesystem::path filepath = path / thisfile.getFileDataHeader()->fileName;
+	std::filesystem::path filepath = path / thisfile.getFileDataHeader()->fileName;
 
 	try
 	{

@@ -1,5 +1,6 @@
 #pragma once
-#include "stdafx.h"
+#include <cstdint>
+#include <fstream>
 
 #include "memmapfilestream.h"
 
@@ -16,11 +17,11 @@ class CipherStream : public FileStream
 {
 public:
 	CipherStream(void) = default;
-	CipherStream(boost::filesystem::path const &file, CipherStreamState state)
+	CipherStream(std::filesystem::path const &file, CipherStreamState state)
 	{
 		open(file, state);
 	}
-	void open(boost::filesystem::path file, CipherStreamState state);
+	void open(std::filesystem::path file, CipherStreamState state);
 	void close(void);
 
 	size_t read(void *dst, size_t length) override;
@@ -44,7 +45,7 @@ private:
 
 	CipherStreamState _state = Read_EncryptionUnknown;
 	MemMapFileStream _memmapStream;
-	boost::filesystem::fstream _filestream;
+	std::fstream _filestream;
 
 	uint32_t _cipherBegBackPos = 0;
 	uint32_t _cipherBegPos = 0;

@@ -1,8 +1,6 @@
-#include "stdafx.h"
-
 #include "memmapfilestream.h"
 
-void MemMapFileStream::open(boost::filesystem::path const &file)
+void MemMapFileStream::open(std::filesystem::path const &file)
 {
 	_filesize = file_size(file);
 
@@ -28,7 +26,7 @@ size_t MemMapFileStream::read(void * dst, size_t length)
 {
 	//brackets around std::min is required to prevent some problems
 	const size_t lengthToRead = (std::min)(size_t(_filesize - getpos()), length);
-	memcpy(dst, _readptr, lengthToRead);
+	memmove(dst, _readptr, lengthToRead);
 	movepos(lengthToRead);
 	return lengthToRead;	
 }
@@ -48,7 +46,7 @@ void MemMapFileStream::write(const void * src, size_t length)
 
 void MemMapFileStream::thread_read(size_t pos, void* dst, size_t length)
 {
-	memcpy(dst, _filesrc.data() + pos, length);
+	memmove(dst, _filesrc.data() + pos, length);
 }
 
 std::unique_ptr<readDataProxy> MemMapFileStream::thread_readProxy(size_t pos, size_t length)

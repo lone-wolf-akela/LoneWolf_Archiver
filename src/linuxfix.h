@@ -4,7 +4,7 @@
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
 #define CASE_FIX(x) (x)
 #else
-boost::filesystem::path linuxPathCaseFix(boost::filesystem::path& path);
+std::filesystem::path linuxPathCaseFix(std::filesystem::path& path);
 #define CASE_FIX(x) (linuxPathCaseFix(x))
 #endif
 

@@ -1,7 +1,8 @@
 #pragma once
-#include "stdafx.h"
+#include <memory>
+#include <type_traits>
 
-typedef std::make_signed<size_t>::type signed_size_t;
+using signed_size_t = std::make_signed<size_t>::type;
 
 class readDataProxy
 {

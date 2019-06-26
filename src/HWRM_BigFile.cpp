@@ -3,7 +3,7 @@
 #include "HWRM_BigFile.h"
 #include "linuxfix.h"
 
-void BigFile::open(boost::filesystem::path const &file, BigFileState state)
+void BigFile::open(std::filesystem::path const &file, BigFileState state)
 {
 	_internal.open(file, state);
 }
@@ -38,7 +38,7 @@ void BigFile::setIgnoreList(std::vector<std::string> list)
 	_archiveIgnoreSet = list;
 }
 
-void BigFile::extract(boost::filesystem::path const &directory)
+void BigFile::extract(std::filesystem::path const &directory)
 {
 	_internal.extract(directory);
 }
@@ -53,12 +53,12 @@ void BigFile::testArchive()
 	_internal.testArchive();
 }
 
-/**
- * \brief simple function to match filename with wildcard
- * \param needle	filename with wildcard
- * \param haystack	actual filename to test
- * \return if the	name match the wildcard
- */
+////
+/// \brief simple function to match filename with wildcard
+/// \param needle	filename with wildcard
+/// \param haystack	actual filename to test
+/// \return if the	name match the wildcard
+///
 static bool match(char const *needle, char const *haystack) 
 {
 	for (; *needle != '\0'; ++needle) {
@@ -87,8 +87,8 @@ static bool match(char const *needle, char const *haystack)
 }
 
 void BigFile::create(
-	boost::filesystem::path root, 
-	boost::filesystem::path const &build
+	std::filesystem::path root, 
+	std::filesystem::path const &build
 )
 {
 	//check ArchiveIgnore.txt
@@ -119,7 +119,7 @@ void BigFile::create(
 		tocTask.alias = tocSet.alias;
 		tocTask.rootFolderTask.name = "";
 
-		boost::filesystem::path tocRootPath(root);
+		std::filesystem::path tocRootPath(root);
 
 		//on linux, we should use '/' in relativeroot instead of '\\'
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
@@ -127,14 +127,14 @@ void BigFile::create(
 		std::replace(tocSet.relativeroot.begin(), tocSet.relativeroot.end(), '\\', '/');
 #endif
 		tocRootPath /= tocSet.relativeroot;
-		tocRootPath = system_complete(tocRootPath);
+		tocRootPath = absolute(tocRootPath);
 		tocRootPath = boost::to_lower_copy(tocRootPath.wstring());
 
 		for (std::wstring &file : tocSet.files)
 		{
 			BuildFileTask fileTask;
-			fileTask.realpath = boost::filesystem::path(file);
-			fileTask.realpath = system_complete(fileTask.realpath);
+			fileTask.realpath = std::filesystem::path(file);
+			fileTask.realpath = absolute(fileTask.realpath);
 			fileTask.name = boost::to_lower_copy(fileTask.realpath.filename().string());
 
 			fileTask.filesize = uint32_t(file_size(CASE_FIX(fileTask.realpath)));
@@ -210,7 +210,7 @@ void BigFile::create(
 				fileTask.compressMethod = Uncompressed;
 			}
 
-			boost::filesystem::path relativePath = boost::filesystem::relative(
+			std::filesystem::path relativePath = std::filesystem::relative(
 				boost::to_lower_copy(fileTask.realpath.wstring()),
 				boost::to_lower_copy(tocRootPath.wstring())
 			);
@@ -218,7 +218,7 @@ void BigFile::create(
 
 			BuildFolderTask *currentFolder = &tocTask.rootFolderTask;
 
-			boost::filesystem::path currentPath("");
+			std::filesystem::path currentPath("");
 			for (auto iter = relativePath.begin(); iter != relativePath.end(); ++iter)
 			{
 				currentPath /= *iter;
@@ -254,14 +254,12 @@ void BigFile::create(
 }
 
 // 对文件夹深度优先遍历获取所有文件名放入容器中  
-static std::vector<boost::filesystem::path> getAllFileNames(const boost::filesystem::path &rootPath)
+static std::vector<std::filesystem::path> getAllFileNames(const std::filesystem::path &rootPath)
 {
-	std::vector<boost::filesystem::path> vecOut;
-	for (
-		boost::filesystem::directory_iterator iter(rootPath);
-		iter != boost::filesystem::directory_iterator();
-		++iter
-		)
+	std::vector<std::filesystem::path> vecOut;
+	for (std::filesystem::directory_iterator iter(rootPath);
+		iter != std::filesystem::directory_iterator();
+		++iter)
 	{
 		if (is_directory(*iter))
 		{
@@ -306,16 +304,16 @@ SkipFile wildcard="*_.*" minsize="-1" maxsize="-1"
 FileSettingsEnd
 )CONFIG";
 
-/**
- * \brief			generate build configs from a folder
- * \param file		the out put .big file 
- * \param root the	root path of unpackaged mod files
- * \param allInOne	should we pack all locale files in the same .big file with other files, 
- *					or pack them in their own .big?
- */
+///
+/// \brief			generate build configs from a folder
+/// \param file		the out put .big file 
+/// \param root the	root path of unpackaged mod files
+/// \param allInOne	should we pack all locale files in the same .big file with other files, 
+///					or pack them in their own .big?
+///
 void BigFile::generate(
-	boost::filesystem::path file,
-	boost::filesystem::path const &root,
+	std::filesystem::path file,
+	std::filesystem::path const &root,
 	bool allInOne
 )
 {
@@ -325,30 +323,30 @@ void BigFile::generate(
 	const std::string modName = file.filename().replace_extension().string();
 
 	//vector to store all locales detected
-	std::vector<boost::filesystem::path> locales;
+	std::vector<std::filesystem::path> locales;
 	//vector to store all .big files to build. The filesystem::path is the 
 	//output .big file of this build task, and the std::string is the build config's filename.
-	std::vector<std::tuple<boost::filesystem::path, std::string>> buildTasks;	
+	std::vector<std::tuple<std::filesystem::path, std::string>> buildTasks;	
 	
 	//get all locales from "locale" folder
 	if (is_directory(root / "locale"))
 	{
 		for (
-			boost::filesystem::directory_iterator iter(root / "locale");
-			iter != boost::filesystem::directory_iterator();
+			std::filesystem::directory_iterator iter(root / "locale");
+			iter != std::filesystem::directory_iterator();
 			++iter
 			)
 		{
 			if (is_directory(*iter))
 			{
-				locales.push_back(system_complete(iter->path()));
+				locales.push_back(absolute(iter->path()));
 			}
 		}
 	}
 	//let's create the first build task which contains all things other than locales
 	{
 		std::string buildfilename = "buildfile.txt";
-		boost::filesystem::ofstream buildfile(buildfilename);
+		std::ofstream buildfile(buildfilename);
 		buildTasks.emplace_back(file, buildfilename);
 		if (!buildfile)
 		{
@@ -362,13 +360,13 @@ void BigFile::generate(
 		buildfile << fileSettingStr;
 
 		//find all files except locales
-		std::vector<boost::filesystem::path> allFiles = getAllFileNames(root);
-		for (boost::filesystem::path &dataFile : allFiles)
+		std::vector<std::filesystem::path> allFiles = getAllFileNames(root);
+		for (std::filesystem::path &dataFile : allFiles)
 		{
-			dataFile = system_complete(dataFile);
+			dataFile = absolute(dataFile);
 			bool isLocale = false;
 			//find if it's one of the locales
-			for (boost::filesystem::path &locale : locales)
+			for (std::filesystem::path &locale : locales)
 			{
 				if (boost::istarts_with(dataFile.string(), locale.string()))
 				{
@@ -379,19 +377,18 @@ void BigFile::generate(
 			if (!isLocale)
 			{
 				//make sure we use UTF-8 here
-				buildfile << boost::locale::conv::from_utf(system_complete(dataFile).wstring(), "UTF-8")
+				buildfile << boost::locale::conv::from_utf(absolute(dataFile).wstring(), "UTF-8")
 					<< std::endl;
 			}
 		}
 		buildfile << "TOCEnd" << std::endl;
 
 		//now deal with locales
-		for (boost::filesystem::path &locale : locales)
+		for (std::filesystem::path &locale : locales)
 		{
-			//locale name is the last element in the path
-			//its a little strange that boost::filesystem::path has no back() member,
-			//so I use locale.rbegin()
-			const std::string localeName = locale.rbegin()->string();
+			//locale name is the last non empty element in the path
+			const std::string localeName = (--locale.end())->empty() ?
+				(--locale.end())->filename().string() : (--locale.end())->string();
 
 			//if not all in one, then every locale should be a new build files
 			//or it just needs to be a new TOC entry
@@ -416,11 +413,11 @@ void BigFile::generate(
 			buildfile << fileSettingStr;
 
 			//find all files in this locale
-			std::vector<boost::filesystem::path> allLocaleFiles = getAllFileNames(locale);
-			for (boost::filesystem::path &localeFile : allLocaleFiles)
+			std::vector<std::filesystem::path> allLocaleFiles = getAllFileNames(locale);
+			for (std::filesystem::path &localeFile : allLocaleFiles)
 			{
 				//use UTF-8!
-				buildfile << boost::locale::conv::from_utf(system_complete(localeFile).wstring(), "UTF-8")
+				buildfile << boost::locale::conv::from_utf(absolute(localeFile).wstring(), "UTF-8")
 					<< std::endl;
 			}
 			buildfile << "TOCEnd" << std::endl;
@@ -512,20 +509,20 @@ static BuildfileCommand getCommand(std::istream &input)
 }
 
 
-void BigFile::_parseBuildfile(boost::filesystem::path buildfile)
+void BigFile::_parseBuildfile(std::filesystem::path buildfile)
 {
 	_buildArchiveSetting.buildTOCSetting.clear();
 	
-	boost::filesystem::ifstream input(buildfile);
+	std::ifstream input(buildfile);
 	if (!input)
 	{
 		throw FileIoError("Error happened when openning buildfile.");
 	}
 	//test if the file has BOM
-	char BOM[4];
-	input.read(BOM, 3);
-	BOM[3] = 0;
-	if(0 != strcmp(BOM,"\xef\xbb\xbf"))
+	std::array<char,3> filehead;
+	input.read(filehead.data(), 3);
+	std::array<char, 3> BOM = { '\xef','\xbb','\xbf' };
+	if(filehead != BOM)
 	{
 		//no BOM, go back
 		input.seekg(0);
@@ -533,20 +530,15 @@ void BigFile::_parseBuildfile(boost::filesystem::path buildfile)
 
 	while (input.peek() != EOF)
 	{
-		bool exitflag = false;
+		//skip all empty lines and see if we come to the EOF
 		while (input.peek() == '\r' || input.peek() == '\n')
 		{
 			std::string tmpStr;
 			getline(input, tmpStr);
 			if (input.peek() == EOF)
 			{
-				exitflag = true;
-				break;
+				return;
 			}
-		}
-		if(exitflag)
-		{
-			break;
 		}
 
 		BuildfileCommand command = getCommand(input);

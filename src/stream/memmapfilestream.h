@@ -1,18 +1,21 @@
 #pragma once
-#include "stdafx.h"
+#include <filesystem>
 
+#include <boost/iostreams/device/mapped_file.hpp>
+
+#include "../exceptions/exceptions.h"
 #include "filestream.h"
 
 class MemMapFileStream : public FileStream
 {
 public:
 	MemMapFileStream(void) = default;
-	explicit MemMapFileStream(boost::filesystem::path const &file)
+	explicit MemMapFileStream(std::filesystem::path const &file)
 	{
 		open(file);
 	}
 
-	void open(boost::filesystem::path const &file);
+	void open(std::filesystem::path const &file);
 	void close(void);
 
 	size_t read(void *dst, size_t length) override;

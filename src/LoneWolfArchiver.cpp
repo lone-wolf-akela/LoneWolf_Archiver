@@ -7,7 +7,6 @@
 #include "HWRM_BigFile.h"
 
 namespace po = boost::program_options;
-namespace fi = boost::filesystem;
 
 struct
 {
@@ -24,7 +23,7 @@ int main(const int argc, char *argv[])
 	{
 		//parse json
 		{
-			fi::ifstream configfile("archive_config.json");
+			std::ifstream configfile("archive_config.json");
 			if (!configfile)
 			{
 				std::cout << "Failed to read 'archive_config.json'. Using default settings..." << std::endl;

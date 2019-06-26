@@ -1,9 +1,9 @@
-#include "stdafx.h"
+#include <random>
 
 #include "cipherstream.h"
 #include "cipher.h"
 
-void CipherStream::open(boost::filesystem::path file, CipherStreamState state)
+void CipherStream::open(std::filesystem::path file, CipherStreamState state)
 {
 	_state = state;
 	switch (state)
@@ -104,7 +104,7 @@ size_t CipherStream::read(void* dst, size_t length)
 
 	case Write_NonEncrypted:
 	{
-		_filestream | ext::read(dst, length);
+		_filestream.read(static_cast<char*>(dst), length);
 		const auto lengthRead = size_t(_filestream.gcount());
 		if (_filestream.eof())
 		{
@@ -122,7 +122,7 @@ size_t CipherStream::read(void* dst, size_t length)
 	{
 		const size_t begpos = getpos();
 
-		_filestream | ext::read(dst, length);
+		_filestream.read(static_cast<char*>(dst), length);
 		const auto lengthRead = size_t(_filestream.gcount());
 		if (_filestream.eof())
 		{
@@ -188,7 +188,7 @@ void CipherStream::write(const void* src, size_t length)
 				*(reinterpret_cast<uint8_t*>(_cipherKey.get()) + (begpos + i) % _keySize);
 		}
 
-		_filestream | ext::write(buffer.get(), length);
+		_filestream.write(reinterpret_cast<const char*>(buffer.get()), length);
 		_filestream.seekg(_filestream.tellp());
 		if (!_filestream.good())
 		{
@@ -199,7 +199,7 @@ void CipherStream::write(const void* src, size_t length)
 
 	case Write_NonEncrypted:
 	{
-		_filestream | ext::write(src, length);
+		_filestream.write(static_cast<const char*>(src), length);
 		_filestream.seekg(_filestream.tellp());
 		if (!_filestream.good())
 		{
@@ -358,9 +358,9 @@ void CipherStream::writeKey()
 {
 	_deadbe7a = 0xdeadbe7a;
 	_cipherBegPos = uint32_t(getpos());
-	_filestream | ext::write(&_deadbe7a, sizeof(_deadbe7a));
-	_filestream | ext::write(&_keySize, sizeof(_keySize));
-	_filestream | ext::write(_fileKey.get(), _keySize);
+	_filestream.write(reinterpret_cast<const char*>(&_deadbe7a), sizeof(_deadbe7a));
+	_filestream.write(reinterpret_cast<const char*>(&_keySize), sizeof(_keySize));
+	_filestream.write(reinterpret_cast<const char*>(_fileKey.get()), _keySize);
 	_filestream.seekg(_filestream.tellp());
 	if (!_filestream.good())
 	{
@@ -375,7 +375,7 @@ void CipherStream::writeEncryptionEnd()
 	_filestream.seekp(0, std::ios::end);
 	const uintmax_t filesize = _filestream.tellp();
 	_cipherBegBackPos = uint32_t(filesize + sizeof(_cipherBegBackPos) - _cipherBegPos);
-	_filestream | ext::write(&_cipherBegBackPos, sizeof(_cipherBegBackPos));
+	_filestream.write(reinterpret_cast<const char*>(&_cipherBegBackPos), sizeof(_cipherBegBackPos));
 
 	_filestream.seekg(_filestream.tellp());
 	if (!_filestream.good())

@@ -4,7 +4,7 @@
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
 #else
-boost::filesystem::path linuxPathCaseFix(boost::filesystem::path& path)
+std::filesystem::path linuxPathCaseFix(std::filesystem::path& path)
 {
 	static std::unordered_map<std::wstring, std::wstring> cache;
 	if(cache.find(path.wstring())!=cache.end())
@@ -12,7 +12,7 @@ boost::filesystem::path linuxPathCaseFix(boost::filesystem::path& path)
 		return cache[path.wstring()];
 	}
 
-	boost::filesystem::path pathOut("/");
+	std::filesystem::path pathOut("/");
 	for(auto& dir:path)
 	{
 		if(cache.find((pathOut/dir).wstring())!= cache.end())
@@ -22,8 +22,8 @@ boost::filesystem::path linuxPathCaseFix(boost::filesystem::path& path)
 		}
 
 		for (
-			boost::filesystem::directory_iterator iter(pathOut);
-			iter != boost::filesystem::directory_iterator();
+			std::filesystem::directory_iterator iter(pathOut);
+			iter != std::filesystem::directory_iterator();
 			++iter
 			)
 		{

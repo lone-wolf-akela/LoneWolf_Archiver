@@ -1,5 +1,5 @@
 #pragma once
-#include "stdafx.h"
+#include <cstdint>
 
 static uint8_t cipherRaw[] =
 {
