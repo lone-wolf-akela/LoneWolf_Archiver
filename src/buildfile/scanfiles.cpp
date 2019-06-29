@@ -1,0 +1,403 @@
+#include <map>
+#include <utility>
+
+#include "buildfile.h"
+
+namespace buildfile
+{
+	///\brief	returns the last element which is not empty in a path.
+	///			returns an empty path if all element in the input path. 
+	std::filesystem::path lastNotEmptyFilename(const std::filesystem::path& path)
+	{
+		for (auto iter = --path.end(); iter != path.begin(); --iter)
+		{
+			if (!iter->empty())
+			{
+				return *iter;
+			}
+		}
+		return *path.begin();
+	}
+	bool pathHasPrefix(const std::filesystem::path& path, const std::filesystem::path& prefix)
+	{
+		auto pair = std::mismatch(path.begin(), path.end(), prefix.begin(), prefix.end());
+		return pair.second == prefix.end();
+	}
+
+	std::list<std::filesystem::path> findAllFiles(const std::filesystem::path& rootPath)
+	{
+		std::list<std::filesystem::path> filelist;
+		for (std::filesystem::directory_iterator iter(rootPath);
+			iter != std::filesystem::directory_iterator();
+			++iter)
+		{
+			if (is_directory(*iter))
+			{
+				auto files_in_subdir = findAllFiles(*iter);
+				filelist.splice(filelist.end(), files_in_subdir);
+			}
+			else
+			{
+				filelist.emplace_back(*iter);
+			}
+		}
+		return filelist;
+	}
+
+	std::vector<Archive> scanFiles(const std::filesystem::path& rootpath, bool allinone)
+	{
+		FileSettings filesettings_template;
+		filesettings_template.param.defcompression = Decompress_During_Read;
+		// 1
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.*",
+			.minsize = -1,
+			.maxsize = 100,
+			.ct = Uncompressed} });
+		// 2
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.mp3",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Uncompressed} });
+		// 3
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.wav",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Uncompressed} });
+		// 4
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.jpg",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Uncompressed} });
+		// 5
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.lua",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 6
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.fda",
+			.minsize = -1,
+			.maxsize = -1,
+			//.ct = Uncompressed} 
+			///\note fda is not that bad to be compressed, so let's try this.
+			.ct = Decompress_During_Read} });
+		// 7
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.txt",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 8
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.ship",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 9
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.resource",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 10
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.pebble",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 11
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.level",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 12
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.wepn",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 13
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.subs",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 14
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.miss",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 15
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.events",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 16
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.madstate",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 17
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.script",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 18
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.ti",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 19
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.st",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 20
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.vp",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 21
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.wf",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 22
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.anim",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 23
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.mres",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 24
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.navs",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 25
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.mc",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 26
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.mtga",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 27
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.levels",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 28
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.campaign",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 29
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.flare",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 30
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.dustcloud",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 31
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.cloud",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 32
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.ahod",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 33
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::Override ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.lod",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = Decompress_All_At_Once} });
+		// 34
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::SkipFile ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"Keeper.txt",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = boost::none} });
+		// 35
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::SkipFile ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"*.big",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = boost::none} });
+		// 36
+		filesettings_template.commands.emplace_back(FileSettingCommand{
+			.command = FileSettingCommand::Command::SkipFile ,
+			.param = FileSettingCommand::Param{
+			.wildcard = u8"_.*",
+			.minsize = -1,
+			.maxsize = -1,
+			.ct = boost::none} });
+		
+		std::list<std::filesystem::path> allfiles = findAllFiles(rootpath);
+		// find all languages in "locale" folder
+		std::map<std::u8string, std::list<std::filesystem::path>> locales;
+		if (is_directory(rootpath / "locale"))
+		{
+			for (std::filesystem::directory_iterator locale_iter(rootpath / "locale");
+				locale_iter != std::filesystem::directory_iterator();
+				++locale_iter)
+			{
+				if (is_directory(*locale_iter))
+				{
+					std::list<std::filesystem::path> localefiles;
+					//splice out all files in this folder from .allfiles
+					for (auto file_iter = allfiles.begin(); file_iter != allfiles.end();)
+					{
+						if (pathHasPrefix(*file_iter, *locale_iter))
+						{
+							auto tobe_sliced = file_iter;
+							++file_iter;
+							localefiles.splice(localefiles.end(), allfiles, tobe_sliced);
+						}
+						else
+						{
+							++file_iter;
+						}
+					}
+					locales.emplace(lastNotEmptyFilename(locale_iter->path()).u8string(), localefiles);
+				}
+			}
+		}
+		std::u8string modname = lastNotEmptyFilename(rootpath).u8string();
+		std::vector<Archive> archive_list;
+		// build our base archive
+		archive_list.emplace_back(Archive{ .name = u8"MOD" + modname,.filename = modname });
+		archive_list.back().TOCs.emplace_back(TOC{
+			.param = TOC::Param{
+			.name = u8"TOC" + modname,
+			.alias = u8"Data",
+			.relativeroot = u8""},
+			.filesetting = filesettings_template,
+			.files = std::move(allfiles) });
+		// then build all the locale archive
+		for (auto& locale : locales)
+		{
+			if (!allinone)
+			{
+				// create a new archive for this locale
+				archive_list.emplace_back(Archive{
+					.name = u8"MOD" + modname + locale.first,.filename = locale.first });
+			}
+			archive_list.back().TOCs.emplace_back(TOC{
+				.param = TOC::Param{
+				.name = u8"TOC" + modname + locale.first,
+				.alias = u8"Locale",
+				.relativeroot = u8"locale\\" + locale.first },
+				.filesetting = filesettings_template,
+				.files = std::move(locale.second) });
+		}
+
+		return archive_list;
+	}
+}

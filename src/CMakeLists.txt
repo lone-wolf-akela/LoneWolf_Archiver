@@ -12,6 +12,10 @@ set (CMAKE_CXX_STANDARD 20)
 
 # 将源代码添加到此项目的可执行文件。
 add_executable (LoneWolf_Archiver 
+	"buildfile/convert2utf8.cpp"
+	"buildfile/genfile.cpp"
+	"buildfile/parsefile.cpp"
+	"buildfile/scanfiles.cpp"
 	"stream/cipherstream.cpp" 
 	"stream/memmapfilestream.cpp"
 	"HWRM_BigFile.cpp"
@@ -23,7 +27,6 @@ add_executable (LoneWolf_Archiver
 set (Boost_USE_STATIC_LIBS ON) 
 set (Boost_USE_MULTITHREADED ON)  
 set (Boost_USE_STATIC_RUNTIME ON) 
-
 find_package (Boost 1.70 COMPONENTS program_options locale iostreams REQUIRED)
 include_directories (${Boost_INCLUDE_DIR})
 target_link_libraries (LoneWolf_Archiver ${Boost_LIBRARIES})
