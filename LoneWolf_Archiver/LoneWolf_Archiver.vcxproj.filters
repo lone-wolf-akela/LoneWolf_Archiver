@@ -1,0 +1,102 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="头文件\ThreadPool">
+      <UniqueIdentifier>{b00db66b-3f30-4a96-a5d3-45ae21eda63f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\stream">
+      <UniqueIdentifier>{2128879a-8123-4f61-9662-e83bfb2aa783}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\exceptions">
+      <UniqueIdentifier>{a69dc5b2-64b2-4d8d-974b-1190bc006dc7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\buildfile">
+      <UniqueIdentifier>{0b5fe057-3f3e-458b-ae90-b0a691134059}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\buildfile">
+      <UniqueIdentifier>{17ec606e-236e-48d3-8905-c9f564c1baba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\stream">
+      <UniqueIdentifier>{618b4531-f409-4946-a245-d51671146fa0}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="HWRM_BigFile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="HWRM_BigFile_Internal.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="linuxfix.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreadPool\ThreadPool.h">
+      <Filter>头文件\ThreadPool</Filter>
+    </ClInclude>
+    <ClInclude Include="stream\cipher.h">
+      <Filter>头文件\stream</Filter>
+    </ClInclude>
+    <ClInclude Include="stream\cipherstream.h">
+      <Filter>头文件\stream</Filter>
+    </ClInclude>
+    <ClInclude Include="stream\filestream.h">
+      <Filter>头文件\stream</Filter>
+    </ClInclude>
+    <ClInclude Include="stream\memmapfilestream.h">
+      <Filter>头文件\stream</Filter>
+    </ClInclude>
+    <ClInclude Include="exceptions\exceptions.h">
+      <Filter>头文件\exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="buildfile\buildfile.h">
+      <Filter>头文件\buildfile</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="HWRM_BigFile.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="HWRM_BigFile_Internal.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="linuxfix.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="LoneWolfArchiver.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="buildfile\convert2utf8.cpp">
+      <Filter>源文件\buildfile</Filter>
+    </ClCompile>
+    <ClCompile Include="buildfile\genfile.cpp">
+      <Filter>源文件\buildfile</Filter>
+    </ClCompile>
+    <ClCompile Include="buildfile\parsefile.cpp">
+      <Filter>源文件\buildfile</Filter>
+    </ClCompile>
+    <ClCompile Include="buildfile\scanfiles.cpp">
+      <Filter>源文件\buildfile</Filter>
+    </ClCompile>
+    <ClCompile Include="stream\cipherstream.cpp">
+      <Filter>源文件\stream</Filter>
+    </ClCompile>
+    <ClCompile Include="stream\memmapfilestream.cpp">
+      <Filter>源文件\stream</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

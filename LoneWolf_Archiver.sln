@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29021.104
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LoneWolf_Archiver", "LoneWolf_Archiver\LoneWolf_Archiver.vcxproj", "{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F3E1081D-65FC-4EAD-8D0E-B7B9B25129C0}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}.Debug|x64.ActiveCfg = Debug|x64
+		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}.Debug|x64.Build.0 = Debug|x64
+		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}.Debug|x86.ActiveCfg = Debug|Win32
+		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}.Debug|x86.Build.0 = Debug|Win32
+		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}.Release|x64.ActiveCfg = Release|x64
+		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}.Release|x64.Build.0 = Release|x64
+		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}.Release|x86.ActiveCfg = Release|Win32
+		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {CEC2787D-94BA-4ED6-9589-932D43F76DBD}
+	EndGlobalSection
+EndGlobal
