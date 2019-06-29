@@ -1,7 +1,8 @@
-#include <cassert>
+﻿#include <cassert>
 
 #include <sstream>
 #include <locale>
+#include <tuple>
 
 #if defined(_WIN32)
 #include <Windows.h>
@@ -11,7 +12,7 @@
 
 #include "buildfile.h"
 
-namespace buildfile
+namespace
 {
 #if defined(_WIN32)
 	///\brief	Convert ANSI string to wstring
@@ -54,6 +55,10 @@ namespace buildfile
 		return std::wstring();
 	}
 #endif
+}
+
+namespace buildfile
+{
 	///\brief	Convert string to utf8.
 	///		(But still store it in a std::string instead of std::u8string, for convenience).
 	///\note	UTF16 is only supported on Windows. 
@@ -87,7 +92,7 @@ namespace buildfile
 		// we will try to parse the file as a UTF8 file
 		try
 		{
-			boost::locale::conv::to_utf<char>(
+			std::ignore = boost::locale::conv::to_utf<char>(
 				in.data(),
 				in.data() + in.size(),
 				"UTF-8",

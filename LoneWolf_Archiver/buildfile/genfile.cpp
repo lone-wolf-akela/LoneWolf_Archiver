@@ -1,6 +1,4 @@
-﻿#include "buildfile.h"
-
-#include <cassert>
+﻿#include <cassert>
 
 #include <fstream>
 #include <iterator>
@@ -14,6 +12,7 @@
 #include <boost/spirit/include/karma.hpp>
 #pragma warning(pop)
 
+#include "buildfile.h"
 
 BOOST_FUSION_ADAPT_STRUCT(buildfile::FileSettingCommand::Param, wildcard, minsize, maxsize, ct)
 BOOST_FUSION_ADAPT_STRUCT(buildfile::FileSettingCommand, command, param)
@@ -30,13 +29,13 @@ BOOST_FUSION_ADAPT_ADT(
 	(obj.string(), std::ignore)
 )
 
-namespace buildfile
-{	
+namespace
+{
 	namespace karma = boost::spirit::karma;
 	namespace stdw = boost::spirit::standard_wide;
 
 	template <typename Iter>
-	struct builfile_gen : karma::grammar<Iter, Archive()>
+	struct builfile_gen : karma::grammar<Iter, buildfile::Archive()>
 	{
 		builfile_gen() : builfile_gen::base_type(end)
 		{
@@ -66,36 +65,39 @@ namespace buildfile
 				command_sym << ' ' <<
 				filesetting_cmd_param << karma::eol;
 			command_sym.add
-			(FileSettingCommand::Command::Override, "Override")
-				(FileSettingCommand::Command::SkipFile, "SkipFile");
+			(buildfile::FileSettingCommand::Command::Override, "Override")
+				(buildfile::FileSettingCommand::Command::SkipFile, "SkipFile");
 			filesetting_cmd_param = karma::eps <<
 				"wildcard" << '=' << quoted_string << ' ' <<
 				"minsize" << '=' << '"' << karma::int_ << '"' << ' ' <<
 				"maxsize" << '=' << '"' << karma::int_ << '"' <<
 				-(karma::eps << ' ' << "ct" << '=' << compression_sym);
 			compression_sym.add
-			(Compression(0), "\"0\"")
-				(Compression(1), "\"1\"")
-				(Compression(2), "\"2\"");
+			(buildfile::Compression(0), "\"0\"")
+				(buildfile::Compression(1), "\"1\"")
+				(buildfile::Compression(2), "\"2\"");
 
 			quoted_string = '"' << *stdw::char_ << '"';
 		}
 
-		karma::symbols<FileSettingCommand::Command, const char*> command_sym;
-		karma::symbols<Compression, const char*> compression_sym;
+		karma::symbols<buildfile::FileSettingCommand::Command, const char*> command_sym;
+		karma::symbols<buildfile::Compression, const char*> compression_sym;
 
 		karma::rule<Iter, std::u8string()> quoted_string;
 
-		karma::rule<Iter, FileSettingCommand::Param()> filesetting_cmd_param;
-		karma::rule<Iter, FileSettingCommand()> filesetting_command;
-		karma::rule<Iter, FileSettings::Param()> filesettings_param;
-		karma::rule<Iter, FileSettings()> filesettings;
+		karma::rule<Iter, buildfile::FileSettingCommand::Param()> filesetting_cmd_param;
+		karma::rule<Iter, buildfile::FileSettingCommand()> filesetting_command;
+		karma::rule<Iter, buildfile::FileSettings::Param()> filesettings_param;
+		karma::rule<Iter, buildfile::FileSettings()> filesettings;
 		karma::rule<Iter, std::filesystem::path()> file;
-		karma::rule<Iter, TOC::Param()> toc_param;
-		karma::rule<Iter, TOC()> toc;
-		karma::rule<Iter, Archive()> end;
+		karma::rule<Iter, buildfile::TOC::Param()> toc_param;
+		karma::rule<Iter, buildfile::TOC()> toc;
+		karma::rule<Iter, buildfile::Archive()> end;
 	};
+}
 
+namespace buildfile
+{	
 	void genFile(const std::filesystem::path& filepath, const Archive& archive)
 	{
 		std::ofstream ofile(filepath);
@@ -104,7 +106,7 @@ namespace buildfile
 
 		std::string generated;
 		std::back_insert_iterator<std::string> iter(generated);
-		buildfile::builfile_gen<decltype(iter)> gen;
+		builfile_gen<decltype(iter)> gen;
 		bool r = boost::spirit::karma::generate(iter, gen, archive);
 
 		assert(r);

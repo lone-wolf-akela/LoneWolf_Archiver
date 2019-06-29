@@ -33,7 +33,7 @@ To compile LoneWolf Archiver, you need these libraries:
 (I recommend using [vcpkg](https://github.com/Microsoft/vcpkg) to install libraries on windows.)
 
 ### Windows ###
-Just use Visual Studio 2017 to compile the porject.
+Just use Visual Studio 2019 to compile the solution.
 
 ### Linux ###
 Install cmake and type:

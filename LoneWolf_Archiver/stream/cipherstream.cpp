@@ -1,4 +1,4 @@
-#include <random>
+﻿#include <random>
 
 #include "cipherstream.h"
 #include "cipher.h"
@@ -88,20 +88,14 @@ size_t CipherStream::read(void* dst, size_t length)
 	{
 	case Read_Encrypted:
 	{
-		uint8_t *tmpDst = reinterpret_cast<uint8_t*>(dst);
-		const size_t begpos = _memmapStream.getpos();
-		const size_t lengthRead = _memmapStream.read(dst, length);
-		for (size_t i = 0; i < lengthRead; ++i)
-		{
-			tmpDst[i] +=
-				*(reinterpret_cast<uint8_t*>(_cipherKey.get()) + (begpos + i) % _keySize);
-		}
-		return lengthRead;
+		size_t l = read(_memmapStream.getpos(), dst, length);
+		_memmapStream.movepos(l);
+		return l;
 	}
-
 	case Read_NonEncrypted:
+	{
 		return _memmapStream.read(dst, length);
-
+	}
 	case Write_NonEncrypted:
 	{
 		_filestream.read(static_cast<char*>(dst), length);
@@ -117,7 +111,6 @@ size_t CipherStream::read(void* dst, size_t length)
 		}
 		return lengthRead;
 	}
-
 	case Write_Encrypted:
 	{
 		const size_t begpos = getpos();
@@ -133,37 +126,34 @@ size_t CipherStream::read(void* dst, size_t length)
 		{
 			throw FileIoError("Filestream failed.");
 		}
-
 		for (size_t i = 0; i < lengthRead; ++i)
 		{
 			reinterpret_cast<uint8_t*>(dst)[i] +=
 				*(reinterpret_cast<uint8_t*>(_cipherKey.get()) + (begpos + i) % _keySize);
 		}
-
 		return lengthRead;
 	}
-
 	case Read_EncryptionUnknown:
 	default:
 		throw OutOfRangeError();
 	}
 }
 
-std::unique_ptr<readDataProxy> CipherStream::readProxy(size_t length)
+std::tuple<OptionalOwnerBuffer, size_t>
+CipherStream::optionalOwnerRead(size_t length)
 {
 	switch (_state)
 	{
 	case Read_Encrypted:
 	{
-		std::unique_ptr<readDataProxy> proxy = std::make_unique<readDataProxy>(true);
-		std::unique_ptr<std::byte[]> tmpData(new std::byte[length]);
-		read(tmpData.get(), length);
-		proxy->data = tmpData.release();
-		return proxy;
+		auto r = optionalOwnerRead(_memmapStream.getpos(), length);
+		_memmapStream.movepos(std::get<1>(r));
+		return r;
 	}
 	case Read_NonEncrypted:
-		return _memmapStream.readProxy(length);
-
+	{
+		return _memmapStream.optionalOwnerRead(length);
+	}
 	case Read_EncryptionUnknown:
 	case Write_Encrypted:
 	case Write_NonEncrypted:
@@ -216,26 +206,25 @@ void CipherStream::write(const void* src, size_t length)
 	}
 }
 
-void CipherStream::thread_read(size_t pos, void* dst, size_t length)
+size_t CipherStream::read(size_t pos, void* dst, size_t length)
 {
 	switch (_state)
 	{
 	case Read_Encrypted:
 	{
 		uint8_t *tmpDst = reinterpret_cast<uint8_t*>(dst);
-		_memmapStream.thread_read(pos, dst, length);
-		for (size_t i = 0; i < length; ++i)
+		size_t l = _memmapStream.read(pos, dst, length);
+		for (size_t i = 0; i < l; ++i)
 		{
 			tmpDst[i] +=
 				*(reinterpret_cast<uint8_t*>(_cipherKey.get()) + (pos + i) % _keySize);
 		}
-		return;
+		return l;
 	}
-
 	case Read_NonEncrypted:
-		_memmapStream.thread_read(pos, dst, length);
-		return;
-
+	{
+		return _memmapStream.read(pos, dst, length);
+	}
 	case Read_EncryptionUnknown:
 	case Write_Encrypted:
 	case Write_NonEncrypted:
@@ -244,21 +233,22 @@ void CipherStream::thread_read(size_t pos, void* dst, size_t length)
 	}
 }
 
-std::unique_ptr<readDataProxy> CipherStream::thread_readProxy(size_t pos, size_t length)
+std::tuple<OptionalOwnerBuffer, size_t>
+CipherStream::optionalOwnerRead(size_t pos, size_t length)
 {
 	switch (_state)
 	{
 	case Read_Encrypted:
 	{
-		std::unique_ptr<readDataProxy> proxy = std::make_unique<readDataProxy>(true);
-		std::unique_ptr<std::byte[]> tmpData(new std::byte[length]);
-		thread_read(pos, tmpData.get(), length);
-		proxy->data = tmpData.release();
-		return proxy;
+		std::vector<std::byte> buffer(length);
+		size_t l = read(pos, buffer.data(), length);
+		buffer.resize(l);
+		return std::make_tuple(OptionalOwnerBuffer(std::move(buffer)), l);
 	}
 	case Read_NonEncrypted:
-		return _memmapStream.thread_readProxy(pos, length);
-
+	{
+		return _memmapStream.optionalOwnerRead(pos, length);
+	}
 	case Read_EncryptionUnknown:
 	case Write_Encrypted:
 	case Write_NonEncrypted:
@@ -273,19 +263,21 @@ void CipherStream::setpos(size_t pos)
 	{
 	case Read_Encrypted:
 	case Read_NonEncrypted:
+	{
 		_memmapStream.setpos(pos);
-		break;
-
+	}
+	break;
 	case Write_Encrypted:
 	case Write_NonEncrypted:
+	{
 		_filestream.seekp(pos);
 		_filestream.seekg(pos);
 		if (!_filestream.good())
 		{
 			throw FileIoError("Filestream failed.");
 		}
-		break;
-
+	}
+	break;
 	case Read_EncryptionUnknown:
 	default:
 		throw OutOfRangeError();
@@ -298,19 +290,21 @@ size_t CipherStream::getpos()
 	{
 	case Read_Encrypted:
 	case Read_NonEncrypted:
+	{
 		return _memmapStream.getpos();
-
+	}
 	case Write_Encrypted:
 	case Write_NonEncrypted:
+	{
 		return size_t(_filestream.tellg());
-
+	}
 	case Read_EncryptionUnknown:
 	default:
 		throw OutOfRangeError();
 	}
 }
 
-void CipherStream::movepos(signed_size_t diff)
+void CipherStream::movepos(ptrdiff_t diff)
 {
 	switch (_state)
 	{

@@ -23,6 +23,8 @@
     <ProjectGuid>{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}</ProjectGuid>
     <RootNamespace>LoneWolfArchiver</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <VcpkgTriplet>x64-windows-static</VcpkgTriplet>
+    <VcpkgEnabled>true</VcpkgEnabled>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -81,6 +83,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -97,6 +100,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -115,6 +119,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -135,6 +140,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -143,7 +149,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="archive\archive.h" />
     <ClInclude Include="buildfile\buildfile.h" />
+    <ClInclude Include="compressor\compressor.h" />
     <ClInclude Include="exceptions\exceptions.h" />
     <ClInclude Include="HWRM_BigFile.h" />
     <ClInclude Include="HWRM_BigFile_Internal.h" />
@@ -156,15 +164,18 @@
     <ClInclude Include="ThreadPool\ThreadPool.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="archive\archive.cpp" />
     <ClCompile Include="buildfile\convert2utf8.cpp" />
     <ClCompile Include="buildfile\genfile.cpp" />
     <ClCompile Include="buildfile\parsefile.cpp" />
     <ClCompile Include="buildfile\scanfiles.cpp" />
+    <ClCompile Include="compressor\compressor.cpp" />
     <ClCompile Include="HWRM_BigFile.cpp" />
     <ClCompile Include="HWRM_BigFile_Internal.cpp" />
     <ClCompile Include="linuxfix.cpp" />
     <ClCompile Include="LoneWolfArchiver.cpp" />
     <ClCompile Include="stream\cipherstream.cpp" />
+    <ClCompile Include="stream\filestream.cpp" />
     <ClCompile Include="stream\memmapfilestream.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

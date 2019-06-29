@@ -1,3 +1,5 @@
+﻿#include <cstring>
+
 #include "memmapfilestream.h"
 
 void MemMapFileStream::open(std::filesystem::path const &file)
@@ -8,13 +10,11 @@ void MemMapFileStream::open(std::filesystem::path const &file)
 	params.path = file.string();
 	params.flags = boost::iostreams::mapped_file::mapmode::readonly;
 	_filesrc.open(params);
-
 	if (!_filesrc)
 	{
 		throw FileIoError("Error happened when opening file for memory mapping.");
 	}
-
-	_readptr = reinterpret_cast<const std::byte*>(_filesrc.data());
+	_pos = 0;
 }
 
 void MemMapFileStream::close(void)
@@ -24,19 +24,16 @@ void MemMapFileStream::close(void)
 
 size_t MemMapFileStream::read(void * dst, size_t length)
 {
-	//brackets around std::min is required to prevent some problems
-	const size_t lengthToRead = (std::min)(size_t(_filesize - getpos()), length);
-	memmove(dst, _readptr, lengthToRead);
-	movepos(lengthToRead);
-	return lengthToRead;	
+	const size_t l = read(_pos, dst, length);
+	movepos(l);
+	return l;
 }
-
-std::unique_ptr<readDataProxy> MemMapFileStream::readProxy(size_t length)
+std::tuple<OptionalOwnerBuffer, size_t>
+MemMapFileStream::optionalOwnerRead(size_t length)
 {
-	std::unique_ptr<readDataProxy> proxy(new readDataProxy(false));
-	proxy->data = _readptr;
-	movepos(length);
-	return proxy;
+	auto r = optionalOwnerRead(_pos, length);
+	movepos(std::get<1>(r));
+	return r;
 }
 
 void MemMapFileStream::write(const void * src, size_t length)
@@ -44,16 +41,22 @@ void MemMapFileStream::write(const void * src, size_t length)
 	throw NotImplementedError();
 }
 
-void MemMapFileStream::thread_read(size_t pos, void* dst, size_t length)
+size_t MemMapFileStream::read(size_t pos, void* dst, size_t length)
 {
-	memmove(dst, _filesrc.data() + pos, length);
+	//brackets around std::min is required to prevent some problems
+	const size_t lengthToRead = (std::min)(size_t(_filesize - pos), length);
+	memmove(dst, _filesrc.data() + pos, lengthToRead);
+	return lengthToRead;
 }
 
-std::unique_ptr<readDataProxy> MemMapFileStream::thread_readProxy(size_t pos, size_t length)
+std::tuple<OptionalOwnerBuffer, size_t>
+MemMapFileStream::optionalOwnerRead(size_t pos, size_t length)
 {
-	std::unique_ptr<readDataProxy> proxy(new readDataProxy(false));
-	proxy->data = reinterpret_cast<const std::byte*>(_filesrc.data()) + pos;
-	return proxy;
+	//brackets around std::min is required to prevent some problems
+	const size_t lengthToRead = (std::min)(size_t(_filesize - pos), length);
+	return std::make_tuple(OptionalOwnerBuffer(
+		reinterpret_cast<const std::byte*>(_filesrc.data()) + pos),
+		lengthToRead);
 }
 
 void MemMapFileStream::setpos(size_t pos)
@@ -62,15 +65,15 @@ void MemMapFileStream::setpos(size_t pos)
 	{
 		throw OutOfRangeError();
 	}
-	_readptr = reinterpret_cast<const std::byte*>(_filesrc.data()) + pos;
+	_pos = pos;
 }
 
 size_t MemMapFileStream::getpos(void)
 {
-	return _readptr - reinterpret_cast<const std::byte*>(_filesrc.data());
+	return _pos;
 }
 
-void MemMapFileStream::movepos(signed_size_t diff)
+void MemMapFileStream::movepos(ptrdiff_t diff)
 {
 	if (
 		(diff < 0 && getpos() < size_t(-diff)) ||
@@ -79,12 +82,12 @@ void MemMapFileStream::movepos(signed_size_t diff)
 	{
 		throw OutOfRangeError();
 	}
-	_readptr += diff;
+	_pos += diff;
 }
 
 const std::byte* MemMapFileStream::getReadptr() const
 {
-	return _readptr;
+	return reinterpret_cast<const std::byte*>(_filesrc.data()) + _pos;
 }
 
 uintmax_t MemMapFileStream::getFileSize() const

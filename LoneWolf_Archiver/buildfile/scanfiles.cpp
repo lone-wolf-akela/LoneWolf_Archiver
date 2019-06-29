@@ -1,9 +1,9 @@
-#include <map>
+﻿#include <map>
 #include <utility>
 
 #include "buildfile.h"
 
-namespace buildfile
+namespace
 {
 	///\brief	returns the last element which is not empty in a path.
 	///			returns an empty path if all element in the input path. 
@@ -43,7 +43,10 @@ namespace buildfile
 		}
 		return filelist;
 	}
+}
 
+namespace buildfile
+{
 	std::vector<Archive> scanFiles(const std::filesystem::path& rootpath, bool allinone)
 	{
 		FileSettings filesettings_template;

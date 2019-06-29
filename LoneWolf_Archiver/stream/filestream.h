@@ -1,28 +1,29 @@
-#pragma once
-#include <memory>
+﻿#pragma once
+#include <cstddef>
+
 #include <type_traits>
+#include <utility>
+#include <vector>
+#include <tuple>
 
-using signed_size_t = std::make_signed<size_t>::type;
-
-class readDataProxy
+class OptionalOwnerBuffer
 {
 public:
-	explicit readDataProxy(bool needDelete) :_needDelete(needDelete)
-	{}
-	~readDataProxy(void)
-	{
-		if (_needDelete)
-		{
-			delete[] data;
-		}
-	}
+	OptionalOwnerBuffer() noexcept;
+	OptionalOwnerBuffer(const OptionalOwnerBuffer&) = delete;
+	OptionalOwnerBuffer& operator=(const OptionalOwnerBuffer&) = delete;
+	OptionalOwnerBuffer(OptionalOwnerBuffer&& o) noexcept;	
+	OptionalOwnerBuffer(std::vector<std::byte>&& in) noexcept;
+	OptionalOwnerBuffer(const std::byte* in) noexcept;
 
-	readDataProxy(const readDataProxy&) = delete; //no copy constructor
-	readDataProxy& operator=(const readDataProxy&) = delete; //no copy assignment 
-
-	const std::byte *data = nullptr;
+	void set(std::vector<std::byte>&& in) noexcept;
+	void set(const std::byte* in) noexcept;
+	const std::byte* get() const noexcept;
 private:
-	bool _needDelete;
+	bool ownership;
+	// I was thinking about using a union here.
+	// Seems I was wrong.
+	struct { std::vector<std::byte> v; const std::byte* p; } data;
 };
 
 class FileStream
@@ -31,13 +32,16 @@ public:
 	virtual ~FileStream() = default;
 
 	virtual size_t read(void *dst, size_t length) = 0;
-	virtual std::unique_ptr<readDataProxy> readProxy(size_t length) = 0;
+	virtual std::tuple<OptionalOwnerBuffer, size_t>
+		optionalOwnerRead(size_t length) = 0;
 	virtual void write(const void *src, size_t length) = 0;
 
-	virtual void thread_read(size_t pos, void *dst, size_t length) = 0;
-	virtual std::unique_ptr<readDataProxy> thread_readProxy(size_t pos, size_t length) = 0;
+	//these two do not move the read ptr
+	virtual size_t read(size_t pos, void *dst, size_t length) = 0;
+	virtual std::tuple<OptionalOwnerBuffer, size_t>
+		optionalOwnerRead(size_t pos, size_t length) = 0;
 
 	virtual void setpos(size_t pos) = 0;
 	virtual size_t getpos(void) = 0;
-	virtual void movepos(signed_size_t diff) = 0;
+	virtual void movepos(ptrdiff_t diff) = 0;
 };

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <cstdint>
 #include <fstream>
 
@@ -25,15 +25,18 @@ public:
 	void close(void);
 
 	size_t read(void *dst, size_t length) override;
-	std::unique_ptr<readDataProxy> readProxy(size_t length) override;
+	std::tuple<OptionalOwnerBuffer, size_t>
+		optionalOwnerRead(size_t length) override;
 	void write(const void *src, size_t length) override;
 
-	void thread_read(size_t pos, void *dst, size_t length) override;
-	std::unique_ptr<readDataProxy> thread_readProxy(size_t pos, size_t length) override;
+	//these two do not move the read ptr
+	size_t read(size_t pos, void *dst, size_t length) override;
+	std::tuple<OptionalOwnerBuffer, size_t>
+		optionalOwnerRead(size_t pos, size_t length) override;
 
 	void setpos(size_t pos) override;
 	size_t getpos(void) override;
-	void movepos(signed_size_t diff) override;
+	void movepos(ptrdiff_t diff) override;
 	
 	void writeKey(void);
 	void writeEncryptionEnd(void);
