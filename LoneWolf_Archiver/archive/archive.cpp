@@ -131,7 +131,7 @@ namespace
 	/*container class*/
 	struct FileName
 	{
-		std::string name;
+		std::u8string name;
 		uint32_t offset = 0;	//relative to FileName_offset
 	};
 	struct File
@@ -142,7 +142,7 @@ namespace
 		OptionalOwnerBuffer fileDataHeader;
 		const FileDataHeader* getFileDataHeader(void) const
 		{
-			return reinterpret_cast<const FileDataHeader*>(fileDataHeader.get());
+			return reinterpret_cast<const FileDataHeader*>(fileDataHeader.get_const());
 		}
 		OptionalOwnerBuffer data;
 		OptionalOwnerBuffer decompressedData;
@@ -152,19 +152,99 @@ namespace archive
 {
 	struct ArchiveInternal
 	{
+		Archive::Mode mode;
+		CipherStream stream;
 
+		ArchiveHeader archiveHeader;
+		SectionHeader sectionHeader;
+		std::vector<TocEntry> tocList;
+		std::vector<FolderEntry> folderList;
+		std::vector<FileInfoEntry> fileInfoList;
+		std::vector<FileName> fileNameList;
+		std::vector<FileName> folderNameList;
+
+		std::unordered_map<uint32_t, FileName*> fileNameLookUpTable;
 	};
 	Archive::Archive()
 	{
 		_internal = std::unique_ptr<ArchiveInternal>(new ArchiveInternal);
 	}
-	void Archive::open(const std::filesystem::path& filepath, Mode mode, bool encryption)
+	void Archive::open(
+		const std::filesystem::path& filepath, Mode mode, bool encryption)
 	{
+		_internal->archiveHeader = ArchiveHeader{ 0 };
+		_internal->sectionHeader = SectionHeader{ 0 };
+		_internal->tocList.clear();
+		_internal->folderList.clear();
+		_internal->fileInfoList.clear();
+		_internal->fileNameList.clear();
+		_internal->folderNameList.clear();
+		_internal->fileNameLookUpTable.clear();
+		if (Read == mode)
+		{
+			_internal->stream.open(filepath, Read_EncryptionUnknown);
+			_internal->stream.read(
+				&_internal->archiveHeader, sizeof(ArchiveHeader));
+			_internal->stream.read(
+				&_internal->sectionHeader, sizeof(SectionHeader));
+
+			_internal->stream.setpos(
+				sizeof(ArchiveHeader) + _internal->sectionHeader.TOC_offset);
+			for (uint16_t i = 0; i < _internal->sectionHeader.TOC_count; i++)
+			{
+				_internal->tocList.emplace_back();
+				_internal->stream.read(
+					&_internal->tocList.back(), sizeof(TocEntry));
+			}
+
+			_internal->stream.setpos(
+				sizeof(ArchiveHeader) + _internal->sectionHeader.Folder_offset);
+			for (uint16_t i = 0; i < _internal->sectionHeader.Folder_count; ++i)
+			{
+				_internal->folderList.emplace_back();
+				_internal->stream.read(
+					&_internal->folderList.back(), sizeof(FolderEntry));
+			}
+
+			_internal->stream.setpos(
+				sizeof(ArchiveHeader) + _internal->sectionHeader.FileInfo_offset);
+			for (uint16_t i = 0; i < _internal->sectionHeader.FileInfo_count; ++i)
+			{
+				_internal->fileInfoList.emplace_back();
+				_internal->stream.read(
+					&_internal->fileInfoList.back(), sizeof(FileInfoEntry));
+			}
+
+			const size_t filenameOffset =
+				sizeof(ArchiveHeader) + _internal->sectionHeader.FileName_offset;
+			_internal->stream.setpos(filenameOffset);
+			for (uint16_t i = 0; i < _internal->sectionHeader.FileName_count; ++i)
+			{
+				_internal->fileNameList.emplace_back();
+				_internal->fileNameList.back().offset =
+					uint32_t(_internal->stream.getpos() - filenameOffset);
+				_internal->fileNameList.back().name = u8"";
+				char8_t c;
+				while(_internal->stream.read(&c, 1), bool(c))
+				{
+					_internal->fileNameList.back().name += c;
+				}
+			}
+			for (FileName& filename : _internal->fileNameList)
+			{
+				_internal->fileNameLookUpTable[filename.offset] = &filename;
+			}
+		}
+		else
+		{
+
+		}
+		_internal->mode = mode;
 	}
 	void Archive::extract(ThreadPool& pool, const std::filesystem::path& directory)
 	{
 	}
-	void Archive::create(ThreadPool& pool, const std::filesystem::path& root, int compress_level, bool skip_tool_signature, std::vector<std::string> ignore_list)
+	void Archive::create(ThreadPool& pool, const std::filesystem::path& root, int compress_level, bool skip_tool_signature, std::vector<std::u8string> ignore_list)
 	{
 	}
 	void Archive::listFiles()
@@ -173,9 +253,9 @@ namespace archive
 	void Archive::testArchive()
 	{
 	}
-	std::string Archive::getArchiveSignature()
+	std::u8string Archive::getArchiveSignature()
 	{
-		return std::string();
+		return std::u8string();
 	}
 	void Archive::close()
 	{

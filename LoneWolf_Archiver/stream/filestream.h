@@ -12,18 +12,29 @@ public:
 	OptionalOwnerBuffer() noexcept;
 	OptionalOwnerBuffer(const OptionalOwnerBuffer&) = delete;
 	OptionalOwnerBuffer& operator=(const OptionalOwnerBuffer&) = delete;
-	OptionalOwnerBuffer(OptionalOwnerBuffer&& o) noexcept;	
+	OptionalOwnerBuffer(OptionalOwnerBuffer&& o) noexcept;
+	OptionalOwnerBuffer& operator=(OptionalOwnerBuffer&& o) noexcept;
 	OptionalOwnerBuffer(std::vector<std::byte>&& in) noexcept;
+	OptionalOwnerBuffer& operator=(std::vector<std::byte>&& in) noexcept;
+	OptionalOwnerBuffer(std::byte* in) noexcept;
+	OptionalOwnerBuffer& operator=(std::byte* in) noexcept;
 	OptionalOwnerBuffer(const std::byte* in) noexcept;
+	OptionalOwnerBuffer& operator=(const std::byte* in) noexcept;
 
-	void set(std::vector<std::byte>&& in) noexcept;
-	void set(const std::byte* in) noexcept;
-	const std::byte* get() const noexcept;
+	~OptionalOwnerBuffer();
+	
+	std::byte* get() noexcept;
+	const std::byte* get_const() const noexcept;
 private:
-	bool ownership;
-	// I was thinking about using a union here.
-	// Seems I was wrong.
-	struct { std::vector<std::byte> v; const std::byte* p; } data;
+	enum { v, p, pc } mode;
+	union D
+	{
+		std::vector<std::byte> v;
+		std::byte* p;
+		const std::byte* pc;
+		D() {}
+		~D() {}
+	} data;
 };
 
 class FileStream

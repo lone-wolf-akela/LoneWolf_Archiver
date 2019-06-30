@@ -2,7 +2,7 @@
 
 #include "memmapfilestream.h"
 
-void MemMapFileStream::open(std::filesystem::path const &file)
+void MemMapFileStream::open(const std::filesystem::path& file)
 {
 	_filesize = file_size(file);
 

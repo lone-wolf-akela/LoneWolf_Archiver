@@ -15,7 +15,7 @@ public:
 		open(file);
 	}
 
-	void open(std::filesystem::path const &file);
+	void open(const std::filesystem::path& file);
 	void close(void);
 
 	size_t read(void *dst, size_t length) override;

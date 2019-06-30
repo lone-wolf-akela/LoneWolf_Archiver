@@ -3,7 +3,7 @@
 #include "cipherstream.h"
 #include "cipher.h"
 
-void CipherStream::open(std::filesystem::path file, CipherStreamState state)
+void CipherStream::open(const std::filesystem::path& file, CipherStreamState state)
 {
 	_state = state;
 	switch (state)

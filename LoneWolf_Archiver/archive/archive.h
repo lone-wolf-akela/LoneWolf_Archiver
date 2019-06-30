@@ -19,10 +19,10 @@ namespace archive
 			const std::filesystem::path& root,
 			int compress_level,
 			bool skip_tool_signature,
-			std::vector<std::string> ignore_list);
+			std::vector<std::u8string> ignore_list);
 		void listFiles();
 		void testArchive();
-		std::string getArchiveSignature();
+		std::u8string getArchiveSignature();
 
 		// finish
 		void close();

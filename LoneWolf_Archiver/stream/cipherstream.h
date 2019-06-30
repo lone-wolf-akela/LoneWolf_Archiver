@@ -17,11 +17,11 @@ class CipherStream : public FileStream
 {
 public:
 	CipherStream(void) = default;
-	CipherStream(std::filesystem::path const &file, CipherStreamState state)
+	CipherStream(const std::filesystem::path& file, CipherStreamState state)
 	{
 		open(file, state);
 	}
-	void open(std::filesystem::path file, CipherStreamState state);
+	void open(const std::filesystem::path& file, CipherStreamState state);
 	void close(void);
 
 	size_t read(void *dst, size_t length) override;
