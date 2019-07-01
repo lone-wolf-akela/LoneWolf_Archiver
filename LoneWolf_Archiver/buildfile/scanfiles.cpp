@@ -384,21 +384,21 @@ namespace buildfile
 			.filesetting = filesettings_template,
 			.files = std::move(allfiles) });
 		// then build all the locale archive
-		for (auto& locale : locales)
+		for (const auto& [locname, locpath] : locales)
 		{
 			if (!allinone)
 			{
 				// create a new archive for this locale
 				archive_list.emplace_back(Archive{
-					.name = u8"MOD" + modname + locale.first,.filename = locale.first });
+					.name = u8"MOD" + modname + locname,.filename = locname });
 			}
 			archive_list.back().TOCs.emplace_back(TOC{
 				.param = TOC::Param{
-				.name = u8"TOC" + modname + locale.first,
+				.name = u8"TOC" + modname + locname,
 				.alias = u8"Locale",
-				.relativeroot = u8"locale\\" + locale.first },
+				.relativeroot = u8"locale\\" + locname },
 				.filesetting = filesettings_template,
-				.files = std::move(locale.second) });
+				.files = std::move(locpath) });
 		}
 
 		return archive_list;
