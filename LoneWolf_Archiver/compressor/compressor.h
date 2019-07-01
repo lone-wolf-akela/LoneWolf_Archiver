@@ -8,7 +8,7 @@
 namespace compressor
 {
 	std::future<std::vector<std::byte>> compress(
-		ThreadPool& pool, std::byte* data, size_t inputsize, int level);
+		ThreadPool& pool, const std::byte* data, size_t inputsize, int level);
 	std::future<std::vector<std::byte>> uncompress(
-		ThreadPool& pool, std::byte* data, size_t inputsize, size_t outputsize);
+		ThreadPool& pool, const std::byte* data, size_t inputsize, size_t outputsize);
 }

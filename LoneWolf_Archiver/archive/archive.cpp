@@ -1,5 +1,8 @@
-﻿#include "../stream/cipherstream.h"
+﻿#include <list>
 
+#include "../stream/cipherstream.h"
+
+#include "../compressor/compressor.h"
 #include "archive.h"
 
 namespace
@@ -139,13 +142,13 @@ namespace
 		FileInfoEntry* fileInfoEntry = nullptr;
 		FileName* filename = nullptr;
 
-		OptionalOwnerBuffer fileDataHeader;
+		stream::OptionalOwnerBuffer fileDataHeader;
 		const FileDataHeader* getFileDataHeader(void) const
 		{
 			return reinterpret_cast<const FileDataHeader*>(fileDataHeader.get_const());
 		}
-		OptionalOwnerBuffer data;
-		OptionalOwnerBuffer decompressedData;
+		stream::OptionalOwnerBuffer compressedData;
+		stream::OptionalOwnerBuffer decompressedData;
 	};
 }
 namespace archive
@@ -153,7 +156,7 @@ namespace archive
 	struct ArchiveInternal
 	{
 		Archive::Mode mode;
-		CipherStream stream;
+		stream::CipherStream stream;
 
 		ArchiveHeader archiveHeader;
 		SectionHeader sectionHeader;
@@ -164,6 +167,59 @@ namespace archive
 		std::vector<FileName> folderNameList;
 
 		std::unordered_map<uint32_t, FileName*> fileNameLookUpTable;
+
+		std::tuple<std::future<File>, std::filesystem::path>
+			extractFile(
+				ThreadPool& pool,
+				const std::filesystem::path& path,
+				uint16_t fileIndex)
+		{
+			File f;
+			f.fileInfoEntry = &fileInfoList[fileIndex];
+			const auto pos = archiveHeader.exactFileDataOffset + f.fileInfoEntry->fileDataOffset;
+			f.fileDataHeader = std::get<0>(stream.optionalOwnerRead(
+				pos - sizeof(FileDataHeader),
+				sizeof(FileDataHeader)));
+			f.compressedData = std::get<0>(stream.optionalOwnerRead(
+				pos, f.fileInfoEntry->compressedLen));
+
+			// I suppose this can be easier once we have concurrency lib?
+			auto c = compressor::uncompress(pool,
+				f.compressedData.get_const(),
+				f.fileInfoEntry->compressedLen,
+				f.fileInfoEntry->decompressedLen);
+			auto r = std::async(std::launch::deferred, [&f, &c] {
+				f.decompressedData = c.get();
+				return std::move(f);
+				});
+			return std::make_tuple(r, path / f.getFileDataHeader()->fileName);
+		}
+		std::list<std::tuple<std::future<File>, std::filesystem::path>>
+			extractFolder(
+				ThreadPool& pool,
+				const std::filesystem::path& root,
+				uint16_t folderIndexl)
+		{
+			std::list<std::tuple<std::future<File>, std::filesystem::path>> r;
+			FolderEntry f;
+			// on linux, we should use '/' in directory instead of '\\'
+#if !defined(_WIN32)
+			std::replace(
+				fileNameLookUpTable[f.fileNameOffset]->name.begin(),
+				fileNameLookUpTable[f.fileNameOffset]->name.end(),
+				u8'\\', u8'/');
+#endif
+			std::filesystem::path filepath =
+				root / fileNameLookUpTable[f.fileNameOffset]->name;
+			for (auto i = f.firstFileIndex; i < f.lastFileIndex; i++)
+			{
+				r.push_back(extractFile(pool, filepath, i));
+			}
+			for (auto i = f.firstSubFolderIndex; i < f.lastSubFolderIndex; i++)
+			{
+				r.splice(r.end(), extractFolder(pool, root, i));
+			}
+		}
 	};
 	Archive::Archive()
 	{
@@ -182,7 +238,7 @@ namespace archive
 		_internal->fileNameLookUpTable.clear();
 		if (Read == mode)
 		{
-			_internal->stream.open(filepath, Read_EncryptionUnknown);
+			_internal->stream.open(filepath, stream::Read_EncryptionUnknown);
 			_internal->stream.read(
 				&_internal->archiveHeader, sizeof(ArchiveHeader));
 			_internal->stream.read(
@@ -237,15 +293,44 @@ namespace archive
 		}
 		else
 		{
-
+			_internal->stream.open(filepath,
+				encryption ? stream::Write_Encrypted : stream::Write_NonEncrypted);
 		}
 		_internal->mode = mode;
 	}
-	void Archive::extract(ThreadPool& pool, const std::filesystem::path& directory)
+	std::future<void> Archive::extract(ThreadPool& pool, const std::filesystem::path& root)
 	{
+		assert(Read == _internal->mode);
+		assert(create_directories(root));
+		std::list<std::tuple<std::future<File>, std::filesystem::path>> files;
+		for (const TocEntry& toc : _internal->tocList)
+		{
+			auto r = _internal->extractFolder(pool, root / toc.name, toc.startHierarchyFolderIndex);
+			files.splice(files.end(), r);
+		}
+		return std::async(std::launch::async, [&files]
+			{
+				for (auto& f : files)
+				{
+					const auto data = std::get<0>(f).get();
+					const auto path = std::get<1>(f);
+					create_directories(path.parent_path());
+					std::ofstream ofile(path, std::ios::binary);
+					assert(ofile);
+					ofile.write(
+						reinterpret_cast<const char*>(data.decompressedData.get_const()),
+						data.fileInfoEntry->decompressedLen);
+				}
+			});
 	}
-	void Archive::create(ThreadPool& pool, const std::filesystem::path& root, int compress_level, bool skip_tool_signature, std::vector<std::u8string> ignore_list)
+	std::future<void> Archive::create(
+		ThreadPool& pool,
+		const std::filesystem::path& root,
+		int compress_level,
+		bool skip_tool_signature,
+		std::vector<std::u8string> ignore_list)
 	{
+		
 	}
 	void Archive::listFiles()
 	{

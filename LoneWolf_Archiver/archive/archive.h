@@ -1,4 +1,6 @@
 ﻿#pragma once
+#include <future>
+
 #include "../buildfile/buildfile.h"
 #include "../ThreadPool/ThreadPool.h"
 
@@ -14,8 +16,8 @@ namespace archive
 		void open(const std::filesystem::path& filepath, Mode mode, bool encryption = false);
 
 		// action
-		void extract(ThreadPool& pool, const std::filesystem::path& directory);
-		void create(ThreadPool& pool,
+		std::future<void> extract(ThreadPool& pool, const std::filesystem::path& root);
+		std::future<void> create(ThreadPool& pool,
 			const std::filesystem::path& root,
 			int compress_level,
 			bool skip_tool_signature,
