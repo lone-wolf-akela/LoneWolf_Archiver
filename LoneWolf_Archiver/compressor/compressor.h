@@ -3,6 +3,8 @@
 
 #include <vector>
 
+#include <zlib.h>
+
 #include "../ThreadPool/ThreadPool.h"
 
 namespace compressor

@@ -1,7 +1,5 @@
 ﻿#include <cassert>
 
-#include <zlib.h>
-
 #include "compressor.h"
 
 namespace

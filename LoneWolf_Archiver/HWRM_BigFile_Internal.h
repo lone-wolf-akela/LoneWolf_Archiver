@@ -13,7 +13,7 @@ enum CompressMethod : uint8_t
 /*task struct*/
 struct BuildFileTask
 {
-	std::string name;
+	//std::string name;
 	std::filesystem::path realpath;
 	CompressMethod compressMethod;
 	uint32_t filesize;
@@ -21,19 +21,19 @@ struct BuildFileTask
 struct BuildFolderTask
 {
 	std::string name;
-	std::string fullpath;
+	//std::string fullpath;
 	std::vector<BuildFolderTask> subFolderTasks;
 	std::vector<BuildFileTask> subFileTasks;
 };
 struct BuildTOCTask
 {
-	std::string name;
-	std::string alias;
+	//std::string name;
+	//std::string alias;
 	BuildFolderTask rootFolderTask;
 };
 struct BuildArchiveTask
 {
-	std::string name;
+	//std::string name;
 	std::vector<BuildTOCTask> buildTOCTasks;
 };
 

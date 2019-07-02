@@ -2,9 +2,14 @@
  * \brief	Program entry point.
  */
 
-#include "stdafx.h"
+#include <iostream>
+#include <fstream>
+#include <thread>
 
-#include "HWRM_BigFile.h"
+#include <boost/program_options.hpp>
+#include <json/json.h>
+
+#include "archive/archive.h"
 
 namespace po = boost::program_options;
 
@@ -14,7 +19,7 @@ struct
 	int compressLevel = 6;
 	bool keepSign = false;	
 	bool encryption = false;
-	std::vector<std::string> ignoreList;
+	std::vector<std::u8string> ignoreList;
 }options;
 
 int main(const int argc, char *argv[])
@@ -163,22 +168,26 @@ int main(const int argc, char *argv[])
 		{
 			showTime = true;
 
-			BigFile file(vm["archive"].as<std::string>());
-			file.setCoreNum(options.threadNum);
-			file.extract(vm["extract"].as<std::string>());
+			archive::Archive file;
+			file.open(vm["archive"].as<std::string>(), archive::Archive::Mode::Read);
+			ThreadPool pool(options.threadNum);
+			file.extract(pool, vm["extract"].as<std::string>());
 		}
 		else if (vm.count("create"))
 		{
 			showTime = true;
-			BigFile file(vm["archive"].as<std::string>(), Write);
-
-			file.setCompressLevel(options.compressLevel);
-			file.setCoreNum(options.threadNum);
-			file.writeEncryption(options.encryption);
-			file.skipToolSignature(!options.keepSign);
-			file.setIgnoreList(options.ignoreList);
-
-			file.create(vm["root"].as<std::string>(), vm["create"].as<std::string>());
+			archive::Archive file;
+			file.open(vm["archive"].as<std::string>(),
+				options.encryption ?
+				archive::Archive::Mode::Write_Encrypted :
+				archive::Archive::Mode::Write_NonEncrypted);
+			ThreadPool pool(options.threadNum);
+			file.create(pool,
+				buildfile::parseFile(vm["create"].as<std::string>()),
+				vm["root"].as<std::string>(),
+				options.compressLevel,
+				!options.keepSign,
+				options.ignoreList);
 		}
 		else if (vm.count("generate"))
 		{
