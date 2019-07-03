@@ -4,6 +4,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/locale.hpp>
 #include <openssl/md5.h>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 #include "../stream/cipherstream.h"
 
@@ -12,11 +14,30 @@
 
 namespace
 {
+	void logProgress(std::shared_ptr<spdlog::logger> logger,
+		size_t current,
+		size_t max,
+		const std::string& name)
+	{
+		auto progress = double(current) * 100 / max;
+		// only output progress when progress at least 1%
+		if (size_t(progress + 0.5) != size_t(double(current - 1) * 100 / max + 0.5))
+		{
+			auto complete = size_t(progress * 0.3 + 0.5);
+			auto incomplete = size_t(30) - complete;
+			logger->info("[{0}{1}] {2}%: {3}",
+				std::string(complete, '#'),
+				std::string(incomplete, '-'),
+				size_t(progress + 0.5),
+				name);
+		}
+	}
+
 	/// \brief simple	function to match filename with wildcard
 	/// \param needle	filename with wildcard
 	/// \param haystack	actual filename to test
 	/// \return if the	name match the wildcard
-	static bool match(std::u8string_view needle, std::u8string_view haystack)
+	bool match(std::u8string_view needle, std::u8string_view haystack)
 	{
 		auto pNeedle = needle.begin();
 		auto pHaystack = haystack.begin();
@@ -38,7 +59,10 @@ namespace
 				return false;
 			}
 			default:
-				if (*pHaystack != *pNeedle)	return false;
+				if (pHaystack == haystack.end() || *pHaystack != *pNeedle)
+				{
+					return false;
+				}
 				++pHaystack;
 			}
 		}
@@ -178,7 +202,6 @@ namespace
 	struct File
 	{
 		FileInfoEntry* fileInfoEntry = nullptr;
-		FileName* filename = nullptr;
 
 		stream::OptionalOwnerBuffer fileDataHeader;
 		const FileDataHeader* getFileDataHeader(void) const
@@ -193,6 +216,7 @@ namespace archive
 {
 	struct ArchiveInternal
 	{
+		std::shared_ptr<spdlog::logger> logger;
 		Archive::Mode mode;
 		stream::CipherStream stream;
 
@@ -459,11 +483,11 @@ namespace archive
 		// all nonsense around letter case are dealt in this function
 		BuildArchiveTask
 			parseTask(
-				const buildfile::Archive& archive,
+				buildfile::Archive& archive,
 				const std::filesystem::path& root,
 				std::vector<std::u8string> ignore_list)
 		{
-			//std::cout << "Parsing Build Config..." << std::endl;
+			logger->info("Parsing Build Config...");
 			for (auto& ignore : ignore_list)
 			{
 				boost::to_lower(ignore);
@@ -475,18 +499,33 @@ namespace archive
 				BuildTOCTask tocTask;
 				tocTask.name = boost::to_lower_copy(toc.param.name);
 				tocTask.alias = boost::to_lower_copy(toc.param.alias);
-				tocTask.rootFolderTask.name = u8"";
-
-				//on linux, we should use '/' in relativeroot instead of '\\'
+				tocTask.rootFolderTask.name = u8"";				
 #if defined(_WIN32)
-				auto tocRootPath = absolute(root / toc.param.relativeroot);
+				//on windows, we should use '\\' instead of '/'
+				std::replace(toc.param.relativeroot.begin(),
+					toc.param.relativeroot.end(), u8'/', u8'\\');
+				for (auto& file : toc.files)
+				{
+					file.make_preferred();
+				}
 #else
-				auto relativeroot_copy = toc.param.relativeroot;
-				std::replace(relativeroot_copy.begin(), relativeroot_copy.end(), u8'\\', u8'/');
-				auto tocRootPath = absolute(root / relativeroot_copy);
+				//on linux, we should use '/' instead of '\\'
+				std::replace(toc.param.relativeroot.begin(),
+					toc.param.relativeroot.end(), u8'\\', u8'/');
+				for (auto& file : toc.files)
+				{
+					auto t = file.u8string();
+					std::replace(t.begin(), t.end(), u8'\\', u8'/');
+					file = t;
+				}
 #endif
-				
-
+				auto tocRootPath = absolute(root / toc.param.relativeroot);
+				// toc file list must be sorted
+				toc.files.sort([](auto a, auto b)
+					{
+						return boost::to_lower_copy(a.u8string()) <
+							boost::to_lower_copy(b.u8string());
+					});
 				for (auto& file : toc.files)
 				{
 					BuildFileTask fileTask;
@@ -551,7 +590,7 @@ namespace archive
 					}
 
 					std::filesystem::path relativePath =
-						fileTask.realpath.lexically_relative(tocRootPath).remove_filename();
+						fileTask.realpath.lexically_relative(tocRootPath).parent_path();
 
 					BuildFolderTask* currentFolder = &tocTask.rootFolderTask;
 					std::filesystem::path currentPath("");
@@ -575,6 +614,10 @@ namespace archive
 							BuildFolderTask newFolder;
 							newFolder.name = boost::to_lower_copy(iter->u8string());
 							newFolder.path_relative_to_root = boost::to_lower_copy(currentPath.u8string());
+#if !defined(_WIN32)
+							std::replace(newFolder.path_relative_to_root.begin(),
+								newFolder.path_relative_to_root.end(), u8'/', u8'\\');
+#endif
 							currentFolder->subFolderTasks.push_back(newFolder);
 							currentFolder = &currentFolder->subFolderTasks.back();
 						}
@@ -592,11 +635,7 @@ namespace archive
 				int compress_level,
 				bool skip_tool_signature)
 		{
-		//print basic information
-		//std::cout << "Using " << _coreNum << " threads." << std::endl;
-		//std::cout << "Compress Level: " << _compressLevel << std::endl;
-
-		//std::cout << "Writing Archive Header..." << std::endl;
+			logger->info("Writing Archive Header...");
 			archiveHeader = ArchiveHeader{ 0 };
 			memmove(archiveHeader._ARCHIVE, "_ARCHIVE", sizeof(ArchiveHeader::_ARCHIVE));
 			archiveHeader.version = 2;
@@ -611,7 +650,7 @@ namespace archive
 
 			sectionHeader = SectionHeader{ 0 };
 
-			//std::cout << "Generating File Data..." << std::endl;
+			logger->info("Generating File Data...");
 			for (auto& tocTask : task.buildTOCTasks)
 			{
 				TocEntry tocEntry;
@@ -643,7 +682,7 @@ namespace archive
 				entry.fileNameOffset += baseOffset;
 			}
 
-			//std::cout << "Writing Section Header..." << std::endl;
+			logger->info("Writing Section Header...");
 			const size_t sectionHeaderBegPos = stream.getpos();
 			stream.write(&sectionHeader, sizeof(SectionHeader));
 			sectionHeader.TOC_offset =
@@ -679,6 +718,7 @@ namespace archive
 				uint32_t(stream.getpos() - sectionHeaderBegPos);
 
 			std::list<std::future<File>> l;
+			logger->info("Starting File Compression..");
 			for (uint16_t i = 0; i < task.buildTOCTasks.size(); i++)
 			{
 				l.splice(l.end(), buildFolder(pool,
@@ -689,7 +729,7 @@ namespace archive
 
 			archiveHeader.exactFileDataOffset = uint32_t(stream.getpos());
 
-			//std::cout << "Writing Compressed Files..." << std::endl;
+			logger->info("Writing Compressed Files...");
 			if (Archive::Write_Encrypted == mode)
 			{
 				stream.writeKey();
@@ -697,6 +737,7 @@ namespace archive
 			return std::async(std::launch::async,
 				[this, skip_tool_signature, l = std::move(l)]() mutable
 			{
+				size_t fileswritten = 0;
 				for (auto& filefuture : l)
 				{
 					auto file = filefuture.get();
@@ -705,9 +746,12 @@ namespace archive
 						uint32_t(stream.getpos() - archiveHeader.exactFileDataOffset);
 					stream.write(file.compressedData.get_const(),
 						file.fileInfoEntry->compressedLen);
+					// calculate progress
+					fileswritten++;
+					logProgress(logger, fileswritten, l.size(), file.getFileDataHeader()->fileName);
 				}
 
-				//std::cout << "Rewrite Section Header..." << std::endl;
+				logger->info("Rewrite Section Header...");
 				//rewrite sectionHeader
 				stream.setpos(sizeof(ArchiveHeader));
 				stream.write(&sectionHeader, sizeof(SectionHeader));
@@ -742,7 +786,7 @@ namespace archive
 				}
 
 				//calculate archiveSignature
-				//std::cout << "Calculating Archive Signature..." << std::endl;
+				logger->info("Calculating Archive Signature...");
 				std::byte buffer[1024];
 				std::byte md5_digest[16];
 				MD5_CTX md5_context;
@@ -763,12 +807,12 @@ namespace archive
 
 				if (skip_tool_signature)
 				{
-					//std::cout << "Tool Signature Calculation Skipped." << std::endl;
+					logger->info("Tool Signature Calculation Skipped.");
 				}
 				else
 				{
 					//calculate toolSignature
-					//std::cout << "Calculating Tool Signature..." << std::endl;
+					logger->info("Calculating Tool Signature...");
 					MD5_Init(&md5_context);
 					MD5_Update(&md5_context, TOOL_SIG, sizeof(TOOL_SIG) - 1);
 					stream.setpos(sizeof(ArchiveHeader));
@@ -783,7 +827,7 @@ namespace archive
 				}
 
 				//rewrite archiveHeader
-				//std::cout << "Rewrite Archive Header..." << std::endl;
+				logger->info("Rewrite Archive Header...");
 				stream.setpos(0);
 				stream.write(&archiveHeader, sizeof(ArchiveHeader));
 
@@ -791,14 +835,29 @@ namespace archive
 				{
 					stream.writeEncryptionEnd();
 				}
-				//std::cout << std::endl;
-				//std::cout << "Build Finished." << std::endl;
+				logger->info("=================");
+				logger->info("Build Finished.");
 			});
 		}
 	};
-	Archive::Archive()
+	Archive::Archive(const std::string& name)
 	{
+		_opened = false;
 		_internal = std::unique_ptr<ArchiveInternal>(new ArchiveInternal);
+		_internal->logger = spdlog::stdout_color_mt(name);
+	}
+	Archive::Archive(Archive&& o) noexcept
+	{
+		_opened = o._opened;
+		o._opened = false;
+		_internal = std::move(o._internal);
+	}
+	Archive& Archive::operator=(Archive&& o) noexcept
+	{
+		_opened = o._opened;
+		o._opened = false;
+		_internal = std::move(o._internal);
+		return *this;
 	}
 	void Archive::open(
 		const std::filesystem::path& filepath, Mode mode)
@@ -873,6 +932,7 @@ namespace archive
 		{
 			_internal->stream.open(filepath, stream::Write_NonEncrypted);
 		}
+		break;
 		default: // Write_Encrypted
 		{
 			_internal->stream.open(filepath, stream::Write_Encrypted);
@@ -880,11 +940,12 @@ namespace archive
 		break;
 		}
 		_internal->mode = mode;
+		_opened = true;
 	}
 	std::future<void> Archive::extract(ThreadPool& pool, const std::filesystem::path& root)
 	{
 		assert(Read == _internal->mode);
-		assert(create_directories(root));
+		create_directories(root);
 		std::list<std::tuple<std::future<File>, std::filesystem::path>> files;
 		for (const TocEntry& toc : _internal->tocList)
 		{
@@ -892,8 +953,9 @@ namespace archive
 			files.splice(files.end(), r);
 		}
 		return std::async(std::launch::async,
-			[files = std::move(files)]() mutable
+			[this, files = std::move(files)]() mutable
 		{
+			size_t fileswritten = 0;
 			for (auto& f : files)
 			{
 				const auto data = std::get<0>(f).get();
@@ -908,12 +970,15 @@ namespace archive
 				}
 				last_write_time(path, std::filesystem::file_time_type() +
 					std::chrono::seconds(data.getFileDataHeader()->modificationDate));
+				// calculate progress
+				fileswritten++;
+				logProgress(_internal->logger, fileswritten, files.size(), path.filename().string());
 			}
 		});
 	}
 	std::future<void> Archive::create(
 		ThreadPool& pool,
-		const buildfile::Archive& task,
+		buildfile::Archive& task,
 		const std::filesystem::path& root,
 		int compress_level,
 		bool skip_tool_signature,
@@ -977,6 +1042,10 @@ namespace archive
 	}
 	void Archive::close()
 	{
-		_internal->stream.close();
+		if(_opened)	_internal->stream.close();
+	}
+	Archive::~Archive()
+	{
+		close();
 	}
 }

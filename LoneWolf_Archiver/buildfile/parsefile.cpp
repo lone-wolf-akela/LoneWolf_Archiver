@@ -136,7 +136,7 @@ namespace buildfile
 			eof = bufstr.end();
 		}
 		
-		Archive archive{ .filename = filepath.filename().u8string() };
+		Archive archive{ .filename = filepath.filename().string() };
 		builfile_parser<decltype(iter)> parser;
 		bf_skipper<decltype(iter)> skipper;
 		bool r = boost::spirit::qi::phrase_parse(iter, eof, parser, skipper, archive);

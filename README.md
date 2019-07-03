@@ -26,7 +26,8 @@ An fast and open-sourced alternative to Relic's Archive.exe for Homeworld2 & Hom
 
 ## Compiling ##
 To compile LoneWolf Archiver, you need these libraries:
-- Boost (version 1.67 or above)
+- Boost (version 1.70 or above)
+- spdlog
 - Zlib
 - OpenSSL
 - JsonCpp
@@ -47,15 +48,16 @@ Install cmake and type:
 This tool can create encrypted .big files which can't be decrypted by this tool itself. With this source code, I believe some of you are able to create tools to decrypt those .big files. I trust you guys and I hope you won't release those decryption tools publicly or use them to do bad things.
 
 ## Copyright Notices ##
-- Uses Boost C++ Libraries:
+- Uses boost C++ libraries:
 	- iostreams/device/mapped_file.hpp
 	- program_options.hpp
 	- algorithm/string.hpp
 	- filesystem.hpp
 	- locale.hpp
 	- hof.hpp
-- Uses Zlib Library.
-- Uses OpenSSL Library.
-- Uses JsonCpp Library.
-- Uses [ThreadPool](https://github.com/progschj/ThreadPool) Library.
-- Uses code from [bigDecrypter](https://github.com/mon/bigDecrypter) Project.
+- Uses zlib library.
+- Uses openSSL library.
+- Uses jsoncpp library.
+- Uses [spdlog](https://github.com/gabime/spdlog) library
+- Uses [ThreadPool](https://github.com/progschj/ThreadPool) library.
+- Uses code from [bigDecrypter](https://github.com/mon/bigDecrypter) project.

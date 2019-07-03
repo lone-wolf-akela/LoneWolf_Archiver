@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <cstdint>
 
 #include <string>
@@ -54,7 +54,7 @@ namespace buildfile
 		std::u8string name;
 		std::vector<TOC> TOCs;
 
-		std::u8string filename;
+		std::string filename;
 	};
 
 

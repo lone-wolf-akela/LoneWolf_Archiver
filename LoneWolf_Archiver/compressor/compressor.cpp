@@ -5,7 +5,7 @@
 namespace
 {
 	std::vector<std::byte> compress_worker(
-		std::byte* data, size_t inputsize, int level)
+		const std::byte* data, size_t inputsize, int level)
 	{		
 		uLongf compressed_size = compressBound(uLong(inputsize));
 		std::vector<std::byte> r(compressed_size);
@@ -20,7 +20,7 @@ namespace
 	}
 
 	std::vector<std::byte> uncompress_worker(
-		std::byte* data, size_t inputsize, size_t outputsize)
+		const std::byte* data, size_t inputsize, size_t outputsize)
 	{
 		std::vector<std::byte> r(outputsize);
 		uLongf ul_outputsize = uLongf(outputsize);
@@ -36,13 +36,13 @@ namespace
 namespace compressor
 {
 	std::future<std::vector<std::byte>> compress(
-		ThreadPool& pool, std::byte* data, size_t inputsize, int level)
+		ThreadPool& pool, const std::byte* data, size_t inputsize, int level)
 	{
 		return pool.enqueue(compress_worker, data, inputsize, level);
 	}
 
 	std::future<std::vector<std::byte>> uncompress(
-		ThreadPool& pool, std::byte* data, size_t inputsize, size_t outputsize)
+		ThreadPool& pool, const std::byte* data, size_t inputsize, size_t outputsize)
 	{
 		return pool.enqueue(uncompress_worker, data, inputsize, outputsize);
 	}

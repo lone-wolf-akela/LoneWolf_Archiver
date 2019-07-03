@@ -344,7 +344,7 @@ namespace buildfile
 		
 		std::list<std::filesystem::path> allfiles = findAllFiles(rootpath);
 		// find all languages in "locale" folder
-		std::map<std::u8string, std::list<std::filesystem::path>> locales;
+		std::map<std::filesystem::path, std::list<std::filesystem::path>> locales;
 		if (is_directory(rootpath / "locale"))
 		{
 			for (std::filesystem::directory_iterator locale_iter(rootpath / "locale");
@@ -368,39 +368,41 @@ namespace buildfile
 							++file_iter;
 						}
 					}
-					locales.emplace(lastNotEmptyFilename(locale_iter->path()).u8string(), localefiles);
+					locales.emplace(lastNotEmptyFilename(locale_iter->path()), localefiles);
 				}
 			}
 		}
-		std::u8string modname = lastNotEmptyFilename(rootpath).u8string();
+		std::string modname = lastNotEmptyFilename(rootpath).string();
+		std::u8string u8modname = lastNotEmptyFilename(rootpath).u8string();
 		std::vector<Archive> archive_list;
 		// build our base archive
-		archive_list.emplace_back(Archive{ .name = u8"MOD" + modname,.filename = modname });
+		archive_list.emplace_back(Archive{ .name = u8"MOD" + u8modname,.filename = modname });
 		archive_list.back().TOCs.emplace_back(TOC{
 			.param = TOC::Param{
-			.name = u8"TOC" + modname,
+			.name = u8"TOC" + u8modname,
 			.alias = u8"Data",
 			.relativeroot = u8""},
 			.filesetting = filesettings_template,
 			.files = std::move(allfiles) });
 		// then build all the locale archive
-		for (const auto& [locname, locpath] : locales)
+		for (const auto& [loc, locpath] : locales)
 		{
+			std::string locname = loc.string();
+			std::u8string u8locname = loc.u8string();
 			if (!allinone)
 			{
 				// create a new archive for this locale
 				archive_list.emplace_back(Archive{
-					.name = u8"MOD" + modname + locname,.filename = locname });
+					.name = u8"MOD" + u8modname + u8locname,.filename = locname });
 			}
 			archive_list.back().TOCs.emplace_back(TOC{
 				.param = TOC::Param{
-				.name = u8"TOC" + modname + locname,
+				.name = u8"TOC" + u8modname + u8locname,
 				.alias = u8"Locale",
-				.relativeroot = u8"locale\\" + locname },
+				.relativeroot = u8"locale\\" + u8locname },
 				.filesetting = filesettings_template,
 				.files = std::move(locpath) });
 		}
-
 		return archive_list;
 	}
 }
