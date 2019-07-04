@@ -74,7 +74,7 @@ namespace
 	}
 
 	/// \return <output_length, checksum>
-	std::tuple<uLong, uint32_t> compress_worker_part(
+	std::tuple<uLong, uint32_t> compress_worker_zlib_part(
 		const std::byte* in,
 		std::byte* out,
 		size_t insize,
@@ -111,7 +111,7 @@ namespace
 		deflateEnd(&strm);
 		return std::make_tuple(outlen, check);
 	}
-	std::vector<std::byte> compress_worker_nonpart(
+	std::vector<std::byte> compress_worker_zlib_nonpart(
 		const std::byte* data, size_t inputsize, int level)
 	{
 		uLongf compressed_size = compressBound(uLong(inputsize));
@@ -154,13 +154,22 @@ namespace compressor
 			std::vector<std::future<std::tuple<uLong, uint32_t>>> futures;
 			for (size_t i = 0; i < partnum; i++)
 			{
-				futures.push_back(pool.enqueue(compress_worker_part,
-					data + i * partinsize,
-					compressed.data() + i * partoutsize,
-					partnum - 1 == i ? inputsize - i * partinsize : partinsize,
-					partoutsize,
-					level,
-					partnum - 1 == i));
+				if (level <= 9)
+				{
+					// use zlib
+					futures.push_back(pool.enqueue(compress_worker_zlib_part,
+						data + i * partinsize,
+						compressed.data() + i * partoutsize,
+						partnum - 1 == i ? inputsize - i * partinsize : partinsize,
+						partoutsize,
+						level,
+						partnum - 1 == i));
+				}
+				else
+				{
+					// use zopfli
+					///\TODO
+				}
 			}
 			return std::async(std::launch::deferred,
 				[futures = std::move(futures),
@@ -197,7 +206,16 @@ namespace compressor
 		}
 		else
 		{
-			return pool.enqueue(compress_worker_nonpart, data, inputsize, level);
+			if (level <= 9)
+			{
+				// use zlib
+				return pool.enqueue(compress_worker_zlib_nonpart, data, inputsize, level);
+			}
+			else
+			{
+				// use zopfli
+				///\TODO
+			}
 		}
 	}
 

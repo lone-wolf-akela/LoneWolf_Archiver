@@ -1,0 +1,3 @@
+[submodule "LoneWolf_Archiver/zopfli"]
+	path = LoneWolf_Archiver/zopfli
+	url = https://github.com/google/zopfli.git
