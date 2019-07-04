@@ -1,5 +1,5 @@
 # LoneWolf Archiver #
-An fast and open-sourced alternative to Relic's Archive.exe for Homeworld2 & HomeworldRM.
+A fast and open-sourced alternative to Relic's Archive.exe for Homeworld2 & HomeworldRM.
 
 ## Download ##
 [Release Page](https://github.com/lone-wolf-akela/LoneWolf_Archiver/releases/)
