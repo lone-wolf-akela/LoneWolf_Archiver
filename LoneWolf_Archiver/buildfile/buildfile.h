@@ -8,6 +8,8 @@
 
 #include <boost/optional.hpp>
 
+#include "../exceptions/exceptions.h"
+
 namespace buildfile
 {
 	enum Compression {

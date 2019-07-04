@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 
 #include <stdexcept>
@@ -40,6 +40,22 @@ class ZlibError : public std::runtime_error
 {
 public:
 	explicit ZlibError(std::string const& message = "") :
+		runtime_error(message)
+	{}
+};
+
+class SystemApiError : public std::runtime_error
+{
+public:
+	explicit SystemApiError(std::string const& message) :
+		runtime_error(message)
+	{}
+};
+
+class UnkownError : public std::runtime_error
+{
+public:
+	explicit UnkownError(std::string const& message) :
 		runtime_error(message)
 	{}
 };

@@ -3,6 +3,7 @@
 
 #include "../buildfile/buildfile.h"
 #include "../ThreadPool/ThreadPool.h"
+#include "../exceptions/exceptions.h"
 
 namespace archive
 {

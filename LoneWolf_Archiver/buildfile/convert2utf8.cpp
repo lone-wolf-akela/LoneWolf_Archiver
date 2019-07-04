@@ -51,8 +51,13 @@ namespace
 		///			ERROR_INVALID_FLAGS
 		///			ERROR_INVALID_PARAMETER
 		///			ERROR_NO_UNICODE_TRANSLATION
-		assert(false);
-		return std::wstring();
+		throw SystemApiError(
+			std::string("Error happened when calling `MultiByteToWideChar': ") + (
+			(errcode == ERROR_INSUFFICIENT_BUFFER) ? "ERROR_INSUFFICIENT_BUFFER" :
+				(errcode == ERROR_INVALID_FLAGS) ? "ERROR_INVALID_FLAGS" :
+				(errcode == ERROR_INVALID_PARAMETER) ? "ERROR_INVALID_PARAMETER" :
+				(errcode == ERROR_NO_UNICODE_TRANSLATION) ? "ERROR_NO_UNICODE_TRANSLATION" :
+				"Unkown Error"));
 	}
 #endif
 }
@@ -86,7 +91,7 @@ namespace buildfile
 			auto wptr = reinterpret_cast<const WCHAR*>(in.data());
 			auto wlen = in.size() * sizeof(in[0]) / sizeof(WCHAR);
 			return boost::locale::conv::utf_to_utf<char>(wptr, wptr + wlen);
-		}	
+		}
 #endif
 		// not UNICODE, need codepage detection
 		// we will try to parse the file as a UTF8 file
@@ -101,7 +106,7 @@ namespace buildfile
 			return std::string(in);
 		}
 		catch (boost::locale::conv::conversion_error)
-		{			
+		{
 			// seems not UTF8, will try to parse as system default ANSI code page	
 #if defined(_WIN32)
 			// It seems that boost cannot reliably detect current codepage on windows,

@@ -102,14 +102,15 @@ namespace buildfile
 	{
 		std::ofstream ofile(filepath);
 
-		assert(ofile);
+		if (!ofile) throw FileIoError("Failed to open file: " +
+			filepath.string() + " for output");
 
 		std::string generated;
 		std::back_insert_iterator<std::string> iter(generated);
 		builfile_gen<decltype(iter)> gen;
 		bool r = boost::spirit::karma::generate(iter, gen, archive);
 
-		assert(r);
+		if (!r) throw UnkownError("Unkown error happened when generating build file");
 
 		ofile << generated;
 	}

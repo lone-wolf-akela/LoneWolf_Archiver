@@ -111,10 +111,10 @@ namespace buildfile
 	Archive parseFile(const std::filesystem::path& filepath)
 	{
 		std::ifstream ifile(filepath);
-		
-		assert(ifile);
-		std::stringstream buffer;
+		if (!ifile) throw FileIoError("Failed to open file: " +
+			filepath.string() + " for input");
 
+		std::stringstream buffer;
 		buffer << ifile.rdbuf();
 		
 		std::string bufstr = ConvertToUTF8(buffer.str());
@@ -141,7 +141,7 @@ namespace buildfile
 		bf_skipper<decltype(iter)> skipper;
 		bool r = boost::spirit::qi::phrase_parse(iter, eof, parser, skipper, archive);
 		
-		assert(r && iter == eof);
+		if (!(r && iter == eof)) throw FormatError("Cannot parse input build file");
 
 		return archive;
 	}

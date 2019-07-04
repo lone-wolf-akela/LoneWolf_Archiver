@@ -87,11 +87,8 @@ namespace
 			return CompressMethod::Uncompressed;
 		case buildfile::Compression::Decompress_During_Read:
 			return CompressMethod::Decompress_During_Read;
-		case buildfile::Compression::Decompress_All_At_Once:
+		default: // buildfile::Compression::Decompress_All_At_Once:
 			return CompressMethod::Decompress_All_At_Once;
-		default:
-			assert(false);
-			return CompressMethod(0);
 		}
 	}
 
@@ -1015,7 +1012,8 @@ namespace archive
 				create_directories(path.parent_path());
 				{
 					std::ofstream ofile(path, std::ios::binary);
-					assert(ofile);
+					if (!ofile) throw FileIoError("Failed to open file: " +
+						path.string() + " for output");
 					ofile.write(
 						reinterpret_cast<const char*>(data.decompressedData.get_const()),
 						data.fileInfoEntry->decompressedLen);
