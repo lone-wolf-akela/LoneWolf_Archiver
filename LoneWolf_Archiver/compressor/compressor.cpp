@@ -169,6 +169,7 @@ namespace compressor
 				{
 					// use zopfli
 					///\TODO
+					throw NotImplementedError();
 				}
 			}
 			return std::async(std::launch::deferred,
@@ -215,6 +216,7 @@ namespace compressor
 			{
 				// use zopfli
 				///\TODO
+				throw NotImplementedError();
 			}
 		}
 	}

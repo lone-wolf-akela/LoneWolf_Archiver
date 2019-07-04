@@ -43,6 +43,12 @@
     <Filter Include="源文件\archive">
       <UniqueIdentifier>{42c69ec7-8a26-4c32-832d-9efb09a26c32}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\zopfli">
+      <UniqueIdentifier>{d6482486-c840-47f6-86a3-7653f09f20be}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\zopfli">
+      <UniqueIdentifier>{535edcca-605f-49ab-ad94-13bfa0ce2596}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThreadPool\ThreadPool.h">
@@ -71,6 +77,45 @@
     </ClInclude>
     <ClInclude Include="archive\archive.h">
       <Filter>头文件\archive</Filter>
+    </ClInclude>
+    <ClInclude Include="zopfli\src\zopfli\blocksplitter.h">
+      <Filter>头文件\zopfli</Filter>
+    </ClInclude>
+    <ClInclude Include="zopfli\src\zopfli\cache.h">
+      <Filter>头文件\zopfli</Filter>
+    </ClInclude>
+    <ClInclude Include="zopfli\src\zopfli\deflate.h">
+      <Filter>头文件\zopfli</Filter>
+    </ClInclude>
+    <ClInclude Include="zopfli\src\zopfli\gzip_container.h">
+      <Filter>头文件\zopfli</Filter>
+    </ClInclude>
+    <ClInclude Include="zopfli\src\zopfli\hash.h">
+      <Filter>头文件\zopfli</Filter>
+    </ClInclude>
+    <ClInclude Include="zopfli\src\zopfli\katajainen.h">
+      <Filter>头文件\zopfli</Filter>
+    </ClInclude>
+    <ClInclude Include="zopfli\src\zopfli\lz77.h">
+      <Filter>头文件\zopfli</Filter>
+    </ClInclude>
+    <ClInclude Include="zopfli\src\zopfli\squeeze.h">
+      <Filter>头文件\zopfli</Filter>
+    </ClInclude>
+    <ClInclude Include="zopfli\src\zopfli\symbols.h">
+      <Filter>头文件\zopfli</Filter>
+    </ClInclude>
+    <ClInclude Include="zopfli\src\zopfli\tree.h">
+      <Filter>头文件\zopfli</Filter>
+    </ClInclude>
+    <ClInclude Include="zopfli\src\zopfli\util.h">
+      <Filter>头文件\zopfli</Filter>
+    </ClInclude>
+    <ClInclude Include="zopfli\src\zopfli\zlib_container.h">
+      <Filter>头文件\zopfli</Filter>
+    </ClInclude>
+    <ClInclude Include="zopfli\src\zopfli\zopfli.h">
+      <Filter>头文件\zopfli</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -103,6 +148,42 @@
     </ClCompile>
     <ClCompile Include="stream\filestream.cpp">
       <Filter>源文件\stream</Filter>
+    </ClCompile>
+    <ClCompile Include="zopfli\src\zopfli\blocksplitter.c">
+      <Filter>源文件\zopfli</Filter>
+    </ClCompile>
+    <ClCompile Include="zopfli\src\zopfli\cache.c">
+      <Filter>源文件\zopfli</Filter>
+    </ClCompile>
+    <ClCompile Include="zopfli\src\zopfli\deflate.c">
+      <Filter>源文件\zopfli</Filter>
+    </ClCompile>
+    <ClCompile Include="zopfli\src\zopfli\gzip_container.c">
+      <Filter>源文件\zopfli</Filter>
+    </ClCompile>
+    <ClCompile Include="zopfli\src\zopfli\hash.c">
+      <Filter>源文件\zopfli</Filter>
+    </ClCompile>
+    <ClCompile Include="zopfli\src\zopfli\katajainen.c">
+      <Filter>源文件\zopfli</Filter>
+    </ClCompile>
+    <ClCompile Include="zopfli\src\zopfli\lz77.c">
+      <Filter>源文件\zopfli</Filter>
+    </ClCompile>
+    <ClCompile Include="zopfli\src\zopfli\squeeze.c">
+      <Filter>源文件\zopfli</Filter>
+    </ClCompile>
+    <ClCompile Include="zopfli\src\zopfli\tree.c">
+      <Filter>源文件\zopfli</Filter>
+    </ClCompile>
+    <ClCompile Include="zopfli\src\zopfli\util.c">
+      <Filter>源文件\zopfli</Filter>
+    </ClCompile>
+    <ClCompile Include="zopfli\src\zopfli\zlib_container.c">
+      <Filter>源文件\zopfli</Filter>
+    </ClCompile>
+    <ClCompile Include="zopfli\src\zopfli\zopfli_lib.c">
+      <Filter>源文件\zopfli</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
