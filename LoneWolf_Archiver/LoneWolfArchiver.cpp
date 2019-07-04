@@ -9,11 +9,11 @@
 #include <boost/program_options.hpp>
 #include <json/json.h>
 #include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 #include "archive/archive.h"
 
 namespace po = boost::program_options;
-
 struct
 {
 	unsigned threadNum = std::thread::hardware_concurrency();
@@ -92,7 +92,7 @@ int main(const int argc, char *argv[])
 				"- Scan the files in <rootpath> and generate <outpout_buildfile> for latter use."
 			)
 			(
-				"thread,t",
+				"thread,p",
 				po::value<unsigned>()->value_name("<threadnumber>")->
 				default_value(options.threadNum),
 				"- Use <threadnumber> threads to compress or uncompress. Default value is system logic core number."
@@ -276,18 +276,22 @@ int main(const int argc, char *argv[])
 		else if (vm.count("test"))
 		{
 			showTime = true;
+			std::cout << "Archive Self Testing" << std::endl;
+			std::cout << "TEST: RUNNING - Archive Self Integrity Check" << std::endl;
 			archive::Archive file(std::filesystem::path(
 				vm["archive"].as<std::string>()).filename().string());
 			file.open(vm["archive"].as<std::string>(), archive::Archive::Mode::Read);
 			ThreadPool pool(options.threadNum);
-			file.testArchive(pool).get();
+			bool passed = file.testArchive(pool).get();
+			std::cout << "TEST: " << (passed ? "PASSED" : "FAILED")
+				<< "  - Archive Self Integrity Check" << std::endl;
 		}
 		else if (vm.count("hash"))
 		{
 			archive::Archive file(std::filesystem::path(
 				vm["archive"].as<std::string>()).filename().string());
 			file.open(vm["archive"].as<std::string>(), archive::Archive::Mode::Read);
-			// std::cout << file.getArchiveSignature();
+			std::cout << reinterpret_cast<const char*>(file.getArchiveSignature().c_str()) << std::endl;
 		}
 
 		//print the time we use if needed
@@ -303,9 +307,10 @@ int main(const int argc, char *argv[])
 #if defined(CATCH_EXCEPTION)
 	catch(const std::exception &e)
 	{
-		std::cerr << "Unhandled exception: " << typeid(e).name() << std::endl;
-		std::cerr << "\t" << e.what() << std::endl;
-		std::cerr << "Aborted" << std::endl;
+		auto logger = spdlog::stderr_color_mt("main");
+		logger->error("Unhandled exception: {0}", typeid(e).name());
+		logger->error("Message: {0}", e.what());
+		logger->error("Aborted");
 		abort();
 	}
 #endif

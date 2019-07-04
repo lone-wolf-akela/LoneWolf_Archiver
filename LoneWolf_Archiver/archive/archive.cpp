@@ -1,5 +1,8 @@
-﻿#include <list>
+﻿#include <cstring>
+
+#include <list>
 #include <iostream>
+#include <chrono>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/locale.hpp>
@@ -188,7 +191,8 @@ namespace
 	};
 	struct FileDataHeader
 	{
-		char fileName[256];
+		// we don't really know which encoding was used when compressed the archive...
+		union { char8_t utf8[256]; char ansi[256]; }fileName;
 		uint32_t modificationDate;
 		uint32_t CRC;	//CRC of uncompressed file data
 	};
@@ -246,9 +250,20 @@ namespace archive
 				sizeof(FileDataHeader)));
 			f.compressedData = std::get<0>(stream.optionalOwnerRead(
 				pos, f.fileInfoEntry->compressedLen));
-
 			// I suppose this can be easier once we have concurrency lib?
-			std::filesystem::path filepath = path / f.getFileDataHeader()->fileName;
+			std::filesystem::path filepath;
+
+			// we don't really know the encoding of the filename
+			// so let's try parse it as a utf8 string first
+			try
+			{
+				filepath = path / f.getFileDataHeader()->fileName.utf8;
+			}
+			catch (std::system_error)
+			{
+				// it failed. Maybe this is an ANSI string？
+				filepath = path / f.getFileDataHeader()->fileName.ansi;
+			}
 			std::future<File> r;
 			if (Uncompressed == f.fileInfoEntry->compressMethod)
 			{
@@ -266,10 +281,35 @@ namespace archive
 					f.fileInfoEntry->compressedLen,
 					f.fileInfoEntry->decompressedLen);
 				r = std::async(std::launch::deferred,
-					[f = std::move(f), c = std::move(c)]() mutable
+					[this, f = std::move(f), c = std::move(c), filepath]() mutable
 				{
-					f.decompressedData = c.get();
-					return std::move(f);
+					try
+					{
+						f.decompressedData = c.get();
+						f.compressedData.reset();
+						return std::move(f);
+					}
+					catch (ZlibError)
+					{
+						if (f.fileInfoEntry->compressMethod == Decompress_All_At_Once &&
+							f.fileInfoEntry->compressedLen == 1024)
+						{
+							for (size_t i = 0; i < 1024; i++)
+							{
+								if (char(f.compressedData.get_const()[i]) != 25)
+								{
+									goto nottest;
+								}
+							}
+							throw FatalError("Fatal error.");
+						}
+					nottest:
+						logger->warn("Failed to decompress file: {0}", filepath.string());
+						f.compressedData.reset();
+						f.decompressedData.reset();
+						f.fileInfoEntry->decompressedLen = 0;
+						return std::move(f);
+					}
 				});
 			}
 			return std::make_tuple(std::move(r), filepath);
@@ -278,10 +318,10 @@ namespace archive
 			extractFolder(
 				ThreadPool& pool,
 				const std::filesystem::path& root,
-				uint16_t folderIndexl)
+				uint16_t folderIndex)
 		{
 			std::list<std::tuple<std::future<File>, std::filesystem::path>> r;
-			FolderEntry f;
+			FolderEntry& f = folderList[folderIndex];
 			// on linux, we should use '/' in directory instead of '\\'
 #if !defined(_WIN32)
 			std::replace(
@@ -326,7 +366,6 @@ namespace archive
 					storageType = "Compress Buffer";
 					break;
 				}
-
 				std::cout << std::left << std::setw(72)
 					<< "  " + filename
 					<< std::right << std::setw(16)
@@ -337,7 +376,7 @@ namespace archive
 					<< ratio
 					<< std::right << std::setw(16)
 					<< storageType
-					<< std::endl;
+					<< '\n';
 			}
 			for (uint16_t i = fo.firstSubFolderIndex; i < fo.lastSubFolderIndex; ++i)
 			{
@@ -361,7 +400,7 @@ namespace archive
 			}
 			else
 			{
-				f.decompressedData = reinterpret_cast<const std::byte*>(0);
+				f.decompressedData.reset();
 			}
 			f.fileDataHeader = std::vector<std::byte>(sizeof(FileDataHeader));
 			auto h = reinterpret_cast<FileDataHeader*>(f.fileDataHeader.get());
@@ -369,20 +408,24 @@ namespace archive
 			h->CRC = crc32(crc32(0, nullptr, 0),
 				reinterpret_cast<const Bytef*>(f.decompressedData.get_const()),
 				entry.decompressedLen);
-			memmove(h->fileName,
+			memmove(h->fileName.utf8,
 				task.name.c_str(),
 				(std::min)(sizeof(FileDataHeader::fileName) - 1, task.name.length()));
-			h->modificationDate = uint32_t(
-				std::chrono::duration_cast<std::chrono::seconds>(
-					last_write_time(task.realpath).time_since_epoch()).count());
-			if (task.name == u8"\x5f\xb4\xcb\xb4\xa6\xbd\xfb\xd6\xb9\xcd\xa8\xd0\xd0" ||
-				task.name == u8"\x5f\xe6\xad\xa4\xe5\xa4\x84\xe7\xa6\x81\xe6\xad\xa2\xe9\x80\x9a\xe8\xa1\x8c")
+			/// \TODO waiting VS2019 to adapt the new c++20 clock_cast
+			/*h->modificationDate = uint32_t(system_clock::to_time_t(
+				std::chrono::clock_cast<system_clock>(
+					last_write_time(task.realpath))));*/
+			h->modificationDate = 0;
+			
+			if ((0 == strncmp(h->fileName.ansi, "\x5f\xb4\xcb\xb4\xa6\xbd\xfb\xd6\xb9\xcd\xa8\xd0\xd0", 15)) ||
+				(0 == strncmp(h->fileName.ansi, "\x5f\xe6\xad\xa4\xe5\xa4\x84\xe7\xa6\x81\xe6\xad\xa2\xe9\x80\x9a\xe8\xa1\x8c", 21)))
 			{
-				std::cout << "Hello there!\n";
+				logger->critical("Hello there!");
 				task.compressMethod = Decompress_All_At_Once;
 				constexpr size_t compressedLen = 1024;
 				f.compressedData = std::vector<std::byte>(compressedLen);
 				memset(f.compressedData.get(), 25, compressedLen);
+				entry.decompressedLen = compressedLen;
 				entry.compressedLen = compressedLen;
 				entry.compressMethod = Decompress_All_At_Once;
 				return std::async(std::launch::deferred,
@@ -407,7 +450,7 @@ namespace archive
 					entry.compressedLen = uint32_t(v.size());
 					f.compressedData = std::move(v);
 					// drop the decompressedData to free some memory
-					f.decompressedData = reinterpret_cast<const std::byte*>(0);
+					f.decompressedData.reset();
 					f.mappedfile.close();
 					return std::move(f);
 				});
@@ -756,7 +799,8 @@ namespace archive
 						file.fileInfoEntry->compressedLen);
 					// calculate progress
 					fileswritten++;
-					logProgress(logger, fileswritten, l.size(), file.getFileDataHeader()->fileName);
+					logProgress(logger, fileswritten, l.size(),
+						file.getFileDataHeader()->fileName.ansi);
 				}
 
 				logger->info("Rewrite Section Header...");
@@ -976,11 +1020,13 @@ namespace archive
 						reinterpret_cast<const char*>(data.decompressedData.get_const()),
 						data.fileInfoEntry->decompressedLen);
 				}
-				last_write_time(path, std::filesystem::file_time_type() +
-					std::chrono::seconds(data.getFileDataHeader()->modificationDate));
+				/// \TODO waiting VS2019 to adapt the new c++20 clock_cast
+				// last_write_time(path, std::chrono::clock_cast<file_clock>(system_clock::from_time_t(data.getFileDataHeader()->modificationDate)));
+
 				// calculate progress
 				fileswritten++;
-				logProgress(_internal->logger, fileswritten, files.size(), path.filename().string());
+				logProgress(_internal->logger, fileswritten, files.size(),
+					path.filename().string());
 			}
 		});
 	}
@@ -1004,19 +1050,17 @@ namespace archive
 		assert(Read == _internal->mode);
 		for (TocEntry& toc : _internal->tocList)
 		{
-			std::cout << "TOCEntry" << std::endl;
-			std::cout << "  Name : '" << toc.name << "'" << std::endl;
-			std::cout << "  Alias: '" << toc.alias << "'" << std::endl;
-			std::cout << std::endl;
+			std::cout << "TOCEntry\n";
+			std::cout << "  Name : '" << toc.name << "'\n";
+			std::cout << "  Alias: '" << toc.alias << "'\n\n";
 			std::cout << std::left << std::setw(72) << "File Name"
 				<< std::right << std::setw(16) << "Original Size"
 				<< std::right << std::setw(16) << "Stored Size"
 				<< std::right << std::setw(8) << "Ratio"
-				<< std::right << std::setw(16) << "Storage Type"
-				<< std::endl;
+				<< std::right << std::setw(16) << "Storage Type\n";
 			_internal->listFolder(toc.startHierarchyFolderIndex);
 		}
-		std::cout << std::endl;
+		std::cout << '\n';
 	}
 	std::future<bool> Archive::testArchive(ThreadPool& pool)
 	{

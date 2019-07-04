@@ -1,5 +1,4 @@
-﻿#include <cassert>
-#include <array>
+﻿#include <array>
 
 #include "compressor.h"
 
@@ -29,6 +28,11 @@
 
 namespace
 {
+	void checkErr(bool b)
+	{
+		if (!b) throw ZlibError();
+	}
+
 	constexpr size_t partinsize = 8 * 1024 * 1024; // 4MB per part
 	constexpr size_t partboundsize = 12 * 1024 * 1024; // file smaller than this won't be partitioned
 	constexpr int windowBits = 15; // larger = better compression & more memory use
@@ -87,15 +91,15 @@ namespace
 		strm.avail_in = uInt(insize);
 		strm.next_out = reinterpret_cast<Bytef*>(out);
 		strm.avail_out = uInt(outsize);
-		assert(Z_OK == deflateInit2(
+		checkErr(Z_OK == deflateInit2(
 			&strm, level, Z_DEFLATED, -windowBits, memLevel, Z_DEFAULT_STRATEGY));
 		if (lastpart)
 		{
-			assert(Z_STREAM_END == deflate(&strm, Z_FINISH));
+			checkErr(Z_STREAM_END == deflate(&strm, Z_FINISH));
 		}
 		else
 		{
-			assert(Z_OK == deflate(&strm, Z_FULL_FLUSH));
+			checkErr(Z_OK == deflate(&strm, Z_FULL_FLUSH));
 		}
 		uLong outlen = strm.total_out;
 		uint32_t check = adler32(0, nullptr, 0);
@@ -103,7 +107,7 @@ namespace
 		// deflateEnd is supposed to return Z_OK
 		// but its seems to return a strange value
 		// so I don't check it
-		// assert(Z_OK == deflateEnd(&strm));
+		// checkErr(Z_OK == deflateEnd(&strm));
 		deflateEnd(&strm);
 		return std::make_tuple(outlen, check);
 	}
@@ -112,7 +116,7 @@ namespace
 	{
 		uLongf compressed_size = compressBound(uLong(inputsize));
 		std::vector<std::byte> r(compressed_size);
-		assert(Z_OK == compress2(
+		checkErr(Z_OK == compress2(
 			reinterpret_cast<Bytef*>(r.data()),
 			&compressed_size,
 			reinterpret_cast<const Bytef*>(data),
@@ -127,11 +131,11 @@ namespace
 	{
 		std::vector<std::byte> r(outputsize);
 		uLongf ul_outputsize = uLongf(outputsize);
-		assert(Z_OK == uncompress(
+		checkErr(Z_OK == uncompress(
 			reinterpret_cast<Bytef*>(r.data()),
 			&ul_outputsize,
 			reinterpret_cast<const Bytef*>(data),
-			uLong(inputsize) && ul_outputsize == outputsize));
+			uLong(inputsize)) && ul_outputsize == outputsize);
 		return r;
 	}
 }

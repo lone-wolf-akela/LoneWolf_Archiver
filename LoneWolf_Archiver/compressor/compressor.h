@@ -7,6 +7,7 @@
 #include <zlib.h>
 
 #include "../ThreadPool/ThreadPool.h"
+#include "../exceptions/exceptions.h"
 
 namespace compressor
 {

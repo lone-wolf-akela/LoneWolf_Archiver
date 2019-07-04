@@ -125,4 +125,10 @@ namespace stream
 			return data.pc;
 		}
 	}
+	void OptionalOwnerBuffer::reset()
+	{
+		if (v == mode) data.v.~vector();
+		data.pc = nullptr;
+		mode = pc;
+	}
 }

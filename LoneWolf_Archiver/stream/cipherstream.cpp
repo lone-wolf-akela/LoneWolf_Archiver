@@ -26,22 +26,24 @@ namespace stream
 			_memmapStream.setpos(0);
 		}
 		break;
-
 		case Read_Encrypted:
+		{
 			_memmapStream.open(file);
 			_cipherInit();
-			break;
-
+		}
+		break;
 		case Read_NonEncrypted:
+		{
 			_memmapStream.open(file);
-			break;
-
+		}
+		break;
 		case Write_Encrypted:
 		{
 			_filestream.open(file, std::ios::binary | std::ios::out | std::ios::in | std::ios::trunc);
 			if (!_filestream)
 			{
-				throw FileIoError("Error happened when openning file to write.");
+				throw FileIoError("Error happened when openning file: " +
+					file.string() + " to write.");
 			}
 
 			std::random_device rd;
@@ -62,19 +64,16 @@ namespace stream
 			//_cipher_magic();
 		}
 		break;
-
-		case Write_NonEncrypted:
+		default: // Write_NonEncrypted:
 		{
 			_filestream.open(file, std::ios::binary | std::ios::out | std::ios::in | std::ios::trunc);
 			if (!_filestream)
 			{
-				throw FileIoError("Error happened when openning file to write.");
+				throw FileIoError("Error happened when openning file: " +
+					file.string() + " to write.");
 			}
 		}
 		break;
-
-		default:
-			throw OutOfRangeError();
 		}
 	}
 
@@ -135,8 +134,7 @@ namespace stream
 			}
 			return lengthRead;
 		}
-		case Read_EncryptionUnknown:
-		default:
+		default: // Read_EncryptionUnknown:
 			throw OutOfRangeError();
 		}
 	}
@@ -156,10 +154,9 @@ namespace stream
 		{
 			return _memmapStream.optionalOwnerRead(length);
 		}
-		case Read_EncryptionUnknown:
-		case Write_Encrypted:
-		case Write_NonEncrypted:
-		default:
+		default: // Read_EncryptionUnknown:
+		// Write_Encrypted:
+		// Write_NonEncrypted:
 			throw OutOfRangeError();
 		}
 	}
@@ -188,7 +185,6 @@ namespace stream
 			}
 		}
 		break;
-
 		case Write_NonEncrypted:
 		{
 			_filestream.write(static_cast<const char*>(src), length);
@@ -199,11 +195,9 @@ namespace stream
 			}
 		}
 		break;
-
-		case Read_EncryptionUnknown:
-		case Read_NonEncrypted:
-		case Read_Encrypted:
-		default:
+		default: // Read_EncryptionUnknown:
+		// Read_NonEncrypted:
+		// Read_Encrypted:
 			throw OutOfRangeError();
 		}
 	}
@@ -227,10 +221,9 @@ namespace stream
 		{
 			return _memmapStream.read(pos, dst, length);
 		}
-		case Read_EncryptionUnknown:
-		case Write_Encrypted:
-		case Write_NonEncrypted:
-		default:
+		default: // Read_EncryptionUnknown:
+		// Write_Encrypted:
+		// Write_NonEncrypted:
 			throw OutOfRangeError();
 		}
 	}
@@ -251,10 +244,9 @@ namespace stream
 		{
 			return _memmapStream.optionalOwnerRead(pos, length);
 		}
-		case Read_EncryptionUnknown:
-		case Write_Encrypted:
-		case Write_NonEncrypted:
-		default:
+		default: // Read_EncryptionUnknown:
+		// Write_Encrypted:
+		// Write_NonEncrypted:
 			throw OutOfRangeError();
 		}
 	}
@@ -280,8 +272,7 @@ namespace stream
 			}
 		}
 		break;
-		case Read_EncryptionUnknown:
-		default:
+		default: // Read_EncryptionUnknown:
 			throw OutOfRangeError();
 		}
 	}
@@ -300,8 +291,7 @@ namespace stream
 		{
 			return size_t(_filestream.tellg());
 		}
-		case Read_EncryptionUnknown:
-		default:
+		default: // Read_EncryptionUnknown:
 			throw OutOfRangeError();
 		}
 	}
@@ -320,8 +310,7 @@ namespace stream
 			setpos(getpos() + diff);
 			break;
 
-		case Read_EncryptionUnknown:
-		default:
+		default: // Read_EncryptionUnknown:
 			throw OutOfRangeError();
 		}
 	}
@@ -344,7 +333,7 @@ namespace stream
 		_memmapStream.read(_fileKey.get(), _keySize);
 		if (_fileKey[0] == 0xA0D68015)
 		{
-			throw FatalError("Fatal Error.");
+			throw FatalError("Fatal error.");
 		}
 		_cipher_magic();
 		_memmapStream.setpos(0);

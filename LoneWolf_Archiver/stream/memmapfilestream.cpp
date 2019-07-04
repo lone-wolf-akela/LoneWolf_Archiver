@@ -10,7 +10,8 @@ namespace stream
 		_filesrc.open(file.string());
 		if (!_filesrc)
 		{
-			throw FileIoError("Error happened when opening file for memory mapping.");
+			throw FileIoError("Error happened when opening file: " +
+				file.string() + " for memory mapping.");
 		}
 		_pos = 0;
 	}
@@ -73,10 +74,8 @@ namespace stream
 
 	void MemMapFileStream::movepos(ptrdiff_t diff)
 	{
-		if (
-			(diff < 0 && getpos() < size_t(-diff)) ||
-			(diff > 0 && getpos() + diff > _filesize)
-			)
+		if ((diff < 0 && getpos() < size_t(-diff)) ||
+			(diff > 0 && getpos() + diff > _filesize))
 		{
 			throw OutOfRangeError();
 		}

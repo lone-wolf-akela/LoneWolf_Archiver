@@ -27,6 +27,7 @@ namespace stream
 
 		std::byte* get() noexcept;
 		const std::byte* get_const() const noexcept;
+		void reset();
 	private:
 		enum { v, p, pc } mode;
 		union D
