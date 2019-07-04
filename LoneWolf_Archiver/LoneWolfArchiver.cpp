@@ -8,6 +8,7 @@
 
 #include <boost/program_options.hpp>
 #include <json/json.h>
+#include <spdlog/spdlog.h>
 
 #include "archive/archive.h"
 
@@ -31,6 +32,7 @@ int main(const int argc, char *argv[])
 	try
 #endif
 	{
+		spdlog::set_pattern("[%T] [%n] [%^%l%$] %v");
 		//parse json
 		{
 			std::ifstream configfile("archive_config.json");

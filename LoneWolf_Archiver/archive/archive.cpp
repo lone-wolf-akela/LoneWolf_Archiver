@@ -210,6 +210,8 @@ namespace
 		}
 		stream::OptionalOwnerBuffer compressedData;
 		stream::OptionalOwnerBuffer decompressedData;
+
+		boost::iostreams::mapped_file_source mappedfile; // this is used for readding
 	};
 }
 namespace archive
@@ -351,12 +353,15 @@ namespace archive
 		{
 			File f;
 			f.fileInfoEntry = &entry;
-			f.decompressedData = std::vector<std::byte>(entry.decompressedLen);
+			// we cannot map to a 0 size file
+			if (entry.decompressedLen > 0)
 			{
-				std::ifstream ifile(task.realpath, std::ios::binary);
-				assert(ifile);
-				ifile.read(reinterpret_cast<char*>(f.decompressedData.get()),
-					entry.decompressedLen);
+				f.mappedfile.open(task.realpath.string());
+				f.decompressedData = reinterpret_cast<const std::byte*>(f.mappedfile.data());
+			}
+			else
+			{
+				f.decompressedData = reinterpret_cast<const std::byte*>(0);
 			}
 			f.fileDataHeader = std::vector<std::byte>(sizeof(FileDataHeader));
 			auto h = reinterpret_cast<FileDataHeader*>(f.fileDataHeader.get());
@@ -401,6 +406,9 @@ namespace archive
 					auto v = r.get();
 					entry.compressedLen = uint32_t(v.size());
 					f.compressedData = std::move(v);
+					// drop the decompressedData to free some memory
+					f.decompressedData = reinterpret_cast<const std::byte*>(0);
+					f.mappedfile.close();
 					return std::move(f);
 				});
 			}

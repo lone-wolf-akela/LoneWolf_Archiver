@@ -7,11 +7,7 @@ namespace stream
 	void MemMapFileStream::open(const std::filesystem::path& file)
 	{
 		_filesize = file_size(file);
-
-		boost::iostreams::mapped_file_params params;
-		params.path = file.string();
-		params.flags = boost::iostreams::mapped_file::mapmode::readonly;
-		_filesrc.open(params);
+		_filesrc.open(file.string());
 		if (!_filesrc)
 		{
 			throw FileIoError("Error happened when opening file for memory mapping.");

@@ -3,6 +3,7 @@
 
 #include <vector>
 
+#define ZLIB_CONST // this make z_stream.next_in const
 #include <zlib.h>
 
 #include "../ThreadPool/ThreadPool.h"

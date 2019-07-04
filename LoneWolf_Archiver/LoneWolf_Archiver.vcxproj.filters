@@ -45,18 +45,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="HWRM_BigFile.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="HWRM_BigFile_Internal.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="linuxfix.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="stdafx.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="ThreadPool\ThreadPool.h">
       <Filter>头文件\ThreadPool</Filter>
     </ClInclude>
@@ -86,15 +74,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="HWRM_BigFile.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="HWRM_BigFile_Internal.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="linuxfix.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="LoneWolfArchiver.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
