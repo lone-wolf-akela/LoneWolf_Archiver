@@ -9,6 +9,7 @@
 // so we cannot just use a package manager to install the lib,
 // but we have to include its src code in this project
 #include "../zopfli/src/zopfli/deflate.h"
+#include "../zopfli/src/zopfli/zopfli.h"
 
 #include "../ThreadPool/ThreadPool.h"
 #include "../exceptions/exceptions.h"

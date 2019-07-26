@@ -98,7 +98,7 @@ int main(const int argc, char *argv[])
 				"- Use <threadnumber> threads to compress or uncompress. Default value is system logic core number."
 			)
 			(
-				"level,v",
+				"level",
 				po::value<int>()->value_name("<compresslevel>")->
 				default_value(options.compressLevel),
 				"- compress level. Should be an integer between 0 and 9: 1 gives best speed, 9 gives best compression, 0 gives no compression at all. Default value is 6. (P.S. Relic's Archieve.exe uses level 9.)"
@@ -112,7 +112,7 @@ int main(const int argc, char *argv[])
 				po::value<std::string>()->value_name("<extract location>"),
 				"- Extract the archive contents to the folder <extract location>."
 			)
-			("hash,h", "- List the hash on the archive.")
+			("hash", "- List the hash on the archive.")
 			("verbose,v", "- (This option is deprecated)")
 			("help,h", "- show this help message.")
 			;
