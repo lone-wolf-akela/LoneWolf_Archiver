@@ -13,7 +13,7 @@ namespace archive
 	public:
 		// initialization
 		/// \param name the name of the spdlog logger
-		Archive(const std::string& name);
+		explicit Archive(const std::string& name);
 		Archive(const Archive&) = delete;
 		Archive& operator=(const Archive&) = delete;
 		Archive(Archive&& o) noexcept;

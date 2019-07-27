@@ -33,6 +33,12 @@ namespace
 	{
 		if (!b) throw ZlibError();
 	}
+	template <typename T>
+	T* checkNull(T* p)
+	{
+		if (nullptr == p) throw ZlibError();
+		return p;
+	}
 
 	constexpr size_t partinsize = 8 * 1024 * 1024; // 4MB per part
 	constexpr size_t partboundsize = 12 * 1024 * 1024; // file smaller than this won't be partitioned
@@ -149,7 +155,7 @@ namespace
 			&bits,
 			reinterpret_cast<unsigned char**>(&out),
 			&outsize);
-		out = reinterpret_cast<std::byte*>(realloc(out, outsize + 10));
+		out = reinterpret_cast<std::byte*>(checkNull(realloc(out, outsize + 10)));
 		if (!lastpart) {
 			bits &= 7;
 			if (bits == 0 || bits > 5)
@@ -224,7 +230,7 @@ namespace
 			for (int i = 0; i < futures.size(); i++)
 			{
 				auto [outlen, check] = futures[i].get();
-				memmove(p, compressed.data() + i * partoutsize, outlen);
+				memmove(p, compressed.data() + i * size_t(partoutsize), outlen);
 				p += outlen;
 				check_comb = adler32_comb(check_comb,
 					check,

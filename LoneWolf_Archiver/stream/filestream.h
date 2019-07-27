@@ -16,11 +16,11 @@ namespace stream
 		OptionalOwnerBuffer& operator=(const OptionalOwnerBuffer&) = delete;
 		OptionalOwnerBuffer(OptionalOwnerBuffer&& o) noexcept;
 		OptionalOwnerBuffer& operator=(OptionalOwnerBuffer&& o) noexcept;
-		OptionalOwnerBuffer(std::vector<std::byte>&& in) noexcept;
+		explicit OptionalOwnerBuffer(std::vector<std::byte>&& in) noexcept;
 		OptionalOwnerBuffer& operator=(std::vector<std::byte>&& in) noexcept;
-		OptionalOwnerBuffer(std::byte* in) noexcept;
+		explicit OptionalOwnerBuffer(std::byte* in) noexcept;
 		OptionalOwnerBuffer& operator=(std::byte* in) noexcept;
-		OptionalOwnerBuffer(const std::byte* in) noexcept;
+		explicit OptionalOwnerBuffer(const std::byte* in) noexcept;
 		OptionalOwnerBuffer& operator=(const std::byte* in) noexcept;
 
 		~OptionalOwnerBuffer();

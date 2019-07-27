@@ -465,14 +465,14 @@ namespace archive
 			{
 				l.emplace_back(buildFile(pool,
 					task.subFileTasks[i],
-					fileInfoList[entry.firstFileIndex + i],
+					fileInfoList[size_t(entry.firstFileIndex) + i],
 					compress_level));
 			}
 			for (uint16_t i = 0; i < task.subFolderTasks.size(); i++)
 			{
 				l.splice(l.end(), buildFolder(pool,
 					task.subFolderTasks[i],
-					folderList[entry.firstSubFolderIndex + i],
+					folderList[size_t(entry.firstSubFolderIndex) + i],
 					compress_level));
 			}
 			return l;
