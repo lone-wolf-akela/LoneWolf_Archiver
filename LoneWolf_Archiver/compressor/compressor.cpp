@@ -23,12 +23,14 @@
  *  3. This notice may not be removed or altered from any source distribution.
 */
 
-#define BASE 65521U     // largest prime smaller than 65536
-#define LOW16 0xffff    // mask lower 16 bits
-#define CEIL_DIV(x, y)  ((x)/(y) + ((x) % (y) != 0))
 
 namespace
 {
+	template<typename T>
+	T CEIL_DIV(T x, T y)
+	{
+		return x / y + ((x % y) != 0);
+	}
 	void checkErr(bool b)
 	{
 		if (!b) throw ZlibError();
@@ -48,6 +50,9 @@ namespace
 	///\note this function is copied from pigz
 	uint32_t adler32_comb(uint32_t adler1, uint32_t adler2, size_t len2)
 	{
+		constexpr auto BASE = 65521U;	// largest prime smaller than 65536
+		constexpr auto LOW16 = 0xffff;	// mask lower 16 bits
+
 		unsigned long sum1;
 		unsigned long sum2;
 		unsigned rem;
@@ -227,7 +232,7 @@ namespace
 			// reserve bytes for header
 			std::byte* p = compressed.data() + header.size();
 			// merge data
-			for (int i = 0; i < futures.size(); i++)
+			for (int i = 0; i < int(futures.size()); i++)
 			{
 				auto [outlen, check] = futures[i].get();
 				memmove(p, compressed.data() + i * size_t(partoutsize), outlen);
@@ -288,7 +293,7 @@ namespace
 			std::byte* p = compressed.data() + header.size();
 			uint32_t check_comb = adler32(0, nullptr, 0);
 			// merge data
-			for (int i = 0; i < worker_results.size(); i++)
+			for (int i = 0; i < int(worker_results.size()); i++)
 			{
 				const auto& [outdata, outlen, check] = worker_results[i];
 				memmove(p, outdata, outlen);

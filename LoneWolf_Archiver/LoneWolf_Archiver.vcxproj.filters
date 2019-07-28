@@ -49,6 +49,12 @@
     <Filter Include="源文件\zopfli">
       <UniqueIdentifier>{535edcca-605f-49ab-ad94-13bfa0ce2596}</UniqueIdentifier>
     </Filter>
+    <Filter Include="源文件\server">
+      <UniqueIdentifier>{7f925e8d-056e-4b23-b0d7-2fae971b64c2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\server">
+      <UniqueIdentifier>{008e61ad-75cb-4de0-86e6-698e2b60a54b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThreadPool\ThreadPool.h">
@@ -117,6 +123,12 @@
     <ClInclude Include="zopfli\src\zopfli\zopfli.h">
       <Filter>头文件\zopfli</Filter>
     </ClInclude>
+    <ClInclude Include="server\server.h">
+      <Filter>头文件\server</Filter>
+    </ClInclude>
+    <ClInclude Include="core.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="LoneWolfArchiver.cpp">
@@ -184,6 +196,12 @@
     </ClCompile>
     <ClCompile Include="zopfli\src\zopfli\zopfli_lib.c">
       <Filter>源文件\zopfli</Filter>
+    </ClCompile>
+    <ClCompile Include="server\server.cpp">
+      <Filter>源文件\server</Filter>
+    </ClCompile>
+    <ClCompile Include="core.cpp">
+      <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

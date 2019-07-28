@@ -11,13 +11,14 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#include "archive/archive.h"
+#include "server/server.h"
+#include "core.h"
 
 namespace po = boost::program_options;
 struct
 {
 	unsigned threadNum = std::thread::hardware_concurrency();
-	int compressLevel = 6;
+	int compressLevel = 9;
 	bool keepSign = false;	
 	bool encryption = false;
 	std::vector<std::u8string> ignoreList;
@@ -67,7 +68,7 @@ int main(const int argc, char *argv[])
 			}
 		}
 		//parse command line
-		const std::string cmd_example = "e.g.:\n  LoneWolfArchiver -c filestoadd.txt -a newarchive.sga -r c:\\rootpath\\";
+		constexpr auto cmd_example = "e.g.:\n  LoneWolfArchiver -c filestoadd.txt -a newarchive.sga -r c:\\rootpath\\";
 		po::options_description desc("LoneWolfArchiver Usage");
 		desc.add_options()
 			(
@@ -101,7 +102,7 @@ int main(const int argc, char *argv[])
 				"level",
 				po::value<int>()->value_name("<compresslevel>")->
 				default_value(options.compressLevel),
-				"- compress level. Should be an integer between 0 and 9: 1 gives best speed, 9 gives best compression, 0 gives no compression at all. Default value is 6. (P.S. Relic's Archieve.exe uses level 9.)"
+				"- compress level. Should be an integer between 0 and 10: 1 gives best speed, 10 gives best compression, 0 gives no compression at all. Default value is 9, which is also what Relic's Archieve.exe uses. P.S. Level 10 is extremely slow!!"
 			)
 			("allinone,o", "- When using -g/-s with --allinone, all locales and the data will be built into the same big file (as separated TOCs); otherwise, when using -g/-s without --allinone, all locales will be built into their own big files.")
 			("sign,i", "- Calculate tool signature when creating archives. When use --create or --generate without --sign, the tool will skip tool signature calculation to speed up the process.")
@@ -114,6 +115,11 @@ int main(const int argc, char *argv[])
 			)
 			("hash", "- List the hash on the archive.")
 			("verbose,v", "- (This option is deprecated)")
+			(
+				"pipe",
+				po::value<std::string>()->value_name("<pipe name>"),
+				"- Launch in pipe mode. Used for LoneWolfArchiverGUI. Only available on Windows."
+			)
 			("help,h", "- show this help message.")
 			;
 
@@ -149,9 +155,9 @@ int main(const int argc, char *argv[])
 			vm.count("list") ||
 			vm.count("test") ||
 			vm.count("hash") ||
-			vm.count("extract")
-			)
-			)
+			vm.count("extract") ||
+			vm.count("pipe")
+			))
 		{
 			std::cerr << "Missing argument." << std::endl;
 			std::cout << std::endl;
@@ -178,15 +184,9 @@ int main(const int argc, char *argv[])
 			return 1;
 		}		
 		/************************/
-
-		//remember when do we begin
-		bool showTime = false;
-		const auto start = std::chrono::system_clock::now();
-
 		if (vm.count("extract"))
 		{
-			showTime = true;
-
+			core::Timer t;
 			archive::Archive file(std::filesystem::path(
 				vm["archive"].as<std::string>()).filename().string());
 			file.open(vm["archive"].as<std::string>(), archive::Archive::Mode::Read);
@@ -195,7 +195,7 @@ int main(const int argc, char *argv[])
 		}
 		else if (vm.count("create"))
 		{
-			showTime = true;
+			core::Timer t;
 			archive::Archive file(std::filesystem::path(
 				vm["archive"].as<std::string>()).filename().string());
 			file.open(vm["archive"].as<std::string>(),
@@ -213,44 +213,14 @@ int main(const int argc, char *argv[])
 		}
 		else if (vm.count("generate"))
 		{
-			showTime = true;
-			auto tasks = buildfile::scanFiles(vm["root"].as<std::string>(), vm.count("allinone"));
-			ThreadPool pool(options.threadNum);
-			std::vector<archive::Archive> files;
-			std::vector<std::future<void>> futurelist;
-			{
-				files.emplace_back(tasks[0].filename);
-				files.back().open(vm["archive"].as<std::string>(),
-					options.encryption ?
-					archive::Archive::Mode::Write_Encrypted :
-					archive::Archive::Mode::Write_NonEncrypted);
-				futurelist.push_back(files.back().create(pool,
-					tasks[0],
-					vm["root"].as<std::string>(),
-					options.compressLevel,
-					!options.keepSign,
-					options.ignoreList));
-			}
-			for (int i = 1; i < tasks.size(); i++)
-			{		
-				files.emplace_back(tasks[i].filename);
-				files.back().open(std::filesystem::path(
-					vm["archive"].as<std::string>()).parent_path() /
-					(tasks[i].filename + ".big"),
-					options.encryption ?
-					archive::Archive::Mode::Write_Encrypted :
-					archive::Archive::Mode::Write_NonEncrypted);
-				futurelist.push_back(files.back().create(pool,
-					tasks[i],
-					vm["root"].as<std::string>(),
-					options.compressLevel,
-					!options.keepSign,
-					options.ignoreList));
-			}
-			for (auto& f : futurelist)
-			{
-				f.get();
-			}	
+			core::generate(vm["root"].as<std::string>(),
+				vm.count("allinone"),
+				vm["archive"].as<std::string>(),
+				options.threadNum,
+				options.encryption,
+				options.compressLevel,
+				options.keepSign,
+				options.ignoreList);
 		}
 		else if (vm.count("scan"))
 		{
@@ -258,7 +228,7 @@ int main(const int argc, char *argv[])
 			{
 				buildfile::genFile(vm["scan"].as<std::string>(), tasks[0]);
 			}
-			for (int i = 1; i < tasks.size(); i++)
+			for (int i = 1; i < int(tasks.size()); i++)
 			{
 				auto p = std::filesystem::path(
 					vm["scan"].as<std::string>()).parent_path() /
@@ -275,7 +245,7 @@ int main(const int argc, char *argv[])
 		}
 		else if (vm.count("test"))
 		{
-			showTime = true;
+			core::Timer t;
 			std::cout << "Archive Self Testing" << std::endl;
 			std::cout << "TEST: RUNNING - Archive Self Integrity Check" << std::endl;
 			archive::Archive file(std::filesystem::path(
@@ -293,14 +263,13 @@ int main(const int argc, char *argv[])
 			file.open(vm["archive"].as<std::string>(), archive::Archive::Mode::Read);
 			std::cout << reinterpret_cast<const char*>(file.getArchiveSignature().c_str()) << std::endl;
 		}
-
-		//print the time we use if needed
-		const auto end = std::chrono::system_clock::now();
-		std::chrono::duration<double, std::ratio<1>> diff = end - start;
-		if (showTime)
+		else if (vm.count("pipe"))
 		{
-			std::cout << "Operation took " << std::fixed << std::setprecision(2)
-				<< diff.count() << " seconds." << std::endl;
+#if defined(_WIN32)
+			server::start(vm["pipe"].as<std::string>());
+#else
+			throw NotImplementedError();
+#endif
 		}
 		return 0;
 	}

@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-
 #include <stdexcept>
 #include <string>
 
@@ -48,6 +47,14 @@ class SystemApiError : public std::runtime_error
 {
 public:
 	explicit SystemApiError(std::string const& message) :
+		runtime_error(message)
+	{}
+};
+
+class ServerError : public std::runtime_error
+{
+public:
+	explicit ServerError(std::string const& message) :
 		runtime_error(message)
 	{}
 };

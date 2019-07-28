@@ -368,11 +368,13 @@ namespace stream
 			throw FileIoError("Filestream failed.");
 		}
 	}
-
+	template <typename Tv, typename Tb>
+	static Tv ROTL(Tv val, Tb bits)
+	{
+		return (val << bits) | (val >> (32 - bits));
+	}
 	void CipherStream::_cipher_magic()
 	{
-#define ROTL(val, bits) (((val) << (bits)) | ((val) >> (32-(bits))))
-
 		uint8_t* _cipherKey_uint8 = reinterpret_cast<uint8_t*>(_cipherKey.get());
 
 		for (uint32_t i = 0; i < _keySize; i += 4)
@@ -390,6 +392,5 @@ namespace stream
 				_cipherKey_uint8[byte + i] = uint8_t(currentKey);
 			}
 		}
-#undef ROTL
 	}
 }

@@ -1,0 +1,63 @@
+﻿<Window x:Class="LoneWolf_Archiver_GUI.ExtractProgress"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:LoneWolf_Archiver_GUI"
+        mc:Ignorable="d"
+        Title="ExtractProgress" Height="259.2" Width="482.915" Background="#FFE6E6E6" WindowStartupLocation="CenterScreen" ShowInTaskbar="False" AllowsTransparency="True" WindowStyle="None">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="38*"/>
+            <RowDefinition Height="109*"/>
+        </Grid.RowDefinitions>
+        <UniformGrid Margin="2,0,0,0" Grid.Row="1" d:LayoutOverrides="LeftMargin, RightMargin, TopMargin, BottomMargin" Rows="3">
+            <Viewbox StretchDirection="DownOnly" Stretch="UniformToFill">
+                <StackPanel Height="30.368" Width="413.663" Orientation="Horizontal">
+                    <Grid Width="78.4">
+                        <Label Content="读取：" Margin="10,0" d:LayoutOverrides="Height" FontFamily="DengXian" FontSize="16" VerticalContentAlignment="Center"/>
+                    </Grid>
+                    <Grid Width="335.2">
+                        <ProgressBar x:Name="readBar" Margin="10,5" Value="50">
+                            <ProgressBar.Background>
+                                <SolidColorBrush Color="{DynamicResource {x:Static SystemColors.HighlightTextColorKey}}"/>
+                            </ProgressBar.Background>
+                        </ProgressBar>
+                    </Grid>
+                </StackPanel>
+            </Viewbox>
+            <Viewbox StretchDirection="DownOnly" Stretch="UniformToFill">
+                <StackPanel Height="30.368" Width="413.663" Orientation="Horizontal">
+                    <Grid Width="78.4">
+                        <Label Content="解压：" Margin="10,0" d:LayoutOverrides="Height" FontFamily="DengXian" FontSize="16" VerticalContentAlignment="Center"/>
+                    </Grid>
+                    <Grid Width="335.2">
+                        <ProgressBar x:Name="decompressBar" Margin="10,5" Value="50">
+                            <ProgressBar.Background>
+                                <SolidColorBrush Color="{DynamicResource {x:Static SystemColors.HighlightTextColorKey}}"/>
+                            </ProgressBar.Background>
+                        </ProgressBar>
+                    </Grid>
+                </StackPanel>
+            </Viewbox>
+            <Viewbox StretchDirection="DownOnly" Stretch="UniformToFill">
+                <StackPanel Height="30.368" Width="413.663" Orientation="Horizontal">
+                    <Grid Width="78.4">
+                        <Label Content="保存：" Margin="10,0" d:LayoutOverrides="Height" FontFamily="DengXian" FontSize="16" VerticalContentAlignment="Center"/>
+                    </Grid>
+                    <Grid Width="335.2">
+                        <ProgressBar x:Name="writeBar" Margin="10,5" Value="50">
+                            <ProgressBar.Background>
+                                <SolidColorBrush Color="White"/>
+                            </ProgressBar.Background>
+                        </ProgressBar>
+                    </Grid>
+                </StackPanel>
+            </Viewbox>
+        </UniformGrid>
+        <Viewbox Margin="10" Stretch="UniformToFill" StretchDirection="DownOnly" d:LayoutOverrides="LeftMargin, RightMargin, TopMargin, BottomMargin">
+            <Label Content="正在解包……" FontFamily="DengXian" FontSize="35" Width="400.361" Height="46.83"/>
+        </Viewbox>
+
+    </Grid>
+</Window>

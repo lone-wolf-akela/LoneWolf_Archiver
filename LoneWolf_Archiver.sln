@@ -10,6 +10,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.editorconfig = .editorconfig
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoneWolf_Archiver_GUI", "LoneWolf_Archiver_GUI\LoneWolf_Archiver_GUI.csproj", "{11DCDCB1-0009-49EC-97A8-8850D1BB1706}"
+	ProjectSection(ProjectDependencies) = postProject
+		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC} = {1D2426D6-79DE-49B2-94BE-55A3A581C8DC}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -24,8 +29,16 @@ Global
 		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}.Debug|x86.Build.0 = Debug|Win32
 		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}.Release|x64.ActiveCfg = Release|x64
 		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}.Release|x64.Build.0 = Release|x64
-		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}.Release|x86.ActiveCfg = Release|Win32
-		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}.Release|x86.Build.0 = Release|Win32
+		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}.Release|x86.ActiveCfg = Debug|Win32
+		{1D2426D6-79DE-49B2-94BE-55A3A581C8DC}.Release|x86.Build.0 = Debug|Win32
+		{11DCDCB1-0009-49EC-97A8-8850D1BB1706}.Debug|x64.ActiveCfg = Debug|x64
+		{11DCDCB1-0009-49EC-97A8-8850D1BB1706}.Debug|x64.Build.0 = Debug|x64
+		{11DCDCB1-0009-49EC-97A8-8850D1BB1706}.Debug|x86.ActiveCfg = Debug|x86
+		{11DCDCB1-0009-49EC-97A8-8850D1BB1706}.Debug|x86.Build.0 = Debug|x86
+		{11DCDCB1-0009-49EC-97A8-8850D1BB1706}.Release|x64.ActiveCfg = Release|x64
+		{11DCDCB1-0009-49EC-97A8-8850D1BB1706}.Release|x64.Build.0 = Release|x64
+		{11DCDCB1-0009-49EC-97A8-8850D1BB1706}.Release|x86.ActiveCfg = Release|x86
+		{11DCDCB1-0009-49EC-97A8-8850D1BB1706}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

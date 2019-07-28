@@ -36,7 +36,7 @@ namespace
 		}
 	}
 
-	/// \brief simple	function to match filename with wildcard
+	/// \brief			simple function to match filename with wildcard
 	/// \param needle	filename with wildcard
 	/// \param haystack	actual filename to test
 	/// \return if the	name match the wildcard
@@ -132,8 +132,8 @@ namespace
 	* File Data for all the files (including the 264 byte header
 	*		preceeding the file data of each file)
 	*/
-	const char TOOL_SIG[] = "E01519D6-2DB7-4640-AF54-0A23319C56C3";
-	const char ARCHIVE_SIG[] = "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF";
+	constexpr char TOOL_SIG[] = "E01519D6-2DB7-4640-AF54-0A23319C56C3";
+	constexpr char ARCHIVE_SIG[] = "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF";
 	/*data struct*/
 #pragma pack (1)
 	struct ArchiveHeader
