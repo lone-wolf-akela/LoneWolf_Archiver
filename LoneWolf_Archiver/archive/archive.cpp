@@ -309,7 +309,7 @@ namespace archive
 					}
 				});
 			}
-			return std::make_tuple(std::move(r), filepath);
+			return { std::move(r), filepath };
 		}
 		std::list<std::tuple<std::future<File>, std::filesystem::path>>
 			extractFolder(

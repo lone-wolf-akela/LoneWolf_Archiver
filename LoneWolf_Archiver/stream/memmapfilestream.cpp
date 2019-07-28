@@ -53,9 +53,9 @@ namespace stream
 	{
 		//brackets around std::min is required to prevent some problems
 		const size_t lengthToRead = (std::min)(size_t(_filesize - pos), length);
-		return std::make_tuple(OptionalOwnerBuffer(
+		return { OptionalOwnerBuffer(
 			reinterpret_cast<const std::byte*>(_filesrc.data()) + pos),
-			lengthToRead);
+			lengthToRead };
 	}
 
 	void MemMapFileStream::setpos(size_t pos)

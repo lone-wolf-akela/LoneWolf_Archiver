@@ -238,7 +238,7 @@ namespace stream
 			std::vector<std::byte> buffer(length);
 			size_t l = read(pos, buffer.data(), length);
 			buffer.resize(l);
-			return std::make_tuple(OptionalOwnerBuffer(std::move(buffer)), l);
+			return { OptionalOwnerBuffer(std::move(buffer)), l };
 		}
 		case Read_NonEncrypted:
 		{

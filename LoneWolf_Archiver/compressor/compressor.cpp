@@ -125,7 +125,7 @@ namespace
 		// so I don't check it
 		// checkErr(Z_OK == deflateEnd(&strm));
 		deflateEnd(&strm);
-		return std::make_tuple(outlen, check);
+		return { outlen, check };
 	}
 
 	/// \return <output_data, output_length, checksum>
@@ -179,7 +179,7 @@ namespace
 		check = adler32(check, reinterpret_cast<const Bytef*>(in) + instart,
 			uInt(inend - instart));
 
-		return std::make_tuple(out, outsize, check);
+		return { out, outsize, check };
 	}
 
 	std::vector<std::byte> compress_worker_zlib_nonpart(
