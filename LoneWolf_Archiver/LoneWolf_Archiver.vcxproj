@@ -170,6 +170,7 @@ copy Drag_Folder_Here_to_Make_an_Archive.bat $(TargetDir)</Command>
     <ClInclude Include="compressor\compressor.h" />
     <ClInclude Include="core.h" />
     <ClInclude Include="exceptions\exceptions.h" />
+    <ClInclude Include="helper\helper.h" />
     <ClInclude Include="server\server.h" />
     <ClInclude Include="stream\cipher.h" />
     <ClInclude Include="stream\cipherstream.h" />

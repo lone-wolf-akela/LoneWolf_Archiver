@@ -1,5 +1,6 @@
 ﻿#include <array>
 
+#include "../helper/helper.h"
 #include "compressor.h"
 
 /*
@@ -26,11 +27,6 @@
 
 namespace
 {
-	template<typename T>
-	T CEIL_DIV(T x, T y)
-	{
-		return x / y + ((x % y) != 0);
-	}
 	void checkErr(bool b)
 	{
 		if (!b) throw ZlibError();
@@ -134,7 +130,7 @@ namespace
 	}
 
 	/// \return <output_data, output_length, checksum>
-	std::tuple<std::byte*, size_t, uint32_t> compress_worker_zopfli_part(
+	std::tuple<unique_c_ptr<std::byte[]>, size_t, uint32_t> compress_worker_zopfli_part(
 		const std::byte* in,
 		size_t instart,
 		size_t inend,
@@ -149,7 +145,7 @@ namespace
 		constexpr int btype_blocks_with_dynamic_tree = 2;
 
 		unsigned char bits = 0;
-		std::byte* out = nullptr;
+		std::byte* out_c_ptr = nullptr;
 		size_t outsize = 0;
 		ZopfliDeflatePart(&options,
 			btype_blocks_with_dynamic_tree,
@@ -158,9 +154,10 @@ namespace
 			instart,
 			inend,
 			&bits,
-			reinterpret_cast<unsigned char**>(&out),
+			reinterpret_cast<unsigned char**>(&out_c_ptr),
 			&outsize);
-		out = reinterpret_cast<std::byte*>(checkNull(realloc(out, outsize + 10)));
+		auto out = unique_c_ptr<std::byte[]>(reinterpret_cast<std::byte*>(
+			checkNull(realloc(out_c_ptr, outsize + 10))));
 		if (!lastpart) {
 			bits &= 7;
 			if (bits == 0 || bits > 5)
@@ -184,7 +181,7 @@ namespace
 		check = adler32(check, reinterpret_cast<const Bytef*>(in) + instart,
 			uInt(inend - instart));
 
-		return { out, outsize, check };
+		return { std::move(out), outsize, check };
 	}
 
 	std::vector<std::byte> compress_worker_zlib_nonpart(
@@ -256,15 +253,22 @@ namespace
 		ThreadPool& pool, const std::byte* data, size_t inputsize, int level)
 	{
 		const size_t partnum = CEIL_DIV(inputsize, partinsize);
-		std::vector<std::future<std::tuple<std::byte*, size_t, uint32_t>>> futures;
+		std::vector<std::future<std::tuple<unique_c_ptr<std::byte[]>, size_t, uint32_t>>>
+			futures;
 		for (size_t i = 0; i < partnum; i++)
 		{
-			futures.push_back(pool.enqueue(compress_worker_zopfli_part,
+			/*futures.push_back(pool.enqueue(compress_worker_zopfli_part,
 				data,
 				i * partinsize,
 				i * partinsize +
 				(partnum - 1 == i ? inputsize - i * partinsize : partinsize),
-				partnum - 1 == i));
+				partnum - 1 == i));*/
+			pool.enqueue(compress_worker_zopfli_part,
+				data,
+				i * partinsize,
+				i * partinsize +
+				(partnum - 1 == i ? inputsize - i * partinsize : partinsize),
+				partnum - 1 == i);
 		}
 		return std::async(std::launch::deferred,
 			[futures = std::move(futures),
@@ -273,7 +277,8 @@ namespace
 		{
 			// get all compressed part
 			// <output_data, output_length, checksum>
-			std::vector<std::tuple<std::byte*, size_t, uint32_t>> worker_results;
+			std::vector<std::tuple<unique_c_ptr<std::byte[]>, size_t, uint32_t>>
+				worker_results;
 			for (auto& f : futures)
 			{
 				worker_results.push_back(f.get());
@@ -296,9 +301,8 @@ namespace
 			for (int i = 0; i < int(worker_results.size()); i++)
 			{
 				const auto& [outdata, outlen, check] = worker_results[i];
-				memmove(p, outdata, outlen);
+				memmove(p, outdata.get(), outlen);
 				p += outlen;
-				free(outdata);
 				check_comb = adler32_comb(check_comb,
 					check,
 					futures.size() - 1 == i ? inputsize - i * partinsize : partinsize);
@@ -322,18 +326,17 @@ namespace
 			.numiterations = 5,
 			.blocksplitting = 1,
 		};
-		unsigned char* out = nullptr;
+		unsigned char* out_c_ptr = nullptr;
 		size_t outsize = 0;
 		ZopfliCompress(&options,
 			ZOPFLI_FORMAT_ZLIB,
 			reinterpret_cast<const unsigned char*>(data),
 			inputsize,
-			&out,
+			&out_c_ptr,
 			&outsize);
-
+		auto out = unique_c_ptr<std::byte[]>(reinterpret_cast<std::byte*>(out_c_ptr));
 		std::vector<std::byte> r(outsize);
-		memmove(r.data(), out, outsize);
-		free(out);
+		memmove(r.data(), out.get(), outsize);
 		return r;
 	}
 

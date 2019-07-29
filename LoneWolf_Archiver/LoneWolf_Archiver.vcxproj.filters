@@ -55,6 +55,9 @@
     <Filter Include="头文件\server">
       <UniqueIdentifier>{008e61ad-75cb-4de0-86e6-698e2b60a54b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\helper">
+      <UniqueIdentifier>{8cd7da52-208b-4a2a-8792-8e956580ad72}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThreadPool\ThreadPool.h">
@@ -128,6 +131,9 @@
     </ClInclude>
     <ClInclude Include="core.h">
       <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="helper\helper.h">
+      <Filter>头文件\helper</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
