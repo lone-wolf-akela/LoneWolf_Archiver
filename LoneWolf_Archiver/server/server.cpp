@@ -1,14 +1,19 @@
-﻿#include "server.h"
+﻿#include <algorithm>
+#include <string_view>
+#include "server.h"
+
 #if defined(_WIN32)
 namespace
 {
-	constexpr DWORD BUFFER_SIZE = 1024;
 	class ErrorClientDisconnected {};
 }
 namespace server
 {
 	JsonServer::JsonServer(const std::string& pipename)
 	{
+		auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+		_logger = std::make_shared<spdlog::logger>("pipe", sink);
+
 		_hPipe = CreateNamedPipeA(
 			("\\\\.\\pipe\\" + pipename).c_str(),	// pipe name 
 			PIPE_ACCESS_DUPLEX,						// read/write access 
@@ -64,8 +69,8 @@ namespace server
 			}
 			while (true)
 			{
-				Json::Value msg_read = _read();
-				auto msg_str = msg_read["msg"].asString();
+				Json::Value msg_json = _read();
+				auto msg_str = msg_json["msg"].asString();
 				if ("bye" == msg_str)
 				{
 					_write(std::string("bye"));
@@ -79,45 +84,52 @@ namespace server
 				}
 				else if ("open" == msg_str)
 				{
-
+					_logger->info("open big file.");
+					std::filesystem::path filepath(msg_json["param"]["path"].asString());
+					_file = std::make_unique<archive::Archive>(filepath.filename().string());
+					_file->open(filepath, archive::Archive::Mode::Read);
+					_write(std::string("ok"));
 				}
 				else if ("extract_all" == msg_str)
 				{
-
+					throw NotImplementedError();
 				}
 				else if ("extract_file" == msg_str)
 				{
-
+					throw NotImplementedError();
 				}
 				else if ("extract_folder" == msg_str)
 				{
-
+					throw NotImplementedError();
 				}
 				else if ("extract_toc" == msg_str)
 				{
-
+					throw NotImplementedError();
 				}
 				else if ("get_filetree" == msg_str)
 				{
-
+					_logger->info("send file tree.");
+					_write("filetree", _file->getFileTree());
 				}
 				else if ("generate" == msg_str)
 				{
 					_logger->info("generate new big file.");
+					auto param = msg_json["param"];
 					std::vector<std::u8string> ignorelist;
-					for (const auto& i : msg_read["param"]["ignorelist"])
+					for (const auto& i : param["ignorelist"])
 					{
 						ignorelist.emplace_back(
 							reinterpret_cast<const char8_t*>(i.asString().c_str()));
 					}
-					core::generate(msg_read["param"]["root"].asString(),
-						msg_read["param"]["allinone"].asBool(),
-						msg_read["param"]["archive"].asString(),
-						msg_read["param"]["threadnum"].asInt(),
-						msg_read["param"]["encryption"].asBool(),
-						msg_read["param"]["compresslevel"].asInt(),
-						msg_read["param"]["keepsign"].asBool(),
+					core::generate(param["root"].asString(),
+						param["allinone"].asBool(),
+						param["archive"].asString(),
+						param["threadnum"].asInt(),
+						param["encryption"].asBool(),
+						param["compresslevel"].asInt(),
+						param["keepsign"].asBool(),
 						ignorelist);
+					_write(std::string("ok"));
 				}
 				else
 				{
@@ -134,17 +146,29 @@ namespace server
 	Json::Value JsonServer::_read()
 	{
 		std::stringstream strm;
-		char buffer[BUFFER_SIZE + 1] = { 0 };
-		DWORD bytes_read;
+		
 		while (true)
 		{
+			auto zero_pos = std::find(_buffer, _buffer + _bytes_in_buffer, 0);
+			if (_buffer + _bytes_in_buffer != zero_pos)
+			{
+				//found 0 in buffer
+				strm << std::string_view(_buffer, zero_pos - _buffer);
+				_bytes_in_buffer -= DWORD(zero_pos - _buffer + 1);
+				memmove(_buffer, zero_pos + 1, _buffer + BUFFER_SIZE - zero_pos - 1);
+				break;
+			}
+			else
+			{
+				strm << std::string_view(_buffer, _bytes_in_buffer);
+			}
 			BOOL bSuccess = ReadFile(
 				_hPipe,					// handle to pipe 
-				buffer,					// buffer to receive data 
+				_buffer,					// buffer to receive data 
 				BUFFER_SIZE,			// size of buffer 
-				&bytes_read,			// number of bytes read 
+				&_bytes_in_buffer,			// number of bytes read 
 				nullptr);				// default security attribute	
-			if (!bSuccess || bytes_read == 0)
+			if (!bSuccess || _bytes_in_buffer == 0)
 			{
 				const auto errcode = GetLastError();
 				if (ERROR_BROKEN_PIPE == errcode)
@@ -158,8 +182,6 @@ namespace server
 						std::to_string(errcode));
 				}
 			}
-			strm << buffer;
-			if (0 == buffer[bytes_read - 1]) break;
 		}
 		Json::Value msg;
 		strm >> msg;
@@ -188,15 +210,17 @@ namespace server
 	}
 	void JsonServer::_write(const std::string& msg)
 	{
-		_write(_msgStr2Json(msg));
+		Json::Value root(Json::objectValue);
+		root["msg"] = msg;
+		_write(root);
 	}
-	Json::Value JsonServer::_msgStr2Json(const std::string& msg)
+	void JsonServer::_write(const std::string& msg, Json::Value param)
 	{
 		Json::Value root(Json::objectValue);
 		root["msg"] = msg;
-		return root;
+		root["param"] = param;
+		_write(root);
 	}
-
 	void start(const std::string& pipename)
 	{
 		JsonServer s(pipename);

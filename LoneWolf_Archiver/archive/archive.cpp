@@ -92,31 +92,31 @@ namespace
 		}
 	}
 
-	/*task struct*/
-	struct BuildFileTask
+	/*archive structure*/
+	struct FileStruct
 	{
 		std::u8string name;
 		std::filesystem::path realpath;
 		CompressMethod compressMethod;
 		uint32_t filesize;
 	};
-	struct BuildFolderTask
+	struct FolderStruct
 	{
 		std::u8string name; // only used during parsing
 		std::u8string path_relative_to_root;
-		std::vector<BuildFolderTask> subFolderTasks;
-		std::vector<BuildFileTask> subFileTasks;
+		std::vector<FolderStruct> subFolders;
+		std::vector<FileStruct> subFiles;
 	};
-	struct BuildTOCTask
+	struct TocStruct
 	{
 		std::u8string name;
 		std::u8string alias;
-		BuildFolderTask rootFolderTask;
+		FolderStruct rootFolder;
 	};
-	struct BuildArchiveTask
+	struct ArchiveStruct
 	{
 		std::u8string name;
-		std::vector<BuildTOCTask> buildTOCTasks;
+		std::vector<TocStruct> TOCs;
 	};
 
 	/*
@@ -232,6 +232,45 @@ namespace archive
 		std::list<FileName> folderNameList;
 
 		std::unordered_map<uint32_t, FileName*> fileNameLookUpTable;
+
+		Json::Value getFolderTree(uint16_t folderIndex)
+		{
+			FolderEntry& fo = folderList[folderIndex];
+
+			Json::Value r(Json::objectValue);
+			r["path"] = reinterpret_cast<const char*>
+				(fileNameLookUpTable[fo.fileNameOffset]->name.c_str());
+			r["files"] = Json::Value(Json::arrayValue);
+			for (uint16_t i = fo.firstFileIndex; i < fo.lastFileIndex; i++)
+			{
+				FileInfoEntry& fi = fileInfoList[i];
+				const auto pos = archiveHeader.exactFileDataOffset + fi.fileDataOffset;
+				auto fileDataHeader = std::get<0>(stream.optionalOwnerRead(
+					pos - sizeof(FileDataHeader),
+					sizeof(FileDataHeader)));
+				Json::Value f(Json::objectValue);
+				f["name"] = reinterpret_cast<const char*>
+					(fileNameLookUpTable[fi.fileNameOffset]->name.c_str());
+				f["date"] = reinterpret_cast<const FileDataHeader*>(
+					fileDataHeader.get_const())->modificationDate;
+				f["compressedlen"] = fi.compressedLen;
+				f["decompressedlen"] = fi.decompressedLen;
+				switch (fi.compressMethod)
+				{
+				case Uncompressed: f["storage"] = "store"; break;
+				case Decompress_During_Read: f["storage"] = "compress_stream";	break;
+				default: /*Decompress_All_At_Once*/	f["storage"] = "compress_buffer"; break;
+				}
+
+				r["files"].append(f);
+			}
+			r["subfolders"] = Json::Value(Json::arrayValue);
+			for (uint16_t i = fo.firstSubFolderIndex; i < fo.lastSubFolderIndex; i++)
+			{
+				r["subfolders"].append(getFolderTree(i));
+			}
+			return r;
+		}
 
 		std::tuple<std::future<File>, std::filesystem::path>
 			extractFile(
@@ -383,7 +422,7 @@ namespace archive
 		std::future<File>
 			buildFile(
 				ThreadPool& pool,
-				BuildFileTask& task,
+				FileStruct& task,
 				FileInfoEntry& entry,
 				int compress_level)
 		{
@@ -456,28 +495,28 @@ namespace archive
 		std::list<std::future<File>>
 			buildFolder(
 				ThreadPool& pool,
-				BuildFolderTask& task,
+				FolderStruct& task,
 				FolderEntry& entry,
 				int compress_level)
 		{
 			std::list<std::future<File>> l;
-			for (uint16_t i = 0; i < task.subFileTasks.size(); i++)
+			for (uint16_t i = 0; i < task.subFiles.size(); i++)
 			{
 				l.emplace_back(buildFile(pool,
-					task.subFileTasks[i],
+					task.subFiles[i],
 					fileInfoList[size_t(entry.firstFileIndex) + i],
 					compress_level));
 			}
-			for (uint16_t i = 0; i < task.subFolderTasks.size(); i++)
+			for (uint16_t i = 0; i < task.subFolders.size(); i++)
 			{
 				l.splice(l.end(), buildFolder(pool,
-					task.subFolderTasks[i],
+					task.subFolders[i],
 					folderList[size_t(entry.firstSubFolderIndex) + i],
 					compress_level));
 			}
 			return l;
 		}
-		void preBuildFolder(BuildFolderTask& folderTask, uint16_t folderIndex)
+		void preBuildFolder(FolderStruct& folderTask, uint16_t folderIndex)
 		{
 			FileName folderName;
 			folderName.name = folderTask.path_relative_to_root;
@@ -493,10 +532,10 @@ namespace archive
 			folderNameList.push_back(folderName);
 			folderList[folderIndex].fileNameOffset = folderName.offset;
 			folderList[folderIndex].firstSubFolderIndex = uint16_t(folderList.size());
-			folderList.resize(folderList.size() + folderTask.subFolderTasks.size());
+			folderList.resize(folderList.size() + folderTask.subFolders.size());
 			folderList[folderIndex].lastSubFolderIndex = uint16_t(folderList.size());
 			folderList[folderIndex].firstFileIndex = uint16_t(fileInfoList.size());
-			for (BuildFileTask& subFileTask : folderTask.subFileTasks)
+			for (FileStruct& subFileTask : folderTask.subFiles)
 			{
 				FileName fileName;
 				fileName.name = subFileTask.name;
@@ -522,14 +561,14 @@ namespace archive
 				fileInfoList.push_back(fileInfoEntry);
 			}
 			folderList[folderIndex].lastFileIndex = uint16_t(fileInfoList.size());
-			for (uint16_t i = 0; i < folderTask.subFolderTasks.size(); ++i)
+			for (uint16_t i = 0; i < folderTask.subFolders.size(); ++i)
 			{
-				preBuildFolder(folderTask.subFolderTasks[i],
+				preBuildFolder(folderTask.subFolders[i],
 					folderList[folderIndex].firstSubFolderIndex + i);
 			}
 		}
 		// all nonsense around letter case are dealt in this function
-		BuildArchiveTask
+		ArchiveStruct
 			parseTask(
 				buildfile::Archive& archive,
 				const std::filesystem::path& root,
@@ -540,14 +579,14 @@ namespace archive
 			{
 				boost::to_lower(ignore);
 			}
-			BuildArchiveTask task;
+			ArchiveStruct task;
 			task.name = boost::to_lower_copy(archive.name);
 			for (auto& toc : archive.TOCs)
 			{
-				BuildTOCTask tocTask;
+				TocStruct tocTask;
 				tocTask.name = boost::to_lower_copy(toc.param.name);
 				tocTask.alias = boost::to_lower_copy(toc.param.alias);
-				tocTask.rootFolderTask.name = u8"";				
+				tocTask.rootFolder.name = u8"";				
 #if defined(_WIN32)
 				//on windows, we should use '\\' instead of '/'
 				std::replace(toc.param.relativeroot.begin(),
@@ -576,7 +615,7 @@ namespace archive
 					});
 				for (auto& file : toc.files)
 				{
-					BuildFileTask fileTask;
+					FileStruct fileTask;
 					fileTask.realpath = absolute(file);
 					fileTask.name = boost::to_lower_copy(fileTask.realpath.filename().u8string());
 
@@ -640,14 +679,14 @@ namespace archive
 					std::filesystem::path relativePath =
 						fileTask.realpath.lexically_relative(tocRootPath).parent_path();
 
-					BuildFolderTask* currentFolder = &tocTask.rootFolderTask;
+					FolderStruct* currentFolder = &tocTask.rootFolder;
 					std::filesystem::path currentPath("");
 					for (auto iter = relativePath.begin(); iter != relativePath.end(); ++iter)
 					{
 						currentPath /= *iter;
 
 						bool found = false;
-						for (BuildFolderTask& subFolderTask : currentFolder->subFolderTasks)
+						for (FolderStruct& subFolderTask : currentFolder->subFolders)
 						{
 							if (boost::to_lower_copy(subFolderTask.name) ==
 								boost::to_lower_copy(iter->u8string()))
@@ -659,26 +698,26 @@ namespace archive
 						}
 						if (!found)
 						{
-							BuildFolderTask newFolder;
+							FolderStruct newFolder;
 							newFolder.name = boost::to_lower_copy(iter->u8string());
 							newFolder.path_relative_to_root = boost::to_lower_copy(currentPath.u8string());
 #if !defined(_WIN32)
 							std::replace(newFolder.path_relative_to_root.begin(),
 								newFolder.path_relative_to_root.end(), u8'/', u8'\\');
 #endif
-							currentFolder->subFolderTasks.push_back(newFolder);
-							currentFolder = &currentFolder->subFolderTasks.back();
+							currentFolder->subFolders.push_back(newFolder);
+							currentFolder = &currentFolder->subFolders.back();
 						}
 					}
-					currentFolder->subFileTasks.push_back(fileTask);
+					currentFolder->subFiles.push_back(fileTask);
 				}
-				task.buildTOCTasks.push_back(tocTask);
+				task.TOCs.push_back(tocTask);
 			}
 			return task;
 		}
 		std::future<void>
 			buildTask(
-				BuildArchiveTask task,
+				ArchiveStruct task,
 				ThreadPool& pool,
 				int compress_level,
 				bool skip_tool_signature)
@@ -699,7 +738,7 @@ namespace archive
 			sectionHeader = SectionHeader{ 0 };
 
 			logger->info("Generating File Data...");
-			for (auto& tocTask : task.buildTOCTasks)
+			for (auto& tocTask : task.TOCs)
 			{
 				TocEntry tocEntry;
 				memset(&tocEntry, 0, sizeof(TocEntry));
@@ -713,7 +752,7 @@ namespace archive
 				tocEntry.startHierarchyFolderIndex = uint16_t(folderList.size());
 
 				folderList.emplace_back();
-				preBuildFolder(tocTask.rootFolderTask, tocEntry.firstFolderIndex);
+				preBuildFolder(tocTask.rootFolder, tocEntry.firstFolderIndex);
 
 				tocEntry.lastFolderIndex = uint16_t(folderList.size());
 				tocEntry.lastFileIndex = uint16_t(fileInfoList.size());
@@ -767,10 +806,10 @@ namespace archive
 
 			std::list<std::future<File>> l;
 			logger->info("Starting File Compression..");
-			for (uint16_t i = 0; i < task.buildTOCTasks.size(); i++)
+			for (uint16_t i = 0; i < task.TOCs.size(); i++)
 			{
 				l.splice(l.end(), buildFolder(pool,
-					task.buildTOCTasks[i].rootFolderTask,
+					task.TOCs[i].rootFolder,
 					folderList[tocList[i].startHierarchyFolderIndex],
 					compress_level));
 			}
@@ -889,11 +928,12 @@ namespace archive
 			});
 		}
 	};
-	Archive::Archive(const std::string& name)
+	Archive::Archive(const std::string& loggername)
 	{
 		_opened = false;
 		_internal = std::unique_ptr<ArchiveInternal>(new ArchiveInternal);
-		_internal->logger = spdlog::stdout_color_mt(name);
+		auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+		_internal->logger =std::make_shared<spdlog::logger>(loggername, sink);
 	}
 	Archive::Archive(Archive&& o) noexcept
 	{
@@ -1059,6 +1099,28 @@ namespace archive
 			_internal->listFolder(toc.startHierarchyFolderIndex);
 		}
 		std::cout << '\n';
+	}
+	Json::Value Archive::getFileTree()
+	{
+		assert(Read == _internal->mode);
+
+		Json::Value r(Json::objectValue);
+		r["name"] = boost::locale::conv::utf_to_utf<char>(
+			std::u16string(_internal->archiveHeader.archiveName,
+				sizeof(ArchiveHeader::archiveName) / sizeof(char16_t)));
+
+		r["tocs"] = Json::Value(Json::arrayValue);
+		for (TocEntry& toc : _internal->tocList)
+		{
+			Json::Value t(Json::objectValue);
+			// use .c_str() to trim '\0' at end
+			t["name"] = std::string(toc.name, sizeof(toc.name)).c_str();
+			t["alias"] = std::string(toc.alias, sizeof(toc.alias)).c_str();
+			t["tocfolder"] = _internal->getFolderTree(toc.startHierarchyFolderIndex);
+
+			r["tocs"].append(t);
+		}
+		return r;
 	}
 	std::future<bool> Archive::testArchive(ThreadPool& pool)
 	{

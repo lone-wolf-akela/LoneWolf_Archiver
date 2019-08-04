@@ -276,7 +276,8 @@ int main(const int argc, char *argv[])
 #if defined(CATCH_EXCEPTION)
 	catch(const std::exception &e)
 	{
-		auto logger = spdlog::stderr_color_mt("main");
+		auto sink = std::make_shared<spdlog::sinks::stderr_color_sink_mt>();
+		auto logger = std::make_shared<spdlog::logger>("main", sink);
 		logger->error("Unhandled exception: {0}", typeid(e).name());
 		logger->error("Message: {0}", e.what());
 		logger->error("Aborted");

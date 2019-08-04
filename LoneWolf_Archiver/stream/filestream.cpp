@@ -4,131 +4,39 @@
 
 namespace stream
 {
-	OptionalOwnerBuffer::OptionalOwnerBuffer() noexcept
+	std::byte* OptionalOwnerBuffer::get()
 	{
-		data.pc = nullptr;
-		mode = pc;
-	}
-
-	OptionalOwnerBuffer::OptionalOwnerBuffer(OptionalOwnerBuffer&& o) noexcept
-	{
-		switch (o.mode)
+		if (std::holds_alternative<std::byte*>(data))
 		{
-		case v:
-			new(&data.v) std::vector<std::byte>(std::move(o.data.v));
-			break;
-		case p:
-			data.p = o.data.p;
-			break;
-		default: // pc
-			data.pc = o.data.pc;
-			break;
+			return std::get<std::byte*>(data);
 		}
-		mode = o.mode;
-	}
-
-	OptionalOwnerBuffer& OptionalOwnerBuffer::operator=(OptionalOwnerBuffer&& o) noexcept
-	{
-		switch (o.mode)
+		if (std::holds_alternative<std::vector<std::byte>>(data))
 		{
-		case v:
-			if (v == mode) data.v = std::move(o.data.v);
-			else new(&data.v) std::vector<std::byte>(std::move(o.data.v));
-			break;
-		case p:
-			if (v == mode) data.v.~vector();
-			data.p = o.data.p;
-			break;
-		default: // pc
-			if (v == mode) data.v.~vector();
-			data.pc = o.data.pc;
-			break;
+			return std::get<std::vector<std::byte>>(data).data();
 		}
-		mode = o.mode;
-		return *this;
+		assert(false);
+		return nullptr;
 	}
 
-	OptionalOwnerBuffer::OptionalOwnerBuffer(std::vector<std::byte>&& in) noexcept
+	const std::byte* OptionalOwnerBuffer::get_const() const
 	{
-		new(&data.v) std::vector<std::byte>(std::move(in));
-		mode = v;
-	}
-
-	OptionalOwnerBuffer&
-		OptionalOwnerBuffer::operator=(std::vector<std::byte>&& in) noexcept
-	{
-		if (v == mode) data.v = std::move(in);
-		else new(&data.v) std::vector<std::byte>(std::move(in));
-
-		mode = v;
-		return *this;
-	}
-
-	OptionalOwnerBuffer::OptionalOwnerBuffer(std::byte* in) noexcept
-	{
-		data.p = in;
-		mode = p;
-	}
-
-	OptionalOwnerBuffer& OptionalOwnerBuffer::operator=(std::byte* in) noexcept
-	{
-		if (v == mode) data.v.~vector();
-
-		data.p = in;
-		mode = p;
-		return *this;
-	}
-
-	OptionalOwnerBuffer::OptionalOwnerBuffer(const std::byte* in) noexcept
-	{
-		data.pc = in;
-		mode = pc;
-	}
-
-	OptionalOwnerBuffer& OptionalOwnerBuffer::operator=(const std::byte* in) noexcept
-	{
-		if (v == mode) data.v.~vector();
-
-		data.pc = in;
-		mode = pc;
-		return *this;
-	}
-
-	OptionalOwnerBuffer::~OptionalOwnerBuffer()
-	{
-		if (v == mode) data.v.~vector();
-	}
-
-	std::byte* OptionalOwnerBuffer::get() noexcept
-	{
-		switch (mode)
+		if (std::holds_alternative<const std::byte*>(data))
 		{
-		case v:
-			return data.v.data();
-		case p:
-			return data.p;
-		default: // pc
-			assert(false);
-			return nullptr;
+			return std::get<const std::byte*>(data);
 		}
-	}
-
-	const std::byte* OptionalOwnerBuffer::get_const() const noexcept
-	{
-		switch (mode)
+		if (std::holds_alternative<std::byte*>(data))
 		{
-		case v:
-			return data.v.data();
-		case p:
-			return data.p;
-		default: // pc
-			return data.pc;
+			return std::get<std::byte*>(data);
 		}
+		if (std::holds_alternative<std::vector<std::byte>>(data))
+		{
+			return std::get<std::vector<std::byte>>(data).data();
+		}
+		assert(false);
+		return nullptr;
 	}
 	void OptionalOwnerBuffer::reset()
 	{
-		if (v == mode) data.v.~vector();
-		data.pc = nullptr;
-		mode = pc;
+		data = std::move(decltype(data)());
 	}
 }

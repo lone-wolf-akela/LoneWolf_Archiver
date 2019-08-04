@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include <future>
 
+#include <json/json.h>
+
 #include "../buildfile/buildfile.h"
 #include "../ThreadPool/ThreadPool.h"
 #include "../exceptions/exceptions.h"
@@ -13,7 +15,7 @@ namespace archive
 	public:
 		// initialization
 		/// \param name the name of the spdlog logger
-		explicit Archive(const std::string& name);
+		explicit Archive(const std::string& loggername);
 		Archive(const Archive&) = delete;
 		Archive& operator=(const Archive&) = delete;
 		Archive(Archive&& o) noexcept;
@@ -30,6 +32,7 @@ namespace archive
 			bool skip_tool_signature,
 			const std::vector<std::u8string>& ignore_list);
 		void listFiles();
+		Json::Value getFileTree();
 		std::future<bool> testArchive(ThreadPool& pool);
 		std::u8string getArchiveSignature();
 

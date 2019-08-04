@@ -5,39 +5,45 @@
 #include <utility>
 #include <vector>
 #include <tuple>
+#include <variant>
 
 namespace stream
 {
 	class OptionalOwnerBuffer
 	{
 	public:
-		OptionalOwnerBuffer() noexcept;
+		OptionalOwnerBuffer() noexcept = default;
 		OptionalOwnerBuffer(const OptionalOwnerBuffer&) = delete;
 		OptionalOwnerBuffer& operator=(const OptionalOwnerBuffer&) = delete;
-		OptionalOwnerBuffer(OptionalOwnerBuffer&& o) noexcept;
-		OptionalOwnerBuffer& operator=(OptionalOwnerBuffer&& o) noexcept;
-		explicit OptionalOwnerBuffer(std::vector<std::byte>&& in) noexcept;
-		OptionalOwnerBuffer& operator=(std::vector<std::byte>&& in) noexcept;
-		explicit OptionalOwnerBuffer(std::byte* in) noexcept;
-		OptionalOwnerBuffer& operator=(std::byte* in) noexcept;
-		explicit OptionalOwnerBuffer(const std::byte* in) noexcept;
-		OptionalOwnerBuffer& operator=(const std::byte* in) noexcept;
-
-		~OptionalOwnerBuffer();
-
-		std::byte* get() noexcept;
-		const std::byte* get_const() const noexcept;
+		template<typename T, std::enable_if_t<
+			std::is_same_v<T, const std::byte*> ||
+			std::is_same_v<T, std::byte*> ||
+			std::is_same_v<T, std::vector<std::byte>>>* = nullptr>
+			explicit OptionalOwnerBuffer(T && in) noexcept : data(std::move(in)) {}
+		OptionalOwnerBuffer(OptionalOwnerBuffer&&) noexcept = default;
+		template<typename T, std::enable_if_t<
+			std::is_same_v<T, const std::byte*> ||
+			std::is_same_v<T, std::byte*> ||
+			std::is_same_v<T, std::vector<std::byte>>>* = nullptr >
+			OptionalOwnerBuffer & operator=(T && in) noexcept
+		{
+			data = std::move(in);
+			return *this;
+		}
+		OptionalOwnerBuffer& operator=(OptionalOwnerBuffer&&) noexcept = default;
+		template<typename T, std::enable_if_t<
+			std::is_same_v<T, const std::byte*> ||
+			std::is_same_v<T, std::byte* >>* = nullptr>
+			OptionalOwnerBuffer & operator=(T & in) noexcept
+		{
+			data = in;
+			return *this;
+		}
+		std::byte* get();
+		const std::byte* get_const() const;
 		void reset();
 	private:
-		enum { v, p, pc } mode;
-		union D
-		{
-			std::vector<std::byte> v;
-			std::byte* p;
-			const std::byte* pc;
-			D() {}
-			~D() {}
-		} data;
+		std::variant<const std::byte*, std::byte*, std::vector<std::byte>> data;
 	};
 
 	class FileStream

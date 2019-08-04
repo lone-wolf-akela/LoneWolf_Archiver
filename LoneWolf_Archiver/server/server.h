@@ -19,6 +19,7 @@
 
 namespace server
 {
+	constexpr DWORD BUFFER_SIZE = 1024;
 	class JsonServer
 	{
 	public:
@@ -26,13 +27,16 @@ namespace server
 		~JsonServer();
 		void start_listen();
 	private:		
+		char _buffer[BUFFER_SIZE + 1] = { 0 };
+		DWORD _bytes_in_buffer = 0;
 		HANDLE _hPipe = INVALID_HANDLE_VALUE;
-		std::shared_ptr<spdlog::logger> _logger = spdlog::stdout_color_mt("pipe");
+		std::shared_ptr<spdlog::logger> _logger;
+		std::unique_ptr<archive::Archive> _file;
 
 		Json::Value _read();
 		void _write(const Json::Value msg);
 		void _write(const std::string& msg);
-		Json::Value _msgStr2Json(const std::string& msg);
+		void _write(const std::string& msg, Json::Value param);
 	};
 	void start(const std::string& pipename);
 }

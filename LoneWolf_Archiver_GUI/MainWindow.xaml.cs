@@ -1,26 +1,16 @@
-﻿using System;
+﻿using ByteSizeLib;
+using Microsoft.Win32;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
+using System.Diagnostics;
+using System.IO.Pipes;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using System.IO;
-using System.IO.Pipes;
-using System.Diagnostics;
-using System.Windows.Interop;
-using Microsoft.Win32;
-using ByteSizeLib;
-using Newtonsoft.Json.Linq;
 
 namespace LoneWolf_Archiver_GUI
 {
@@ -35,7 +25,19 @@ namespace LoneWolf_Archiver_GUI
         {
             InitializeComponent();
         }
-
+        private JObject recvAndCheck(string expectedMsg)
+        {
+            var r = recvMsg();
+            if((string)r["msg"]!=expectedMsg)
+            {
+                MessageBox.Show((string)r["msg"]);
+                return null;
+            }
+            else
+            {
+                return r;
+            }
+        }
         private void sendMsg(JObject msg)
         {
             byte[] bytes = Encoding.Default.GetBytes(msg.ToString());
@@ -43,30 +45,57 @@ namespace LoneWolf_Archiver_GUI
             bytes[0] = 0;
             pipe.Write(bytes, 0, 1);
         }
-        private JObject msgStr2Json(string str)
-        {
-            var root = new JObject();
-            root["msg"] = str;
-            return root;
-        }
         private void sendMsg(string msg)
         {
-            sendMsg(msgStr2Json(msg));
+            var root = new JObject();
+            root["msg"] = msg;
+            sendMsg(root);
         }
-
+        private void sendMsg(string msg, JObject param)
+        {
+            var root = new JObject();
+            root["msg"] = msg;
+            root["param"] = param;
+            sendMsg(root);
+        }
+        private const int BUFFER_SIZE = 1024;
+        private byte[] pipebuffer = new byte[BUFFER_SIZE + 1];
+        private int bytes_in_buffer = 0;
         private JObject recvMsg()
         {
-            string msg_str = "";
-            var c = new byte[1];
-            while (true)
+            using (var strm = new MemoryStream())
             {
-                pipe.Read(c, 0, 1);
-                if (c[0] == 0)
-                    break;
-                msg_str += Convert.ToChar(c[0]);
-            }
-            var root = JObject.Parse(msg_str);
-            return root;
+                while (true)
+                {
+                    int zero_pos = 
+                        Array.FindIndex(pipebuffer, 0, bytes_in_buffer, b => (b == '\0'));
+                    if (-1 != zero_pos)
+                    {
+                        //found 0 in buffer
+                        strm.Write(pipebuffer, 0, zero_pos);
+                        bytes_in_buffer -= zero_pos + 1;
+                        Buffer.BlockCopy(pipebuffer, zero_pos + 1, 
+                            pipebuffer, 0, BUFFER_SIZE - zero_pos - 1);
+                        break;
+                    }
+                    else
+                    {
+                        strm.Write(pipebuffer, 0, bytes_in_buffer);
+                    }
+                    bytes_in_buffer = pipe.Read(pipebuffer, 0, BUFFER_SIZE);
+                    if (bytes_in_buffer == 0)
+                    {
+                        throw new Exception("Pipe Failed.");
+                    }
+                }
+                strm.Position = 0;
+                using (var sr = new StreamReader(strm))
+                {
+                    var a = sr.ReadToEnd();
+                    var root = JObject.Parse(a);
+                    return root;
+                }  
+            }     
         }
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
@@ -82,9 +111,7 @@ namespace LoneWolf_Archiver_GUI
 
             pipe.Connect();
             sendMsg("hello");
-            var s = (string)recvMsg()["msg"];
-            if (s != "hello")
-                MessageBox.Show("Failed to connect pipe.");
+            recvAndCheck("hello");
 
             filetree.Items.Add(treeroot);
         }
@@ -123,11 +150,11 @@ namespace LoneWolf_Archiver_GUI
                         switch (_compressMethod)
                         {
                             case CompressMethod.Uncompressed:
-                                return "无压缩";
+                                return "Uncompressed";
                             case CompressMethod.Decompress_During_Read:
-                                return "使用时解压";
+                                return "Decompress During Read";
                             case CompressMethod.Decompress_All_At_Once:
-                                return "解压后缓存于内存";
+                                return "Decompress All At Once";
                             default:
                                 throw new ArgumentOutOfRangeException();
                         }
@@ -136,13 +163,13 @@ namespace LoneWolf_Archiver_GUI
                     {
                         switch (value)
                         {
-                            case "0":
+                            case "store":
                                 _compressMethod = CompressMethod.Uncompressed;
                                 break;
-                            case "16":
+                            case "compress_stream":
                                 _compressMethod = CompressMethod.Decompress_During_Read;
                                 break;
-                            case "32":
+                            case "compress_buffer":
                                 _compressMethod = CompressMethod.Decompress_All_At_Once;
                                 break;
                             default:
@@ -178,7 +205,7 @@ namespace LoneWolf_Archiver_GUI
             {
                 get
                 {
-                    if (_Alias == "")
+                    if (_Alias is null || _Alias == "")
                         return "";
                     else
                         return " (" + _Alias + ")";
@@ -212,11 +239,38 @@ namespace LoneWolf_Archiver_GUI
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             sendMsg("bye");
-            var s = (string)recvMsg()["msg"];
-            if (s != "bye")
-                MessageBox.Show(s);
+            recvAndCheck("bye");
         }
 
+        private treeitem parseFolderJson(JToken folder)
+        {
+            var folderitem = new treeitem();
+            folderitem.Title = Path.GetFileName(
+                ((string)folder["path"]).TrimEnd(new[] { '\\', '/' }));
+            foreach(var subfolder in folder["subfolders"])
+            {
+                folderitem.Items.Add(parseFolderJson(subfolder));
+            }
+            foreach(var file in folder["files"])
+            {
+                var f = new treeitem.file();
+                f.compressMethod = (string)file["storage"];
+                f.filename = (string)file["name"];
+                f.modificationDate = (string)file["date"];
+                f.sizeCompressed = (string)file["compressedlen"];
+                f.sizeUncompressed = (string)file["decompressedlen"];
+
+                folderitem.Files.Add(f);
+            }
+            return folderitem;
+        }
+        private treeitem parseTocJson(JToken toc)
+        {
+            var tocitem = parseFolderJson(toc["tocfolder"]);
+            tocitem.Title = (string)toc["name"];
+            tocitem.Alias = (string)toc["alias"];
+            return tocitem;
+        }
         private void MenuOpen_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFileDialog
@@ -229,59 +283,28 @@ namespace LoneWolf_Archiver_GUI
                 ValidateNames = true,
                 DereferenceLinks = true
             };
-            /*if (dialog.ShowDialog() == true)
+            if (dialog.ShowDialog() == true)
             {
                 filegrid.ItemsSource = null;
 
-                sendMsg("open-big");
-                sendMsg(dialog.FileName);
-
-                sendMsg("get-foldertree");
+                var openparam = new JObject();
+                openparam["path"] = dialog.FileName;
+                sendMsg("open", openparam);
+                if (recvAndCheck("ok") is null) return;
+                sendMsg("get_filetree");
                 treeroot.Items.Clear();
 
                 var list = new List<treeitem>();
                 treeitem ptr = treeroot;
-                string s = recvMsg();
-                while (s != "\u0004")
+                var response = recvAndCheck("filetree");
+                if (response is null) return;
+                var json_filetree = response["param"];
+                var name = (string)json_filetree["name"];
+                foreach(var toc in json_filetree["tocs"])
                 {
-                    switch (s)
-                    {
-                        case "\u0001":
-                            s = recvMsg();
-                            while (s != "\u0001")
-                            {
-                                var file = new treeitem.file
-                                {
-                                    filename = s,
-                                    sizeUncompressed = recvMsg(),
-                                    sizeCompressed = recvMsg(),
-                                    compressMethod = recvMsg(),
-                                    modificationDate = recvMsg()
-                                };
-                                ptr.Files.Add(file);
-
-                                s = recvMsg();
-                            }
-                            break;
-                        case "\u0002":
-                            list.Add(ptr);
-                            break;
-                        case "\u0003":
-                            ptr = list.Last();
-                            list.RemoveAt(list.Count - 1);
-                            break;
-                        default:
-                            ptr = new treeitem
-                            {
-                                Title = s,
-                                Alias = recvMsg()
-                            };
-                            list.Last().Items.Add(ptr);
-                            break;
-                    }
-                    s = recvMsg();
+                    treeroot.Items.Add(parseTocJson(toc));
                 }
-            }*/
+            }
         }
 
         private void MenuExtract_Click(object sender, RoutedEventArgs e)
