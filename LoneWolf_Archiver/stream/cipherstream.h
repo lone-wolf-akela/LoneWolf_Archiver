@@ -18,13 +18,13 @@ namespace stream
 	class CipherStream : public FileStream
 	{
 	public:
-		CipherStream(void) = default;
+		CipherStream() = default;
 		CipherStream(const std::filesystem::path& file, CipherStreamState state)
 		{
 			open(file, state);
 		}
 		void open(const std::filesystem::path& file, CipherStreamState state);
-		void close(void);
+		void close();
 
 		size_t read(void* dst, size_t length) override;
 		std::tuple<OptionalOwnerBuffer, size_t>
@@ -37,16 +37,16 @@ namespace stream
 			optionalOwnerRead(size_t pos, size_t length) override;
 
 		void setpos(size_t pos) override;
-		size_t getpos(void) override;
+		size_t getpos() override;
 		void movepos(ptrdiff_t diff) override;
 
-		void writeKey(void);
-		void writeEncryptionEnd(void);
+		void writeKey();
+		void writeEncryptionEnd();
 
-		CipherStreamState getState(void) const;
+		[[nodiscard]] CipherStreamState getState() const;
 	private:
-		void _cipherInit(void);
-		void _cipher_magic(void);
+		void _cipherInit();
+		void _cipher_magic();
 
 		CipherStreamState _state = Read_EncryptionUnknown;
 		MemMapFileStream _memmapStream;

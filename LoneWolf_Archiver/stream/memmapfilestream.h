@@ -11,14 +11,14 @@ namespace stream
 	class MemMapFileStream : public FileStream
 	{
 	public:
-		MemMapFileStream(void) = default;
+		MemMapFileStream() = default;
 		explicit MemMapFileStream(std::filesystem::path const& file)
 		{
 			open(file);
 		}
 
 		void open(const std::filesystem::path& file);
-		void close(void);
+		void close();
 
 		size_t read(void* dst, size_t length) override;
 		std::tuple<OptionalOwnerBuffer, size_t>
@@ -31,14 +31,14 @@ namespace stream
 			optionalOwnerRead(size_t pos, size_t length) override;
 
 		void setpos(size_t pos) override;
-		size_t getpos(void) override;
+		size_t getpos() override;
 		void movepos(ptrdiff_t diff) override;
 
-		const std::byte* getReadptr(void) const;
-		uintmax_t getFileSize(void) const;
+		[[nodiscard]] const std::byte* getReadptr() const;
+		[[nodiscard]] uintmax_t getFileSize() const;
 	private:
 		boost::iostreams::mapped_file_source _filesrc;
 		uintmax_t _filesize = 0;
-		size_t _pos;
+		size_t _pos = 0;
 	};
 }

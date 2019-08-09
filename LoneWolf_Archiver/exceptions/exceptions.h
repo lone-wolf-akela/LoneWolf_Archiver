@@ -14,7 +14,7 @@ public:
 class NotImplementedError : public std::runtime_error
 {
 public:
-	NotImplementedError(void):
+	NotImplementedError():
 		runtime_error("Function not implemented")
 	{}
 };
@@ -22,7 +22,7 @@ public:
 class OutOfRangeError : public std::runtime_error
 {
 public:
-	OutOfRangeError(void) :
+	OutOfRangeError() :
 		runtime_error("Out of range.")
 	{}
 };

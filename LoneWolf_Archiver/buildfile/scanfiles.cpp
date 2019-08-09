@@ -20,7 +20,7 @@ namespace
 	}
 	bool pathHasPrefix(const std::filesystem::path& path, const std::filesystem::path& prefix)
 	{
-		auto pair = std::mismatch(path.begin(), path.end(), prefix.begin(), prefix.end());
+		const auto pair = std::mismatch(path.begin(), path.end(), prefix.begin(), prefix.end());
 		return pair.second == prefix.end();
 	}
 
@@ -359,7 +359,7 @@ namespace buildfile
 					{
 						if (pathHasPrefix(*file_iter, *locale_iter))
 						{
-							auto tobe_sliced = file_iter;
+							const auto tobe_sliced = file_iter;
 							++file_iter;
 							localefiles.splice(localefiles.end(), allfiles, tobe_sliced);
 						}
@@ -372,8 +372,8 @@ namespace buildfile
 				}
 			}
 		}
-		std::string modname = lastNotEmptyFilename(rootpath).string();
-		std::u8string u8modname = lastNotEmptyFilename(rootpath).u8string();
+		const std::string modname = lastNotEmptyFilename(rootpath).string();
+		const std::u8string u8modname = lastNotEmptyFilename(rootpath).u8string();
 		std::vector<Archive> archive_list;
 		// build our base archive
 		archive_list.emplace_back(Archive{ .name = u8"MOD" + u8modname,.filename = modname });

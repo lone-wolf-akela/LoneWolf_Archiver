@@ -18,15 +18,14 @@ namespace
 	///\brief	Convert ANSI string to wstring
 	std::wstring ConvertANSIToWchar(std::string_view in)
 	{
-		int buffersize;
 		std::wstring r;
 
-		buffersize = MultiByteToWideChar(
-			CP_ACP,			//CodePage,
-			0,				//dwFlags,
-			in.data(),		//lpMultiByteStr,
-			int(in.size()),	//cbMultiByte,
-			nullptr,		//lpWideCharStr,
+		const int buffersize = MultiByteToWideChar(
+			CP_ACP, //CodePage,
+			0, //dwFlags,
+			in.data(), //lpMultiByteStr,
+			int(in.size()), //cbMultiByte,
+			nullptr, //lpWideCharStr,
 			0);				//cchWideChar
 		if (!buffersize)
 		{
@@ -78,7 +77,7 @@ namespace buildfile
 			std::wstringstream stream;
 			for (size_t i = 0; i < in.size(); i += 2)
 			{
-				wchar_t t = *reinterpret_cast<const wchar_t*>(in.data() + i);
+				const wchar_t t = *reinterpret_cast<const wchar_t*>(in.data() + i);
 				stream << wchar_t((t << 8) | ((t >> 8) & 0x00ff));
 			}
 			return boost::locale::conv::utf_to_utf<char>(stream.str());
@@ -88,8 +87,8 @@ namespace buildfile
 		if (test)
 		{
 			// is UNICODE
-			auto wptr = reinterpret_cast<const WCHAR*>(in.data());
-			auto wlen = in.size() * sizeof(in[0]) / sizeof(WCHAR);
+			const auto wptr = reinterpret_cast<const WCHAR*>(in.data());
+			const auto wlen = in.size() * sizeof(in[0]) / sizeof(WCHAR);
 			return boost::locale::conv::utf_to_utf<char>(wptr, wptr + wlen);
 		}
 #endif
@@ -105,7 +104,7 @@ namespace buildfile
 			// Success. This is a UTF8 string. no need for conversion.
 			return std::string(in);
 		}
-		catch (boost::locale::conv::conversion_error)
+		catch (boost::locale::conv::conversion_error&)
 		{
 			// seems not UTF8, will try to parse as system default ANSI code page	
 #if defined(_WIN32)

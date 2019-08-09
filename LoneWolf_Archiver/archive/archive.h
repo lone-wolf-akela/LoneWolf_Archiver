@@ -14,7 +14,7 @@ namespace archive
 	{
 	public:
 		// initialization
-		/// \param name the name of the spdlog logger
+		/// \param loggername the name of the spdlog logger
 		explicit Archive(const std::string& loggername);
 		Archive(const Archive&) = delete;
 		Archive& operator=(const Archive&) = delete;
@@ -31,10 +31,10 @@ namespace archive
 			int compress_level,
 			bool skip_tool_signature,
 			const std::vector<std::u8string>& ignore_list);
-		void listFiles();
-		Json::Value getFileTree();
+		void listFiles() const;
+		Json::Value getFileTree() const;
 		std::future<bool> testArchive(ThreadPool& pool);
-		std::u8string getArchiveSignature();
+		std::u8string getArchiveSignature() const;
 
 		// finish
 		void close();

@@ -3,6 +3,7 @@
 #include <list>
 #include <iostream>
 #include <chrono>
+#include <cmath>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/locale.hpp>
@@ -17,21 +18,21 @@
 
 namespace
 {
-	void logProgress(std::shared_ptr<spdlog::logger> logger,
+	void logProgress(spdlog::logger* logger,
 		size_t current,
 		size_t max,
 		const std::string& name)
 	{
-		auto progress = double(current) * 100 / max;
+		const auto progress = double(current) * 100 / max;
 		// only output progress when progress at least 1%
-		if (size_t(progress + 0.5) != size_t(double(current - 1) * 100 / max + 0.5))
+		if (lround(progress) != lround(double(current - 1) * 100 / max))
 		{
-			auto complete = size_t(progress * 0.3 + 0.5);
-			auto incomplete = size_t(30) - complete;
+			const auto complete = lround(progress * 0.3);
+			const auto incomplete = size_t(30) - complete;
 			logger->info("[{0}{1}] {2}%: {3}",
 				std::string(complete, '#'),
 				std::string(incomplete, '-'),
-				size_t(progress + 0.5),
+				lround(progress),
 				name);
 		}
 	}
@@ -205,7 +206,7 @@ namespace
 		FileInfoEntry* fileInfoEntry = nullptr;
 
 		stream::OptionalOwnerBuffer fileDataHeader;
-		const FileDataHeader* getFileDataHeader(void) const
+		[[nodiscard]] const FileDataHeader* getFileDataHeader() const
 		{
 			return reinterpret_cast<const FileDataHeader*>(fileDataHeader.get_const());
 		}
@@ -295,7 +296,7 @@ namespace archive
 			{
 				filepath = path / f.getFileDataHeader()->fileName.utf8;
 			}
-			catch (std::system_error)
+			catch (std::system_error&)
 			{
 				// it failed. Maybe this is an ANSI string？
 				filepath = path / f.getFileDataHeader()->fileName.ansi;
@@ -325,7 +326,7 @@ namespace archive
 						f.compressedData.reset();
 						return std::move(f);
 					}
-					catch (ZlibError)
+					catch (ZlibError&)
 					{
 						if (f.fileInfoEntry->compressMethod == Decompress_All_At_Once &&
 							f.fileInfoEntry->compressedLen == 1024)
@@ -365,7 +366,7 @@ namespace archive
 				fileNameLookUpTable[f.fileNameOffset]->name.end(),
 				u8'\\', u8'/');
 #endif
-			std::filesystem::path filepath =
+			const std::filesystem::path filepath =
 				root / fileNameLookUpTable[f.fileNameOffset]->name;
 			for (auto i = f.firstFileIndex; i < f.lastFileIndex; i++)
 			{
@@ -422,7 +423,7 @@ namespace archive
 		std::future<File>
 			buildFile(
 				ThreadPool& pool,
-				FileStruct& task,
+				const FileStruct& task,
 				FileInfoEntry& entry,
 				int compress_level)
 		{
@@ -440,10 +441,11 @@ namespace archive
 			}
 			f.fileDataHeader = std::vector<std::byte>(sizeof(FileDataHeader));
 			auto h = reinterpret_cast<FileDataHeader*>(f.fileDataHeader.get());
-			*h = FileDataHeader{ 0 };
-			h->CRC = crc32(crc32(0, nullptr, 0),
+			*h = FileDataHeader{
+				.CRC = crc32(crc32(0, nullptr, 0),
 				reinterpret_cast<const Bytef*>(f.decompressedData.get_const()),
-				entry.decompressedLen);
+				entry.decompressedLen)
+			};
 			memmove(h->fileName.utf8,
 				task.name.c_str(),
 				(std::min)(sizeof(FileDataHeader::fileName) - 1, task.name.length()));
@@ -457,7 +459,6 @@ namespace archive
 				(0 == strncmp(h->fileName.ansi, "\x5f\xe6\xad\xa4\xe5\xa4\x84\xe7\xa6\x81\xe6\xad\xa2\xe9\x80\x9a\xe8\xa1\x8c", 21)))
 			{
 				logger->critical("Hello there!");
-				task.compressMethod = Decompress_All_At_Once;
 				constexpr size_t compressedLen = 1024;
 				f.compressedData = std::vector<std::byte>(compressedLen);
 				memset(f.compressedData.get(), 25, compressedLen);
@@ -467,14 +468,14 @@ namespace archive
 				return std::async(std::launch::deferred,
 					[f = std::move(f)]() mutable{return std::move(f); });
 			}
-			else if (Uncompressed == entry.compressMethod)
+			if (Uncompressed == entry.compressMethod)
 			{
 				f.compressedData = std::move(f.decompressedData);
 				entry.compressedLen = entry.decompressedLen;
 				return std::async(std::launch::deferred,
 					[f = std::move(f)]() mutable{return std::move(f); });
 			}
-			else
+			// else
 			{
 				auto r = compressor::compress(pool,
 					f.decompressedData.get_const(),
@@ -495,19 +496,19 @@ namespace archive
 		std::list<std::future<File>>
 			buildFolder(
 				ThreadPool& pool,
-				FolderStruct& task,
+				const FolderStruct& task,
 				FolderEntry& entry,
 				int compress_level)
 		{
 			std::list<std::future<File>> l;
-			for (uint16_t i = 0; i < task.subFiles.size(); i++)
+			for (size_t i = 0; i < task.subFiles.size(); i++)
 			{
 				l.emplace_back(buildFile(pool,
 					task.subFiles[i],
 					fileInfoList[size_t(entry.firstFileIndex) + i],
 					compress_level));
 			}
-			for (uint16_t i = 0; i < task.subFolders.size(); i++)
+			for (size_t i = 0; i < task.subFolders.size(); i++)
 			{
 				l.splice(l.end(), buildFolder(pool,
 					task.subFolders[i],
@@ -516,7 +517,7 @@ namespace archive
 			}
 			return l;
 		}
-		void preBuildFolder(FolderStruct& folderTask, uint16_t folderIndex)
+		void preBuildFolder(const FolderStruct& folderTask, uint16_t folderIndex)
 		{
 			FileName folderName;
 			folderName.name = folderTask.path_relative_to_root;
@@ -535,36 +536,25 @@ namespace archive
 			folderList.resize(folderList.size() + folderTask.subFolders.size());
 			folderList[folderIndex].lastSubFolderIndex = uint16_t(folderList.size());
 			folderList[folderIndex].firstFileIndex = uint16_t(fileInfoList.size());
-			for (FileStruct& subFileTask : folderTask.subFiles)
+			for (const FileStruct& subFileTask : folderTask.subFiles)
 			{
-				FileName fileName;
-				fileName.name = subFileTask.name;
-				if (fileNameList.empty())
-				{
-					fileName.offset = 0;
-				}
-				else
-				{
-					fileName.offset = uint32_t(fileNameList.back().offset +
-						fileNameList.back().name.length() + 1);
-				}
-				fileNameList.push_back(fileName);
+				fileNameList.push_back({
+					.name = subFileTask.name,
+					.offset = fileNameList.empty() ? 0 : uint32_t(
+						fileNameList.back().offset +
+						fileNameList.back().name.length() + 1)});
 
-				FileInfoEntry fileInfoEntry;
-				fileInfoEntry.fileNameOffset = fileName.offset;
-				fileInfoEntry.compressMethod = subFileTask.compressMethod;
-				fileInfoEntry.decompressedLen = subFileTask.filesize;
-				//data to be fill later:
-				fileInfoEntry.fileDataOffset = 0;
-				fileInfoEntry.compressedLen = 0;
-
-				fileInfoList.push_back(fileInfoEntry);
+				fileInfoList.push_back({
+					.fileNameOffset = fileNameList.back().offset,
+					.compressMethod = subFileTask.compressMethod,
+					.decompressedLen = subFileTask.filesize});
 			}
 			folderList[folderIndex].lastFileIndex = uint16_t(fileInfoList.size());
-			for (uint16_t i = 0; i < folderTask.subFolders.size(); ++i)
+			for (size_t i = 0; i < folderTask.subFolders.size(); i++)
 			{
+				assert(i <= std::numeric_limits<uint16_t>::max());
 				preBuildFolder(folderTask.subFolders[i],
-					folderList[folderIndex].firstSubFolderIndex + i);
+					folderList[folderIndex].firstSubFolderIndex + uint16_t(i));
 			}
 		}
 		// all nonsense around letter case are dealt in this function
@@ -583,10 +573,11 @@ namespace archive
 			task.name = boost::to_lower_copy(archive.name);
 			for (auto& toc : archive.TOCs)
 			{
-				TocStruct tocTask;
-				tocTask.name = boost::to_lower_copy(toc.param.name);
-				tocTask.alias = boost::to_lower_copy(toc.param.alias);
-				tocTask.rootFolder.name = u8"";				
+				TocStruct tocTask{
+					.name = boost::to_lower_copy(toc.param.name),
+					.alias = boost::to_lower_copy(toc.param.alias),
+					.rootFolder{.name = u8""},
+				};
 #if defined(_WIN32)
 				//on windows, we should use '\\' instead of '/'
 				std::replace(toc.param.relativeroot.begin(),
@@ -717,16 +708,16 @@ namespace archive
 		}
 		std::future<void>
 			buildTask(
-				ArchiveStruct task,
+				const ArchiveStruct& task,
 				ThreadPool& pool,
 				int compress_level,
 				bool skip_tool_signature)
 		{
 			logger->info("Writing Archive Header...");
-			archiveHeader = ArchiveHeader{ 0 };
-			memmove(archiveHeader._ARCHIVE, "_ARCHIVE", sizeof(ArchiveHeader::_ARCHIVE));
-			archiveHeader.version = 2;
-			std::u16string tmpU16str =
+			archiveHeader = ArchiveHeader{
+				._ARCHIVE = {'_','A','R','C','H','I','V','E'},
+				.version = 2};
+			const std::u16string tmpU16str =
 				boost::locale::conv::utf_to_utf<char16_t>(task.name);
 
 			memmove(archiveHeader.archiveName,
@@ -735,21 +726,19 @@ namespace archive
 					tmpU16str.length() * sizeof(char16_t)));
 			stream.write(&archiveHeader, sizeof(ArchiveHeader));
 
-			sectionHeader = SectionHeader{ 0 };
+			sectionHeader = SectionHeader{};
 
 			logger->info("Generating File Data...");
 			for (auto& tocTask : task.TOCs)
 			{
-				TocEntry tocEntry;
-				memset(&tocEntry, 0, sizeof(TocEntry));
+				TocEntry tocEntry{
+					.firstFolderIndex = uint16_t(folderList.size()),
+					.firstFileIndex = uint16_t(fileInfoList.size()),
+					.startHierarchyFolderIndex = uint16_t(folderList.size()) };
 				memmove(&tocEntry.name, tocTask.name.c_str(),
 					(std::min)(sizeof(TocEntry::name) - 1, tocTask.name.length()));
 				memmove(&tocEntry.alias, tocTask.alias.c_str(),
 					(std::min)(sizeof(TocEntry::alias) - 1, tocTask.alias.length()));
-
-				tocEntry.firstFolderIndex = uint16_t(folderList.size());
-				tocEntry.firstFileIndex = uint16_t(fileInfoList.size());
-				tocEntry.startHierarchyFolderIndex = uint16_t(folderList.size());
 
 				folderList.emplace_back();
 				preBuildFolder(tocTask.rootFolder, tocEntry.firstFolderIndex);
@@ -806,7 +795,7 @@ namespace archive
 
 			std::list<std::future<File>> l;
 			logger->info("Starting File Compression..");
-			for (uint16_t i = 0; i < task.TOCs.size(); i++)
+			for (size_t i = 0; i < task.TOCs.size(); i++)
 			{
 				l.splice(l.end(), buildFolder(pool,
 					task.TOCs[i].rootFolder,
@@ -835,7 +824,7 @@ namespace archive
 						file.fileInfoEntry->compressedLen);
 					// calculate progress
 					fileswritten++;
-					logProgress(logger, fileswritten, l.size(),
+					logProgress(logger.get(), fileswritten, l.size(),
 						file.getFileDataHeader()->fileName.ansi);
 				}
 
@@ -951,8 +940,8 @@ namespace archive
 	void Archive::open(
 		const std::filesystem::path& filepath, Mode mode)
 	{
-		_internal->archiveHeader = ArchiveHeader{ 0 };
-		_internal->sectionHeader = SectionHeader{ 0 };
+		_internal->archiveHeader = ArchiveHeader{};
+		_internal->sectionHeader = SectionHeader{};
 		_internal->tocList.clear();
 		_internal->folderList.clear();
 		_internal->fileInfoList.clear();
@@ -1063,7 +1052,7 @@ namespace archive
 
 				// calculate progress
 				fileswritten++;
-				logProgress(_internal->logger, fileswritten, files.size(),
+				logProgress(_internal->logger.get(), fileswritten, files.size(),
 					path.filename().string());
 			}
 		});
@@ -1083,7 +1072,7 @@ namespace archive
 			compress_level,
 			skip_tool_signature);
 	}
-	void Archive::listFiles()
+	void Archive::listFiles() const
 	{
 		assert(Read == _internal->mode);
 		for (TocEntry& toc : _internal->tocList)
@@ -1100,7 +1089,7 @@ namespace archive
 		}
 		std::cout << '\n';
 	}
-	Json::Value Archive::getFileTree()
+	Json::Value Archive::getFileTree() const
 	{
 		assert(Read == _internal->mode);
 
@@ -1148,7 +1137,7 @@ namespace archive
 			return true;
 		});
 	}
-	std::u8string Archive::getArchiveSignature()
+	std::u8string Archive::getArchiveSignature() const
 	{
 		return reinterpret_cast<char8_t*>(_internal->archiveHeader.archiveSignature);
 	}

@@ -48,7 +48,7 @@ namespace stream
 
 			std::random_device rd;
 			std::mt19937 mt(rd());
-			std::uniform_int_distribution<uint32_t> dis;
+			const std::uniform_int_distribution<uint32_t> dis;
 
 			_keySize = 256;
 			_cipherKey = std::unique_ptr<uint32_t[]>(new uint32_t[_keySize / sizeof(uint32_t)]);
@@ -89,7 +89,7 @@ namespace stream
 		{
 		case Read_Encrypted:
 		{
-			size_t l = read(_memmapStream.getpos(), dst, length);
+			const size_t l = read(_memmapStream.getpos(), dst, length);
 			_memmapStream.movepos(l);
 			return l;
 		}
@@ -170,7 +170,7 @@ namespace stream
 			auto* uint8Src = reinterpret_cast<const uint8_t*>(src);
 			const size_t begpos = getpos();
 
-			std::unique_ptr<uint8_t[]> buffer(new uint8_t[length]);
+			const std::unique_ptr<uint8_t[]> buffer(new uint8_t[length]);
 			for (size_t i = 0; i < length; ++i)
 			{
 				buffer[i] = *(uint8Src + i) -
@@ -208,8 +208,8 @@ namespace stream
 		{
 		case Read_Encrypted:
 		{
-			uint8_t* tmpDst = reinterpret_cast<uint8_t*>(dst);
-			size_t l = _memmapStream.read(pos, dst, length);
+			const auto tmpDst = reinterpret_cast<uint8_t*>(dst);
+			const size_t l = _memmapStream.read(pos, dst, length);
 			for (size_t i = 0; i < l; ++i)
 			{
 				tmpDst[i] +=
@@ -375,7 +375,7 @@ namespace stream
 	}
 	void CipherStream::_cipher_magic()
 	{
-		uint8_t* _cipherKey_uint8 = reinterpret_cast<uint8_t*>(_cipherKey.get());
+		const auto _cipherKey_uint8 = reinterpret_cast<uint8_t*>(_cipherKey.get());
 
 		for (uint32_t i = 0; i < _keySize; i += 4)
 		{
@@ -383,7 +383,7 @@ namespace stream
 			for (int byte = 0; byte < 4; byte++)
 			{
 				uint32_t tempVal = ROTL(currentKey + _cipherBegPos, 8);
-				uint8_t* tempBytes = reinterpret_cast<uint8_t*>(&tempVal);
+				const auto tempBytes = reinterpret_cast<uint8_t*>(&tempVal);
 				for (uint32_t j = 0; j < 4; j++)
 				{
 					currentKey = cipherConst[uint8_t(currentKey ^ tempBytes[j])]

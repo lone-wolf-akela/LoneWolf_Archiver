@@ -57,11 +57,11 @@
                 </-->
                 <ListView.View>
                     <GridView>
-                        <GridViewColumn Header="File Name" DisplayMemberBinding="{Binding filename}" />
-                        <GridViewColumn Header="Uncompressed Size" DisplayMemberBinding="{Binding sizeUncompressed}" />
-                        <GridViewColumn Header="Compressed Size" DisplayMemberBinding="{Binding sizeCompressed}" />
-                        <GridViewColumn Header="Compress Method" DisplayMemberBinding="{Binding compressMethod}" />
-                        <GridViewColumn Header="File Last Modified Time" DisplayMemberBinding="{Binding modificationDate}" />
+                        <GridViewColumn Header="File Name" DisplayMemberBinding="{Binding Filename}" />
+                        <GridViewColumn Header="Uncompressed Size" DisplayMemberBinding="{Binding SizeUncompressed}" />
+                        <GridViewColumn Header="Compressed Size" DisplayMemberBinding="{Binding SizeCompressed}" />
+                        <GridViewColumn Header="Compress Method" DisplayMemberBinding="{Binding CompressMethod}" />
+                        <GridViewColumn Header="File Last Modified Time" DisplayMemberBinding="{Binding ModificationDate}" />
                     </GridView>
                 </ListView.View>
             </ListView>

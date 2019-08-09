@@ -39,8 +39,9 @@ namespace stream
 			data = in;
 			return *this;
 		}
-		std::byte* get();
-		const std::byte* get_const() const;
+		~OptionalOwnerBuffer() = default;
+		[[nodiscard]] std::byte* get();
+		[[nodiscard]] const std::byte* get_const() const;
 		void reset();
 	private:
 		std::variant<const std::byte*, std::byte*, std::vector<std::byte>> data;
@@ -49,6 +50,11 @@ namespace stream
 	class FileStream
 	{
 	public:
+		FileStream() = default;
+		FileStream(const FileStream&) = delete;
+		FileStream& operator=(const FileStream&) = delete;
+		FileStream(FileStream&&) = delete;
+		FileStream& operator=(FileStream&&) = delete;
 		virtual ~FileStream() = default;
 
 		virtual size_t read(void* dst, size_t length) = 0;
@@ -62,7 +68,7 @@ namespace stream
 			optionalOwnerRead(size_t pos, size_t length) = 0;
 
 		virtual void setpos(size_t pos) = 0;
-		virtual size_t getpos(void) = 0;
+		virtual size_t getpos() = 0;
 		virtual void movepos(ptrdiff_t diff) = 0;
 	};
 }

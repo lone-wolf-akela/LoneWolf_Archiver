@@ -16,7 +16,7 @@ namespace stream
 		_pos = 0;
 	}
 
-	void MemMapFileStream::close(void)
+	void MemMapFileStream::close()
 	{
 		_filesrc.close();
 	}
@@ -67,7 +67,7 @@ namespace stream
 		_pos = pos;
 	}
 
-	size_t MemMapFileStream::getpos(void)
+	size_t MemMapFileStream::getpos()
 	{
 		return _pos;
 	}

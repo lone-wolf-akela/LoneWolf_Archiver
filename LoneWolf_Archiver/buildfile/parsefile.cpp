@@ -5,8 +5,6 @@
 
 #include <fstream>
 #include <sstream>
-#include <iterator>
-#include <array>
 
 #pragma warning(push)
 #pragma warning(disable : 4828)
@@ -31,7 +29,7 @@ namespace
 	namespace stdw = boost::spirit::standard_wide;
 
 	template<typename Iter>
-	struct bf_skipper : public qi::grammar<Iter>
+	struct bf_skipper : qi::grammar<Iter>
 	{
 		bf_skipper() : bf_skipper::base_type(skip)
 		{

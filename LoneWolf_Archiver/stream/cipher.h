@@ -110,5 +110,5 @@ namespace stream
 		0x8D, 0xEF, 0x02, 0x2D
 	};
 
-	const uint32_t* cipherConst = reinterpret_cast<const uint32_t*>(cipherRaw);
+	inline const uint32_t* cipherConst = reinterpret_cast<const uint32_t*>(cipherRaw);
 }

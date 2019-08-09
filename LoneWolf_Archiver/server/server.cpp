@@ -1,11 +1,13 @@
 ﻿#include <algorithm>
-#include <string_view>
+#include <sstream>
+
 #include "server.h"
+
 
 #if defined(_WIN32)
 namespace
 {
-	class ErrorClientDisconnected {};
+	class ErrorClientDisconnected : public std::exception {};
 }
 namespace server
 {
@@ -15,7 +17,7 @@ namespace server
 		_logger = std::make_shared<spdlog::logger>("pipe", sink);
 
 		_hPipe = CreateNamedPipeA(
-			("\\\\.\\pipe\\" + pipename).c_str(),	// pipe name 
+			(R"(\\.\pipe\)" + pipename).c_str(),	// pipe name 
 			PIPE_ACCESS_DUPLEX,						// read/write access 
 			PIPE_TYPE_BYTE |						// message type pipe 
 			PIPE_READMODE_BYTE |					// message-read mode 
@@ -44,7 +46,7 @@ namespace server
 		// the function returns a nonzero value. It is still good if the function
 		// returns zero but GetLastError returns ERROR_PIPE_CONNECTED.
 		DWORD errcode;
-		bool bConnected = ConnectNamedPipe(_hPipe, nullptr) ? true :
+		const bool bConnected = ConnectNamedPipe(_hPipe, nullptr) ? true :
 			((errcode = GetLastError()) == ERROR_PIPE_CONNECTED);
 		if (!bConnected)
 		{
@@ -56,7 +58,7 @@ namespace server
 		{
 			{
 				Json::Value msg_read = _read();
-				auto msg_str = msg_read["msg"].asString();
+				const auto msg_str = msg_read["msg"].asString();
 				if ("hello" == msg_str)
 				{
 					_write(std::string("hello"));
@@ -137,7 +139,7 @@ namespace server
 				}
 			}
 		}
-		catch (ErrorClientDisconnected)
+		catch (ErrorClientDisconnected&)
 		{
 			_logger->warn("connection lost.");
 			return;
@@ -149,7 +151,7 @@ namespace server
 		
 		while (true)
 		{
-			auto zero_pos = std::find(_buffer, _buffer + _bytes_in_buffer, 0);
+			const auto zero_pos = std::find(_buffer, _buffer + _bytes_in_buffer, 0);
 			if (_buffer + _bytes_in_buffer != zero_pos)
 			{
 				//found 0 in buffer
@@ -162,7 +164,7 @@ namespace server
 			{
 				strm << std::string_view(_buffer, _bytes_in_buffer);
 			}
-			BOOL bSuccess = ReadFile(
+			const BOOL bSuccess = ReadFile(
 				_hPipe,					// handle to pipe 
 				_buffer,					// buffer to receive data 
 				BUFFER_SIZE,			// size of buffer 
@@ -187,14 +189,14 @@ namespace server
 		strm >> msg;
 		return msg;
 	}
-	void JsonServer::_write(const Json::Value msg)
+	void JsonServer::_write(const Json::Value& msg)
 	{
 		std::stringstream strm;
 		strm << msg;
-		std::string str = strm.str();
+		const std::string str = strm.str();
 
 		DWORD bytes_written;
-		BOOL bSuccess = WriteFile(
+		const BOOL bSuccess = WriteFile(
 			_hPipe,					// handle to pipe 
 			str.c_str(),			// buffer to write from 
 			DWORD(str.length() + 1),// number of bytes to write 
@@ -214,7 +216,7 @@ namespace server
 		root["msg"] = msg;
 		_write(root);
 	}
-	void JsonServer::_write(const std::string& msg, Json::Value param)
+	void JsonServer::_write(const std::string& msg, const Json::Value& param)
 	{
 		Json::Value root(Json::objectValue);
 		root["msg"] = msg;

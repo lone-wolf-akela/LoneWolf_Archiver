@@ -2,11 +2,8 @@
 
 #if defined(_WIN32)
 
-#include <cstddef>
-#include <sstream>
 #include <memory>
 #include <string>
-#include <vector>
 
 #include <Windows.h>
 
@@ -24,7 +21,12 @@ namespace server
 	{
 	public:
 		JsonServer(const std::string& pipename);
+		JsonServer(const JsonServer&) = delete;
+		JsonServer& operator=(const JsonServer&) = delete;
+		JsonServer(JsonServer&&) = delete;
+		JsonServer& operator=(JsonServer&&) = delete;
 		~JsonServer();
+		
 		void start_listen();
 	private:		
 		char _buffer[BUFFER_SIZE + 1] = { 0 };
@@ -34,9 +36,9 @@ namespace server
 		std::unique_ptr<archive::Archive> _file;
 
 		Json::Value _read();
-		void _write(const Json::Value msg);
+		void _write(const Json::Value& msg);
 		void _write(const std::string& msg);
-		void _write(const std::string& msg, Json::Value param);
+		void _write(const std::string& msg, const Json::Value& param);
 	};
 	void start(const std::string& pipename);
 }

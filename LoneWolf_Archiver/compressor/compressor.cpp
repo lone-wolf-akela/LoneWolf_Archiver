@@ -49,13 +49,10 @@ namespace
 		constexpr auto BASE = 65521U;	// largest prime smaller than 65536
 		constexpr auto LOW16 = 0xffff;	// mask lower 16 bits
 
-		unsigned long sum1;
-		unsigned long sum2;
-		unsigned rem;
 		// the derivation of this formula is left as an exercise for the reader
-		rem = (unsigned)(len2 % BASE);
-		sum1 = adler1 & LOW16;
-		sum2 = (rem * sum1) % BASE;
+		const auto rem = unsigned(len2 % BASE);
+		unsigned long sum1 = adler1 & LOW16;
+		unsigned long sum2 = (rem * sum1) % BASE;
 		sum1 += (adler2 & LOW16) + BASE - 1;
 		sum2 += ((adler1 >> 16) & LOW16) + ((adler2 >> 16) & LOW16) + BASE - rem;
 		if (sum1 >= BASE) sum1 -= BASE;
@@ -67,28 +64,26 @@ namespace
 	///\note this function is copied from pigz
 	std::array<std::byte, 2> get_header(int level)
 	{
-		std::array<std::byte, 2> head_BE;
-		uint16_t head;
-		head = (0x78 << 8) +        // deflate, 32K window
+		uint16_t head = (0x78 << 8) +        // deflate, 32K window
 			(level >= 9 ? 3 << 6 :
 				level == 1 ? 0 << 6 :
 				level >= 6 || level == Z_DEFAULT_COMPRESSION ? 1 << 6 :
 				2 << 6);            // optional compression level clue
 		head += 31 - (head % 31);   // make it a multiple of 31
 		// zlib format uses big-endian order
-		head_BE[0] = std::byte((head >> 8) & 0xff);
-		head_BE[1] = std::byte(head & 0xff);
-		return head_BE;
+		return  std::array<std::byte, 2>{
+			std::byte((head >> 8) & 0xff),
+			std::byte(head & 0xff) };
 	}
 
 	std::array<std::byte, 4> get_trailer(uint32_t check)
 	{
-		std::array<std::byte, 4> trailer_BE;
-		trailer_BE[0] = std::byte((check >> 24) & 0xff);
-		trailer_BE[1] = std::byte((check >> 16) & 0xff);
-		trailer_BE[2] = std::byte((check >> 8) & 0xff);
-		trailer_BE[3] = std::byte(check & 0xff);
-		return trailer_BE;
+		// zlib format uses big-endian order
+		return std::array<std::byte, 4>{
+			std::byte((check >> 24) & 0xff),
+				std::byte((check >> 16) & 0xff),
+				std::byte((check >> 8) & 0xff),
+				std::byte(check & 0xff)};
 	}
 
 	/// \return <output_length, checksum>
@@ -100,14 +95,14 @@ namespace
 		int level,
 		bool lastpart)
 	{
-		z_stream strm;
-		strm.zalloc = Z_NULL;
-		strm.zfree = Z_NULL;
-		strm.opaque = Z_NULL;
-		strm.next_in = reinterpret_cast<const Bytef*>(in);
-		strm.avail_in = uInt(insize);
-		strm.next_out = reinterpret_cast<Bytef*>(out);
-		strm.avail_out = uInt(outsize);
+		z_stream strm{
+			.next_in = reinterpret_cast<const Bytef*>(in),
+			.avail_in = uInt(insize),
+			.next_out = reinterpret_cast<Bytef*>(out),
+			.avail_out = uInt(outsize),
+			.zalloc = nullptr,
+			.zfree = nullptr,
+			.opaque = nullptr };
 		checkErr(Z_OK == deflateInit2(
 			&strm, level, Z_DEFLATED, -windowBits, memLevel, Z_DEFAULT_STRATEGY));
 		if (lastpart)
@@ -140,8 +135,7 @@ namespace
 			.verbose = 0,
 			.verbose_more = 0,
 			.numiterations = 5,
-			.blocksplitting = 1,
-		};
+			.blocksplitting = 1 };
 		constexpr int btype_blocks_with_dynamic_tree = 2;
 
 		unsigned char bits = 0;
@@ -229,14 +223,14 @@ namespace
 			// reserve bytes for header
 			std::byte* p = compressed.data() + header.size();
 			// merge data
-			for (int i = 0; i < int(futures.size()); i++)
+			for (size_t i = 0; i < futures.size(); i++)
 			{
 				auto [outlen, check] = futures[i].get();
 				memmove(p, compressed.data() + i * size_t(partoutsize), outlen);
 				p += outlen;
 				check_comb = adler32_comb(check_comb,
 					check,
-					futures.size() - 1 == i ? inputsize - i * partinsize : partinsize);
+					futures.size() == i + 1 ? inputsize - i * partinsize : partinsize);
 			}
 			// write header
 			memmove(compressed.data(), header.data(), header.size());
@@ -279,6 +273,7 @@ namespace
 			// <output_data, output_length, checksum>
 			std::vector<std::tuple<unique_c_ptr<std::byte[]>, size_t, uint32_t>>
 				worker_results;
+			worker_results.reserve(futures.size());
 			for (auto& f : futures)
 			{
 				worker_results.push_back(f.get());
@@ -290,22 +285,23 @@ namespace
 				compressed_size += std::get<1>(t);
 			}
 			auto header = get_header(level);
+			// reserve bytes for header & trailer
 			std::vector<std::byte> compressed(header.size() +
 				compressed_size +
 				std::tuple_size<decltype(get_trailer(0))>::value
 			);
-			// reserve bytes for header & trailer
 			std::byte* p = compressed.data() + header.size();
+			
 			uint32_t check_comb = adler32(0, nullptr, 0);
 			// merge data
-			for (int i = 0; i < int(worker_results.size()); i++)
+			for (size_t i = 0; i < worker_results.size(); i++)
 			{
 				const auto& [outdata, outlen, check] = worker_results[i];
 				memmove(p, outdata.get(), outlen);
 				p += outlen;
 				check_comb = adler32_comb(check_comb,
 					check,
-					futures.size() - 1 == i ? inputsize - i * partinsize : partinsize);
+					futures.size() == i + 1 ? inputsize - i * partinsize : partinsize);
 			}
 
 			// write header
@@ -334,7 +330,7 @@ namespace
 			inputsize,
 			&out_c_ptr,
 			&outsize);
-		auto out = unique_c_ptr<std::byte[]>(reinterpret_cast<std::byte*>(out_c_ptr));
+		const auto out = unique_c_ptr<std::byte[]>(reinterpret_cast<std::byte*>(out_c_ptr));
 		std::vector<std::byte> r(outsize);
 		memmove(r.data(), out.get(), outsize);
 		return r;
@@ -344,7 +340,7 @@ namespace
 		const std::byte* data, size_t inputsize, size_t outputsize)
 	{
 		std::vector<std::byte> r(outputsize);
-		uLongf ul_outputsize = uLongf(outputsize);
+		auto ul_outputsize = uLongf(outputsize);
 		checkErr(Z_OK == uncompress(
 			reinterpret_cast<Bytef*>(r.data()),
 			&ul_outputsize,

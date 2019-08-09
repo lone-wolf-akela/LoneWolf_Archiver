@@ -1,7 +1,5 @@
 ﻿#pragma once
 
-#include <string>
-#include <string_view>
 #include <filesystem>
 #include <iostream>
 
@@ -13,10 +11,14 @@ namespace core
 	{
 	public:
 		Timer() :start(std::chrono::system_clock::now()) {}
+		Timer(const Timer&) = delete;
+		Timer& operator=(const Timer&) = delete;
+		Timer(Timer&&) = delete;
+		Timer& operator=(Timer&&) = delete;
 		~Timer()
 		{
 			const auto end = std::chrono::system_clock::now();
-			std::chrono::duration<double, std::ratio<1>> diff = end - start;
+			const std::chrono::duration<double, std::ratio<1>> diff = end - start;
 			std::cout << "Operation took " << std::fixed << std::setprecision(2)
 				<< diff.count() << " seconds." << std::endl;
 		}
