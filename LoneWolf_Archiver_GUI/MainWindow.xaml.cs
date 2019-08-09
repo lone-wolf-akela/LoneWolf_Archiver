@@ -17,8 +17,32 @@ namespace LoneWolf_Archiver_GUI
     /// <summary>
     /// MainWindow.xaml 的交互逻辑
     /// </summary>
-    public partial class MainWindow : Window
+    public sealed partial class MainWindow : Window, IDisposable
     {
+        private bool _disposed = false;
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    _pipe.Dispose();
+                }
+                _disposed = true;
+            }
+        }
+
+        ~MainWindow()
+        {
+            Dispose(false);
+        }
+
         private NamedPipeClientStream _pipe;
         private readonly Treeitem _treeroot = new Treeitem { Alias = "", Title = "Root" };
         public MainWindow()
@@ -126,14 +150,14 @@ namespace LoneWolf_Archiver_GUI
                 public string SizeUncompressed
                 {
                     get => _sizeUncompressed.ToString();
-                    set => _sizeUncompressed = ByteSize.FromBytes(UInt32.Parse(value));
+                    set => _sizeUncompressed = ByteSize.FromBytes(uint.Parse(value));
                 }
 
                 private ByteSize _sizeCompressed;
                 public string SizeCompressed
                 {
                     get => _sizeCompressed.ToString();
-                    set => _sizeCompressed = ByteSize.FromBytes(UInt32.Parse(value));
+                    set => _sizeCompressed = ByteSize.FromBytes(uint.Parse(value));
                 }
 
                 private enum CmEnum
@@ -157,7 +181,7 @@ namespace LoneWolf_Archiver_GUI
                             case CmEnum.DecompressAllAtOnce:
                                 return "Decompress All At Once";
                             default:
-                                throw new ArgumentOutOfRangeException();
+                                return "Unknown Compress Method";
                         }
                     }
                     set
@@ -186,7 +210,7 @@ namespace LoneWolf_Archiver_GUI
                     set
                     {
                         _modificationDate = new DateTime(1970, 1, 1);
-                        _modificationDate = _modificationDate.AddSeconds(UInt32.Parse(value));
+                        _modificationDate = _modificationDate.AddSeconds(uint.Parse(value));
                     }
                 }
             }

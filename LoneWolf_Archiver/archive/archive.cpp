@@ -85,38 +85,38 @@ namespace
 		switch (ct)
 		{
 		case buildfile::Compression::Uncompressed:
-			return CompressMethod::Uncompressed;
+			return Uncompressed;
 		case buildfile::Compression::Decompress_During_Read:
-			return CompressMethod::Decompress_During_Read;
+			return Decompress_During_Read;
 		default: // buildfile::Compression::Decompress_All_At_Once:
-			return CompressMethod::Decompress_All_At_Once;
+			return Decompress_All_At_Once;
 		}
 	}
 
 	/*archive structure*/
 	struct FileStruct
 	{
-		std::u8string name;
+		std::u8string name = u8"";
 		std::filesystem::path realpath;
-		CompressMethod compressMethod;
-		uint32_t filesize;
+		CompressMethod compressMethod = {};
+		uint32_t filesize = 0;
 	};
 	struct FolderStruct
 	{
-		std::u8string name; // only used during parsing
-		std::u8string path_relative_to_root;
+		std::u8string name = u8""; // only used during parsing
+		std::u8string path_relative_to_root = u8"";
 		std::vector<FolderStruct> subFolders;
 		std::vector<FileStruct> subFiles;
 	};
 	struct TocStruct
 	{
-		std::u8string name;
-		std::u8string alias;
+		std::u8string name = u8"";
+		std::u8string alias = u8"";
 		FolderStruct rootFolder;
 	};
 	struct ArchiveStruct
 	{
-		std::u8string name;
+		std::u8string name = u8"";
 		std::vector<TocStruct> TOCs;
 	};
 
@@ -198,7 +198,7 @@ namespace
 	/*container class*/
 	struct FileName
 	{
-		std::u8string name;
+		std::u8string name = {};
 		uint32_t offset = 0;	//relative to FileName_offset
 	};
 	struct File
@@ -221,11 +221,11 @@ namespace archive
 	struct ArchiveInternal
 	{
 		std::shared_ptr<spdlog::logger> logger;
-		Archive::Mode mode;
+		Archive::Mode mode = Archive::Invalid;
 		stream::CipherStream stream;
 
-		ArchiveHeader archiveHeader;
-		SectionHeader sectionHeader;
+		ArchiveHeader archiveHeader = {};
+		SectionHeader sectionHeader = {};
 		std::vector<TocEntry> tocList;
 		std::vector<FolderEntry> folderList;
 		std::vector<FileInfoEntry> fileInfoList;
@@ -532,10 +532,18 @@ namespace archive
 			}
 			folderNameList.push_back(folderName);
 			folderList[folderIndex].fileNameOffset = folderName.offset;
+			
+			assert(folderList.size() <= std::numeric_limits<uint16_t>::max());
 			folderList[folderIndex].firstSubFolderIndex = uint16_t(folderList.size());
+			
 			folderList.resize(folderList.size() + folderTask.subFolders.size());
+			
+			assert(folderList.size() <= std::numeric_limits<uint16_t>::max());
 			folderList[folderIndex].lastSubFolderIndex = uint16_t(folderList.size());
+
+			assert(fileInfoList.size() <= std::numeric_limits<uint16_t>::max());
 			folderList[folderIndex].firstFileIndex = uint16_t(fileInfoList.size());
+			
 			for (const FileStruct& subFileTask : folderTask.subFiles)
 			{
 				fileNameList.push_back({
@@ -731,6 +739,8 @@ namespace archive
 			logger->info("Generating File Data...");
 			for (auto& tocTask : task.TOCs)
 			{
+				assert(folderList.size() <= std::numeric_limits<uint16_t>::max());
+				assert(fileInfoList.size() <= std::numeric_limits<uint16_t>::max());
 				TocEntry tocEntry{
 					.firstFolderIndex = uint16_t(folderList.size()),
 					.firstFileIndex = uint16_t(fileInfoList.size()),
@@ -743,6 +753,8 @@ namespace archive
 				folderList.emplace_back();
 				preBuildFolder(tocTask.rootFolder, tocEntry.firstFolderIndex);
 
+				assert(folderList.size() <= std::numeric_limits<uint16_t>::max());
+				assert(fileInfoList.size() <= std::numeric_limits<uint16_t>::max());
 				tocEntry.lastFolderIndex = uint16_t(folderList.size());
 				tocEntry.lastFileIndex = uint16_t(fileInfoList.size());
 				tocList.push_back(tocEntry);
@@ -752,6 +764,7 @@ namespace archive
 			const auto baseOffset = uint32_t(folderNameList.back().offset +
 				folderNameList.back().name.length() + 1);
 			folderNameList.splice(folderNameList.end(), fileNameList);
+			
 			//and adjust files' name offset
 			for (FileInfoEntry& entry : fileInfoList)
 			{
@@ -763,28 +776,40 @@ namespace archive
 			stream.write(&sectionHeader, sizeof(SectionHeader));
 			sectionHeader.TOC_offset =
 				uint32_t(stream.getpos() - sizeof(ArchiveHeader));
+			
+			assert(tocList.size() <= std::numeric_limits<uint16_t>::max());
 			sectionHeader.TOC_count = uint16_t(tocList.size());
+			
 			for (TocEntry& entry : tocList)
 			{
 				stream.write(&entry, sizeof(entry));
 			}
 			sectionHeader.Folder_offset =
 				uint32_t(stream.getpos() - sizeof(ArchiveHeader));
+
+			assert(folderList.size() <= std::numeric_limits<uint16_t>::max());
 			sectionHeader.Folder_count = uint16_t(folderList.size());
+			
 			for (FolderEntry& entry : folderList)
 			{
 				stream.write(&entry, sizeof(entry));
 			}
 			sectionHeader.FileInfo_offset =
 				uint32_t(stream.getpos() - sizeof(ArchiveHeader));
+
+			assert(fileInfoList.size() <= std::numeric_limits<uint16_t>::max());
 			sectionHeader.FileInfo_count = uint16_t(fileInfoList.size());
+			
 			for (FileInfoEntry& entry : fileInfoList)
 			{
 				stream.write(&entry, sizeof(entry));
 			}
 			sectionHeader.FileName_offset =
 				uint32_t(stream.getpos() - sizeof(ArchiveHeader));
+
+			assert(folderNameList.size() <= std::numeric_limits<uint16_t>::max());
 			sectionHeader.FileName_count = uint16_t(folderNameList.size());
+			
 			for (FileName& filename : folderNameList)
 			{
 				stream.write(filename.name.c_str(), filename.name.length() + 1);

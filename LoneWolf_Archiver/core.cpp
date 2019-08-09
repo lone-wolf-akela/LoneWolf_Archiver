@@ -18,7 +18,7 @@ namespace core
 		ThreadPool pool(threadNum);
 		std::vector<archive::Archive> files;
 		std::vector<std::future<void>> futurelist;
-		for (int i = 0; i < int(tasks.size()); i++)
+		for (size_t i = 0; i < tasks.size(); i++)
 		{
 			files.emplace_back(tasks[i].filename);
 			files.back().open(

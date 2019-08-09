@@ -251,18 +251,13 @@ namespace
 			futures;
 		for (size_t i = 0; i < partnum; i++)
 		{
-			/*futures.push_back(pool.enqueue(compress_worker_zopfli_part,
+			const bool lastpart = partnum == i + 1;
+			futures.push_back(pool.enqueue(compress_worker_zopfli_part,
 				data,
 				i * partinsize,
 				i * partinsize +
-				(partnum - 1 == i ? inputsize - i * partinsize : partinsize),
-				partnum - 1 == i));*/
-			pool.enqueue(compress_worker_zopfli_part,
-				data,
-				i * partinsize,
-				i * partinsize +
-				(partnum - 1 == i ? inputsize - i * partinsize : partinsize),
-				partnum - 1 == i);
+				(lastpart ? inputsize - i * partinsize : partinsize),
+				lastpart));
 		}
 		return std::async(std::launch::deferred,
 			[futures = std::move(futures),

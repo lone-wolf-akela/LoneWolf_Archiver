@@ -226,14 +226,14 @@ int main(const int argc, char *argv[])
 		{
 			auto tasks = buildfile::scanFiles(vm["root"].as<std::string>(), vm.count("allinone"));
 			{
-				buildfile::genFile(vm["scan"].as<std::string>(), tasks[0]);
+				genFile(vm["scan"].as<std::string>(), tasks[0]);
 			}
-			for (int i = 1; i < int(tasks.size()); i++)
+			for (size_t i = 1; i < tasks.size(); i++)
 			{
 				auto p = std::filesystem::path(
 					vm["scan"].as<std::string>()).parent_path() /
 					(tasks[i].filename + ".txt");
-				buildfile::genFile(p, tasks[i]);
+				genFile(p, tasks[i]);
 			}
 		}
 		else if (vm.count("list"))

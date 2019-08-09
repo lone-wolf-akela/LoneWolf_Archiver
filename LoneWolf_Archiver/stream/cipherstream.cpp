@@ -324,7 +324,11 @@ namespace stream
 	{
 		_memmapStream.setpos(size_t(_memmapStream.getFileSize() - sizeof(_cipherBegBackPos)));
 		_memmapStream.read(&_cipherBegBackPos, sizeof(_cipherBegBackPos));
-		_cipherBegPos = uint32_t(_memmapStream.getFileSize() - _cipherBegBackPos);
+
+		const auto tmpBegPos = _memmapStream.getFileSize() - _cipherBegBackPos;
+		assert(tmpBegPos <= std::numeric_limits<uint32_t>::max());
+		_cipherBegPos = uint32_t(tmpBegPos);
+		
 		_memmapStream.setpos(_cipherBegPos);
 		_memmapStream.read(&_deadbe7a, sizeof(_deadbe7a));
 		_memmapStream.read(&_keySize, sizeof(_keySize));
@@ -342,7 +346,11 @@ namespace stream
 	void CipherStream::writeKey()
 	{
 		_deadbe7a = 0xdeadbe7a;
-		_cipherBegPos = uint32_t(getpos());
+
+		const auto tmpBegPos = getpos();
+		assert(tmpBegPos <= std::numeric_limits<uint32_t>::max());
+		_cipherBegPos = uint32_t(tmpBegPos);
+		
 		_filestream.write(reinterpret_cast<const char*>(&_deadbe7a), sizeof(_deadbe7a));
 		_filestream.write(reinterpret_cast<const char*>(&_keySize), sizeof(_keySize));
 		_filestream.write(reinterpret_cast<const char*>(_fileKey.get()), _keySize);
@@ -359,7 +367,11 @@ namespace stream
 	{
 		_filestream.seekp(0, std::ios::end);
 		const uintmax_t filesize = _filestream.tellp();
-		_cipherBegBackPos = uint32_t(filesize + sizeof(_cipherBegBackPos) - _cipherBegPos);
+
+		const auto tmpBegBackPos = filesize + sizeof(_cipherBegBackPos) - _cipherBegPos;
+		assert(tmpBegBackPos <= std::numeric_limits<uint32_t>::max());
+		_cipherBegBackPos = uint32_t(tmpBegBackPos);
+		
 		_filestream.write(reinterpret_cast<const char*>(&_cipherBegBackPos), sizeof(_cipherBegBackPos));
 
 		_filestream.seekg(_filestream.tellp());

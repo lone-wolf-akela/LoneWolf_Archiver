@@ -3,9 +3,12 @@
 #include <sstream>
 #include <locale>
 #include <tuple>
+#include <limits>
 
 #if defined(_WIN32)
+#define NOMINMAX
 #include <Windows.h>
+#undef NOMINMAX
 #endif
 
 #include <boost/locale.hpp>
@@ -19,7 +22,7 @@ namespace
 	std::wstring ConvertANSIToWchar(std::string_view in)
 	{
 		std::wstring r;
-
+		assert(in.size() <= std::numeric_limits<int>::max());
 		const int buffersize = MultiByteToWideChar(
 			CP_ACP, //CodePage,
 			0, //dwFlags,
@@ -38,7 +41,7 @@ namespace
 			in.data(),		//lpMultiByteStr,
 			int(in.size()),	//cbMultiByte,
 			r.data(),		//lpWideCharStr,
-			int(r.size())))	//cchWideChar
+			buffersize))	//cchWideChar
 		{
 			goto ConvertANSIToWcharErr;
 		}
@@ -69,6 +72,7 @@ namespace buildfile
 	std::string ConvertToUTF8(std::string_view in)
 	{
 #if defined(_WIN32)
+		assert(in.size() <= std::numeric_limits<int>::max());
 		int test = IS_TEXT_UNICODE_REVERSE_MASK;
 		IsTextUnicode(in.data(), int(in.size()), &test);
 		if (test)

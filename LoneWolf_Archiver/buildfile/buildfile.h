@@ -35,7 +35,7 @@ namespace buildfile
 		struct Param
 		{
 			Compression defcompression;
-		}param;
+		}param = {};
 		std::vector<FileSettingCommand> commands;
 	};
 
