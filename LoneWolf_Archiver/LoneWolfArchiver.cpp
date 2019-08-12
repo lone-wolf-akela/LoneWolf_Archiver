@@ -21,7 +21,7 @@ struct
 	int compressLevel = 9;
 	bool keepSign = false;	
 	bool encryption = false;
-	std::vector<std::u8string> ignoreList;
+	std::vector<std::u8string> ignoreList = {};
 }options;
 
 #if !defined(_DEBUG)

@@ -15,6 +15,8 @@
 
 #include "buildfile.h"
 
+using namespace std::literals;
+
 namespace
 {
 #if defined(_WIN32)
@@ -54,7 +56,7 @@ namespace
 		///			ERROR_INVALID_PARAMETER
 		///			ERROR_NO_UNICODE_TRANSLATION
 		throw SystemApiError(
-			std::string("Error happened when calling `MultiByteToWideChar': ") + (
+			"Error happened when calling `MultiByteToWideChar': "s + (
 			(errcode == ERROR_INSUFFICIENT_BUFFER) ? "ERROR_INSUFFICIENT_BUFFER" :
 				(errcode == ERROR_INVALID_FLAGS) ? "ERROR_INVALID_FLAGS" :
 				(errcode == ERROR_INVALID_PARAMETER) ? "ERROR_INVALID_PARAMETER" :

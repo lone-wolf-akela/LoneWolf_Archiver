@@ -39,6 +39,8 @@ namespace server
 		void _write(const Json::Value& msg);
 		void _write(const std::string& msg);
 		void _write(const std::string& msg, const Json::Value& param);
+		void _write(const char* msg);
+		void _write(const char* msg, const Json::Value& param);
 	};
 	void start(const std::string& pipename);
 }

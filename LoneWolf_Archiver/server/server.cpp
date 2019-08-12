@@ -3,7 +3,6 @@
 
 #include "server.h"
 
-
 #if defined(_WIN32)
 namespace
 {
@@ -61,7 +60,7 @@ namespace server
 				const auto msg_str = msg_read["msg"].asString();
 				if ("hello" == msg_str)
 				{
-					_write(std::string("hello"));
+					_write("hello");
 					_logger->info("connected client.");
 				}
 				else
@@ -75,7 +74,7 @@ namespace server
 				auto msg_str = msg_json["msg"].asString();
 				if ("bye" == msg_str)
 				{
-					_write(std::string("bye"));
+					_write("bye");
 					// Flush the pipe to allow the client to read the pipe's contents 
 					// before disconnecting. Then disconnect the pipe
 					FlushFileBuffers(_hPipe);
@@ -90,7 +89,7 @@ namespace server
 					std::filesystem::path filepath(msg_json["param"]["path"].asString());
 					_file = std::make_unique<archive::Archive>(filepath.filename().string());
 					_file->open(filepath, archive::Archive::Mode::Read);
-					_write(std::string("ok"));
+					_write("ok");
 				}
 				else if ("extract_all" == msg_str)
 				{
@@ -131,7 +130,7 @@ namespace server
 						param["compresslevel"].asInt(),
 						param["keepsign"].asBool(),
 						ignorelist);
-					_write(std::string("ok"));
+					_write("ok");
 				}
 				else
 				{
@@ -217,6 +216,19 @@ namespace server
 		_write(root);
 	}
 	void JsonServer::_write(const std::string& msg, const Json::Value& param)
+	{
+		Json::Value root(Json::objectValue);
+		root["msg"] = msg;
+		root["param"] = param;
+		_write(root);
+	}
+	void JsonServer::_write(const char* msg)
+	{
+		Json::Value root(Json::objectValue);
+		root["msg"] = msg;
+		_write(root);
+	}
+	void JsonServer::_write(const char* msg, const Json::Value& param)
 	{
 		Json::Value root(Json::objectValue);
 		root["msg"] = msg;
