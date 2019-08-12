@@ -28,14 +28,12 @@ namespace LoneWolf_Archiver_GUI
 
         private void Dispose(bool disposing)
         {
-            if (!_disposed)
+            if (_disposed) return;
+            if (disposing)
             {
-                if (disposing)
-                {
-                    _pipe.Dispose();
-                }
-                _disposed = true;
+                _pipe.Dispose();
             }
+            _disposed = true;
         }
 
         ~MainWindow()
