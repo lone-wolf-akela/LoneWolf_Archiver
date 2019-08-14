@@ -9,31 +9,31 @@
 
 namespace stream
 {
+	template <typename T>
+	concept OptionalData = std::is_same_v<T, const std::byte*> ||
+		std::is_same_v<T, std::byte*> ||
+		std::is_same_v <T, std::vector<std::byte> >;
+	template <typename T>
+	concept OptionalPointer = std::is_same_v<T, const std::byte*> ||
+		std::is_same_v<T, std::byte*>;
+	
 	class OptionalOwnerBuffer
 	{
 	public:
 		OptionalOwnerBuffer() noexcept = default;
 		OptionalOwnerBuffer(const OptionalOwnerBuffer&) = delete;
 		OptionalOwnerBuffer& operator=(const OptionalOwnerBuffer&) = delete;
-		template<typename T, std::enable_if_t<
-			std::is_same_v<T, const std::byte*> ||
-			std::is_same_v<T, std::byte*> ||
-			std::is_same_v<T, std::vector<std::byte>>>* = nullptr>
+		template<OptionalData T>
 			explicit OptionalOwnerBuffer(T && in) noexcept : data(std::move(in)) {}
 		OptionalOwnerBuffer(OptionalOwnerBuffer&&) noexcept = default;
-		template<typename T, std::enable_if_t<
-			std::is_same_v<T, const std::byte*> ||
-			std::is_same_v<T, std::byte*> ||
-			std::is_same_v<T, std::vector<std::byte>>>* = nullptr >
+		template<OptionalData T>
 			OptionalOwnerBuffer & operator=(T && in) noexcept
 		{
 			data = std::move(in);
 			return *this;
 		}
 		OptionalOwnerBuffer& operator=(OptionalOwnerBuffer&&) noexcept = default;
-		template<typename T, std::enable_if_t<
-			std::is_same_v<T, const std::byte*> ||
-			std::is_same_v<T, std::byte* >>* = nullptr>
+		template<OptionalPointer T>
 			OptionalOwnerBuffer & operator=(T & in) noexcept
 		{
 			data = in;

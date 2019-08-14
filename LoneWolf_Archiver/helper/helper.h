@@ -24,16 +24,16 @@ public:
 	unique_c_ptr(T* p) : base_type(p, std::free) {}
 };
 
-template<typename T,
-	std::enable_if_t<std::is_integral_v<T>>* = nullptr>
-	constexpr T CEIL_DIV(T x, T y)
+template<typename T>
+requires std::is_integral_v<T>
+constexpr T CEIL_DIV(T x, T y)
 {
 	return x / y + ((x % y) != 0);
 }
 
-template<typename Tout, typename Tin,
-	std::enable_if_t<std::is_integral_v<Tin>&& std::is_integral_v<Tout>>* = nullptr>
-	constexpr Tout chkcast(Tin in)
+template<typename Tout, typename Tin>
+requires std::is_integral_v<Tout> && std::is_integral_v<Tin>
+constexpr Tout chkcast(Tin in)
 {
 	assert(in <= std::numeric_limits<Tout>::max());
 	return Tout(in);
