@@ -216,7 +216,7 @@ namespace
 			compressed = std::move(compressed),
 			level,
 			partoutsize,
-			inputsize]() mutable
+			inputsize]() mutable->std::vector<std::byte>
 		{
 			uint32_t check_comb = adler32(0, nullptr, 0);
 			auto header = get_header(level);
@@ -262,7 +262,7 @@ namespace
 		return std::async(std::launch::deferred,
 			[futures = std::move(futures),
 			level,
-			inputsize]() mutable
+			inputsize]() mutable->std::vector<std::byte>
 		{
 			// get all compressed part
 			// <output_data, output_length, checksum>
