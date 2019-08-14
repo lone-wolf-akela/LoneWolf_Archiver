@@ -20,7 +20,7 @@ namespace archive
 		Archive& operator=(const Archive&) = delete;
 		Archive(Archive&& o) noexcept;
 		Archive& operator=(Archive&& o) noexcept;
-		enum Mode { Read, Write_NonEncrypted, Write_Encrypted, Invalid};
+		enum class Mode { Read, Write_NonEncrypted, Write_Encrypted, Invalid};
 		void open(const std::filesystem::path& filepath, Mode mode);
 
 		// action

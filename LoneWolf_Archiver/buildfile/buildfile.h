@@ -12,7 +12,7 @@
 
 namespace buildfile
 {
-	enum Compression {
+	enum class Compression {
 		Uncompressed = 0,
 		Decompress_During_Read = 1,
 		Decompress_All_At_Once = 2
@@ -20,7 +20,7 @@ namespace buildfile
 
 	struct FileSettingCommand
 	{
-		enum Command { Override, SkipFile } command;
+		enum class Command { Override, SkipFile } command;
 		struct Param
 		{
 			std::u8string wildcard;

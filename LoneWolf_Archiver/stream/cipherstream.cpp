@@ -10,34 +10,34 @@ namespace stream
 		_state = state;
 		switch (state)
 		{
-		case Read_EncryptionUnknown:
+		case CipherStreamState::Read_EncryptionUnknown:
 		{
 			_memmapStream.open(file);
 			if (0 != strncmp(reinterpret_cast<const char*>(_memmapStream.getReadptr()),
 				"_ARCHIVE", 8))
 			{
-				_state = Read_Encrypted;
+				_state = CipherStreamState::Read_Encrypted;
 				_cipherInit();
 			}
 			else
 			{
-				_state = Read_NonEncrypted;
+				_state = CipherStreamState::Read_NonEncrypted;
 			}
 			_memmapStream.setpos(0);
 		}
 		break;
-		case Read_Encrypted:
+		case CipherStreamState::Read_Encrypted:
 		{
 			_memmapStream.open(file);
 			_cipherInit();
 		}
 		break;
-		case Read_NonEncrypted:
+		case CipherStreamState::Read_NonEncrypted:
 		{
 			_memmapStream.open(file);
 		}
 		break;
-		case Write_Encrypted:
+		case CipherStreamState::Write_Encrypted:
 		{
 			_filestream.open(file, std::ios::binary | std::ios::out | std::ios::in | std::ios::trunc);
 			if (!_filestream)
@@ -87,17 +87,17 @@ namespace stream
 	{
 		switch (_state)
 		{
-		case Read_Encrypted:
+		case CipherStreamState::Read_Encrypted:
 		{
 			const size_t l = read(_memmapStream.getpos(), dst, length);
 			_memmapStream.movepos(l);
 			return l;
 		}
-		case Read_NonEncrypted:
+		case CipherStreamState::Read_NonEncrypted:
 		{
 			return _memmapStream.read(dst, length);
 		}
-		case Write_NonEncrypted:
+		case CipherStreamState::Write_NonEncrypted:
 		{
 			_filestream.read(static_cast<char*>(dst), length);
 			const auto lengthRead = size_t(_filestream.gcount());
@@ -112,7 +112,7 @@ namespace stream
 			}
 			return lengthRead;
 		}
-		case Write_Encrypted:
+		case CipherStreamState::Write_Encrypted:
 		{
 			const size_t begpos = getpos();
 
@@ -144,13 +144,13 @@ namespace stream
 	{
 		switch (_state)
 		{
-		case Read_Encrypted:
+		case CipherStreamState::Read_Encrypted:
 		{
 			auto r = optionalOwnerRead(_memmapStream.getpos(), length);
 			_memmapStream.movepos(std::get<1>(r));
 			return r;
 		}
-		case Read_NonEncrypted:
+		case CipherStreamState::Read_NonEncrypted:
 		{
 			return _memmapStream.optionalOwnerRead(length);
 		}
@@ -165,7 +165,7 @@ namespace stream
 	{
 		switch (_state)
 		{
-		case Write_Encrypted:
+		case CipherStreamState::Write_Encrypted:
 		{
 			auto* uint8Src = reinterpret_cast<const uint8_t*>(src);
 			const size_t begpos = getpos();
@@ -185,7 +185,7 @@ namespace stream
 			}
 		}
 		break;
-		case Write_NonEncrypted:
+		case CipherStreamState::Write_NonEncrypted:
 		{
 			_filestream.write(static_cast<const char*>(src), length);
 			_filestream.seekg(_filestream.tellp());
@@ -206,7 +206,7 @@ namespace stream
 	{
 		switch (_state)
 		{
-		case Read_Encrypted:
+		case CipherStreamState::Read_Encrypted:
 		{
 			const auto tmpDst = reinterpret_cast<uint8_t*>(dst);
 			const size_t l = _memmapStream.read(pos, dst, length);
@@ -217,7 +217,7 @@ namespace stream
 			}
 			return l;
 		}
-		case Read_NonEncrypted:
+		case CipherStreamState::Read_NonEncrypted:
 		{
 			return _memmapStream.read(pos, dst, length);
 		}
@@ -233,14 +233,14 @@ namespace stream
 	{
 		switch (_state)
 		{
-		case Read_Encrypted:
+		case CipherStreamState::Read_Encrypted:
 		{
 			std::vector<std::byte> buffer(length);
 			size_t l = read(pos, buffer.data(), length);
 			buffer.resize(l);
 			return { OptionalOwnerBuffer(std::move(buffer)), l };
 		}
-		case Read_NonEncrypted:
+		case CipherStreamState::Read_NonEncrypted:
 		{
 			return _memmapStream.optionalOwnerRead(pos, length);
 		}
@@ -255,14 +255,14 @@ namespace stream
 	{
 		switch (_state)
 		{
-		case Read_Encrypted:
-		case Read_NonEncrypted:
+		case CipherStreamState::Read_Encrypted:
+		case CipherStreamState::Read_NonEncrypted:
 		{
 			_memmapStream.setpos(pos);
 		}
 		break;
-		case Write_Encrypted:
-		case Write_NonEncrypted:
+		case CipherStreamState::Write_Encrypted:
+		case CipherStreamState::Write_NonEncrypted:
 		{
 			_filestream.seekp(pos);
 			_filestream.seekg(pos);
@@ -281,13 +281,13 @@ namespace stream
 	{
 		switch (_state)
 		{
-		case Read_Encrypted:
-		case Read_NonEncrypted:
+		case CipherStreamState::Read_Encrypted:
+		case CipherStreamState::Read_NonEncrypted:
 		{
 			return _memmapStream.getpos();
 		}
-		case Write_Encrypted:
-		case Write_NonEncrypted:
+		case CipherStreamState::Write_Encrypted:
+		case CipherStreamState::Write_NonEncrypted:
 		{
 			return size_t(_filestream.tellg());
 		}
@@ -300,13 +300,13 @@ namespace stream
 	{
 		switch (_state)
 		{
-		case Read_Encrypted:
-		case Read_NonEncrypted:
+		case CipherStreamState::Read_Encrypted:
+		case CipherStreamState::Read_NonEncrypted:
 			_memmapStream.movepos(diff);
 			break;
 
-		case Write_Encrypted:
-		case Write_NonEncrypted:
+		case CipherStreamState::Write_Encrypted:
+		case CipherStreamState::Write_NonEncrypted:
 			setpos(getpos() + diff);
 			break;
 

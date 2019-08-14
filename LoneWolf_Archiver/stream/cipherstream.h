@@ -6,7 +6,7 @@
 
 namespace stream
 {
-	enum CipherStreamState
+	enum class CipherStreamState
 	{
 		Read_EncryptionUnknown,
 		Read_Encrypted,
@@ -48,7 +48,7 @@ namespace stream
 		void _cipherInit();
 		void _cipher_magic();
 
-		CipherStreamState _state = Read_EncryptionUnknown;
+		CipherStreamState _state = CipherStreamState::Read_EncryptionUnknown;
 		MemMapFileStream _memmapStream;
 		std::fstream _filestream;
 

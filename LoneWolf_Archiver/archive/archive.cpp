@@ -74,7 +74,7 @@ namespace
 	}
 
 	/*enum*/
-	enum CompressMethod : uint8_t
+	enum class CompressMethod : uint8_t
 	{
 		Uncompressed = 0x00,
 		Decompress_During_Read = 0x10,
@@ -85,11 +85,11 @@ namespace
 		switch (ct)
 		{
 		case buildfile::Compression::Uncompressed:
-			return Uncompressed;
+			return CompressMethod::Uncompressed;
 		case buildfile::Compression::Decompress_During_Read:
-			return Decompress_During_Read;
+			return CompressMethod::Decompress_During_Read;
 		default: // buildfile::Compression::Decompress_All_At_Once:
-			return Decompress_All_At_Once;
+			return CompressMethod::Decompress_All_At_Once;
 		}
 	}
 
@@ -221,7 +221,7 @@ namespace archive
 	struct ArchiveInternal
 	{
 		std::shared_ptr<spdlog::logger> logger;
-		Archive::Mode mode = Archive::Invalid;
+		Archive::Mode mode = Archive::Mode::Invalid;
 		stream::CipherStream stream;
 
 		ArchiveHeader archiveHeader = {};
@@ -258,8 +258,8 @@ namespace archive
 				f["decompressedlen"] = fi.decompressedLen;
 				switch (fi.compressMethod)
 				{
-				case Uncompressed: f["storage"] = "store"; break;
-				case Decompress_During_Read: f["storage"] = "compress_stream";	break;
+				case CompressMethod::Uncompressed: f["storage"] = "store"; break;
+				case CompressMethod::Decompress_During_Read: f["storage"] = "compress_stream";	break;
 				default: /*Decompress_All_At_Once*/	f["storage"] = "compress_buffer"; break;
 				}
 
@@ -302,7 +302,7 @@ namespace archive
 				filepath = path / f.getFileDataHeader()->fileName.ansi;
 			}
 			std::future<File> r;
-			if (Uncompressed == f.fileInfoEntry->compressMethod)
+			if (CompressMethod::Uncompressed == f.fileInfoEntry->compressMethod)
 			{
 				r = std::async(std::launch::deferred,
 					[f = std::move(f)]() mutable
@@ -328,7 +328,7 @@ namespace archive
 					}
 					catch (ZlibError&)
 					{
-						if (f.fileInfoEntry->compressMethod == Decompress_All_At_Once &&
+						if (f.fileInfoEntry->compressMethod == CompressMethod::Decompress_All_At_Once &&
 							f.fileInfoEntry->compressedLen == 1024)
 						{
 							for (size_t i = 0; i < 1024; i++)
@@ -393,10 +393,10 @@ namespace archive
 				std::string storageType;
 				switch (fi.compressMethod)
 				{
-				case Uncompressed:
+				case CompressMethod::Uncompressed:
 					storageType = "Store";
 					break;
-				case Decompress_During_Read:
+				case CompressMethod::Decompress_During_Read:
 					storageType = "Compress Stream";
 					break;
 				default: // Decompress_All_At_Once
@@ -464,11 +464,11 @@ namespace archive
 				memset(f.compressedData.get(), 25, compressedLen);
 				entry.decompressedLen = compressedLen;
 				entry.compressedLen = compressedLen;
-				entry.compressMethod = Decompress_All_At_Once;
+				entry.compressMethod = CompressMethod::Decompress_All_At_Once;
 				return std::async(std::launch::deferred,
 					[f = std::move(f)]() mutable{return std::move(f); });
 			}
-			if (Uncompressed == entry.compressMethod)
+			if (CompressMethod::Uncompressed == entry.compressMethod)
 			{
 				f.compressedData = std::move(f.decompressedData);
 				entry.compressedLen = entry.decompressedLen;
@@ -672,7 +672,7 @@ namespace archive
 					// if the file size is 0 and is not skipped, then force it uncompressed
 					if (fileTask.filesize == 0)
 					{
-						fileTask.compressMethod = Uncompressed;
+						fileTask.compressMethod = CompressMethod::Uncompressed;
 					}
 
 					std::filesystem::path relativePath =
@@ -831,7 +831,7 @@ namespace archive
 			archiveHeader.exactFileDataOffset = uint32_t(stream.getpos());
 
 			logger->info("Writing Compressed Files...");
-			if (Archive::Write_Encrypted == mode)
+			if (Archive::Mode::Write_Encrypted == mode)
 			{
 				stream.writeKey();
 			}
@@ -858,7 +858,7 @@ namespace archive
 				stream.setpos(sizeof(ArchiveHeader));
 				stream.write(&sectionHeader, sizeof(SectionHeader));
 
-				if (Archive::Write_Encrypted == mode)
+				if (Archive::Mode::Write_Encrypted == mode)
 				{
 					//rewrite TocEntry part
 					stream.setpos(sizeof(ArchiveHeader) + sectionHeader.TOC_offset);
@@ -933,7 +933,7 @@ namespace archive
 				stream.setpos(0);
 				stream.write(&archiveHeader, sizeof(ArchiveHeader));
 
-				if (Archive::Write_Encrypted == mode)
+				if (Archive::Mode::Write_Encrypted == mode)
 				{
 					stream.writeEncryptionEnd();
 				}
@@ -975,9 +975,9 @@ namespace archive
 		_internal->fileNameLookUpTable.clear();
 		switch (mode)
 		{
-		case Read:
+		case Mode::Read:
 		{
-			_internal->stream.open(filepath, stream::Read_EncryptionUnknown);
+			_internal->stream.open(filepath, stream::CipherStreamState::Read_EncryptionUnknown);
 			_internal->stream.read(
 				&_internal->archiveHeader, sizeof(ArchiveHeader));
 			_internal->stream.read(
@@ -1031,14 +1031,14 @@ namespace archive
 			}
 		}
 		break;
-		case Write_NonEncrypted:
+		case Mode::Write_NonEncrypted:
 		{
-			_internal->stream.open(filepath, stream::Write_NonEncrypted);
+			_internal->stream.open(filepath, stream::CipherStreamState::Write_NonEncrypted);
 		}
 		break;
 		default: // Write_Encrypted
 		{
-			_internal->stream.open(filepath, stream::Write_Encrypted);
+			_internal->stream.open(filepath, stream::CipherStreamState::Write_Encrypted);
 		}
 		break;
 		}
@@ -1047,7 +1047,7 @@ namespace archive
 	}
 	std::future<void> Archive::extract(ThreadPool& pool, const std::filesystem::path& root)
 	{
-		assert(Read == _internal->mode);
+		assert(Mode::Read == _internal->mode);
 		create_directories(root);
 		std::list<std::tuple<std::future<File>, std::filesystem::path>> files;
 		for (const TocEntry& toc : _internal->tocList)
@@ -1090,7 +1090,7 @@ namespace archive
 		bool skip_tool_signature,
 		const std::vector<std::u8string>& ignore_list)
 	{
-		assert(Read != _internal->mode);
+		assert(Mode::Read != _internal->mode);
 		return _internal->buildTask(
 			_internal->parseTask(task, root, ignore_list),
 			pool,
@@ -1099,7 +1099,7 @@ namespace archive
 	}
 	void Archive::listFiles() const
 	{
-		assert(Read == _internal->mode);
+		assert(Mode::Read == _internal->mode);
 		for (TocEntry& toc : _internal->tocList)
 		{
 			std::cout << "TOCEntry\n";
@@ -1116,7 +1116,7 @@ namespace archive
 	}
 	Json::Value Archive::getFileTree() const
 	{
-		assert(Read == _internal->mode);
+		assert(Mode::Read == _internal->mode);
 
 		Json::Value r(Json::objectValue);
 		r["name"] = boost::locale::conv::utf_to_utf<char>(
@@ -1138,7 +1138,7 @@ namespace archive
 	}
 	std::future<bool> Archive::testArchive(ThreadPool& pool)
 	{
-		assert(Read == _internal->mode);
+		assert(Mode::Read == _internal->mode);
 		std::list<std::tuple<std::future<File>, std::filesystem::path>> files;
 		for (const TocEntry& toc : _internal->tocList)
 		{
