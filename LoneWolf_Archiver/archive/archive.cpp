@@ -14,6 +14,7 @@
 #include "../stream/cipherstream.h"
 
 #include "../compressor/compressor.h"
+#include "../helper/helper.h"
 #include "archive.h"
 
 namespace
@@ -450,7 +451,7 @@ namespace archive
 				task.name.c_str(),
 				(std::min)(sizeof(FileDataHeader::fileName) - 1, task.name.length()));
 			/// \TODO waiting VS2019 to adapt the new c++20 clock_cast
-			/*h->modificationDate = uint32_t(system_clock::to_time_t(
+			/*h->modificationDate = chkcast<uint32_t>(system_clock::to_time_t(
 				std::chrono::clock_cast<system_clock>(
 					last_write_time(task.realpath))));*/
 			h->modificationDate = 0;
@@ -484,7 +485,7 @@ namespace archive
 					[f = std::move(f), r = std::move(r), &entry]() mutable
 				{
 					auto v = r.get();
-					entry.compressedLen = uint32_t(v.size());
+					entry.compressedLen = chkcast<uint32_t>(v.size());
 					f.compressedData = std::move(v);
 					// drop the decompressedData to free some memory
 					f.decompressedData.reset();
@@ -527,28 +528,23 @@ namespace archive
 			}
 			else
 			{
-				folderName.offset = uint32_t(folderNameList.back().offset +
+				folderName.offset = chkcast<uint32_t>(folderNameList.back().offset +
 					folderNameList.back().name.length() + 1);
 			}
 			folderNameList.push_back(folderName);
+			
 			folderList[folderIndex].fileNameOffset = folderName.offset;
-			
-			assert(folderList.size() <= std::numeric_limits<uint16_t>::max());
-			folderList[folderIndex].firstSubFolderIndex = uint16_t(folderList.size());
-			
-			folderList.resize(folderList.size() + folderTask.subFolders.size());
-			
-			assert(folderList.size() <= std::numeric_limits<uint16_t>::max());
-			folderList[folderIndex].lastSubFolderIndex = uint16_t(folderList.size());
+			folderList[folderIndex].firstSubFolderIndex = chkcast<uint16_t>(folderList.size());
 
-			assert(fileInfoList.size() <= std::numeric_limits<uint16_t>::max());
-			folderList[folderIndex].firstFileIndex = uint16_t(fileInfoList.size());
+			folderList.resize(folderList.size() + folderTask.subFolders.size());
+			folderList[folderIndex].lastSubFolderIndex = chkcast<uint16_t>(folderList.size());
+			folderList[folderIndex].firstFileIndex = chkcast<uint16_t>(fileInfoList.size());
 			
 			for (const FileStruct& subFileTask : folderTask.subFiles)
 			{
 				fileNameList.push_back({
 					.name = subFileTask.name,
-					.offset = fileNameList.empty() ? 0 : uint32_t(
+					.offset = fileNameList.empty() ? 0 : chkcast<uint32_t>(
 						fileNameList.back().offset +
 						fileNameList.back().name.length() + 1)});
 
@@ -557,12 +553,11 @@ namespace archive
 					.compressMethod = subFileTask.compressMethod,
 					.decompressedLen = subFileTask.filesize});
 			}
-			folderList[folderIndex].lastFileIndex = uint16_t(fileInfoList.size());
+			folderList[folderIndex].lastFileIndex = chkcast<uint16_t>(fileInfoList.size());
 			for (size_t i = 0; i < folderTask.subFolders.size(); i++)
 			{
-				assert(i <= std::numeric_limits<uint16_t>::max());
 				preBuildFolder(folderTask.subFolders[i],
-					folderList[folderIndex].firstSubFolderIndex + uint16_t(i));
+					folderList[folderIndex].firstSubFolderIndex + chkcast<uint16_t>(i));
 			}
 		}
 		// all nonsense around letter case are dealt in this function
@@ -618,7 +613,7 @@ namespace archive
 					fileTask.realpath = absolute(file);
 					fileTask.name = boost::to_lower_copy(fileTask.realpath.filename().u8string());
 
-					fileTask.filesize = uint32_t(file_size(fileTask.realpath));
+					fileTask.filesize = chkcast<uint32_t>(file_size(fileTask.realpath));
 					fileTask.compressMethod = ct_convert(toc.filesetting.param.defcompression);
 					// check ignore_list
 					for (auto &ignore : ignore_list)
@@ -649,8 +644,8 @@ namespace archive
 						bool overridden = false;
 						for (auto& fileSet : toc.filesetting.commands)
 						{
-							if ((fileSet.param.minsize == -1 || fileTask.filesize >= uint32_t(fileSet.param.minsize)) &&
-								(fileSet.param.maxsize == -1 || fileTask.filesize <= uint32_t(fileSet.param.maxsize)) &&
+							if ((fileSet.param.minsize == -1 || chkcast<int64_t>(fileTask.filesize) >= fileSet.param.minsize) &&
+								(fileSet.param.maxsize == -1 || chkcast<int64_t>(fileTask.filesize) <= fileSet.param.maxsize) &&
 								match(fileSet.param.wildcard, fileTask.name))
 							{
 								if (buildfile::FileSettingCommand::Command::Override == fileSet.command)
@@ -739,12 +734,10 @@ namespace archive
 			logger->info("Generating File Data...");
 			for (auto& tocTask : task.TOCs)
 			{
-				assert(folderList.size() <= std::numeric_limits<uint16_t>::max());
-				assert(fileInfoList.size() <= std::numeric_limits<uint16_t>::max());
 				TocEntry tocEntry{
-					.firstFolderIndex = uint16_t(folderList.size()),
-					.firstFileIndex = uint16_t(fileInfoList.size()),
-					.startHierarchyFolderIndex = uint16_t(folderList.size()) };
+					.firstFolderIndex = chkcast<uint16_t>(folderList.size()),
+					.firstFileIndex = chkcast<uint16_t>(fileInfoList.size()),
+					.startHierarchyFolderIndex = chkcast<uint16_t>(folderList.size()) };
 				memmove(&tocEntry.name, tocTask.name.c_str(),
 					(std::min)(sizeof(TocEntry::name) - 1, tocTask.name.length()));
 				memmove(&tocEntry.alias, tocTask.alias.c_str(),
@@ -753,15 +746,13 @@ namespace archive
 				folderList.emplace_back();
 				preBuildFolder(tocTask.rootFolder, tocEntry.firstFolderIndex);
 
-				assert(folderList.size() <= std::numeric_limits<uint16_t>::max());
-				assert(fileInfoList.size() <= std::numeric_limits<uint16_t>::max());
-				tocEntry.lastFolderIndex = uint16_t(folderList.size());
-				tocEntry.lastFileIndex = uint16_t(fileInfoList.size());
+				tocEntry.lastFolderIndex = chkcast<uint16_t>(folderList.size());
+				tocEntry.lastFileIndex = chkcast<uint16_t>(fileInfoList.size());
 				tocList.push_back(tocEntry);
 			}
 
 			//concat _folderNameList and _fileNameList
-			const auto baseOffset = uint32_t(folderNameList.back().offset +
+			const auto baseOffset = chkcast<uint32_t>(folderNameList.back().offset +
 				folderNameList.back().name.length() + 1);
 			folderNameList.splice(folderNameList.end(), fileNameList);
 			
@@ -775,40 +766,36 @@ namespace archive
 			const size_t sectionHeaderBegPos = stream.getpos();
 			stream.write(&sectionHeader, sizeof(SectionHeader));
 			sectionHeader.TOC_offset =
-				uint32_t(stream.getpos() - sizeof(ArchiveHeader));
+				chkcast<uint32_t>(stream.getpos() - sizeof(ArchiveHeader));
 			
-			assert(tocList.size() <= std::numeric_limits<uint16_t>::max());
-			sectionHeader.TOC_count = uint16_t(tocList.size());
+			sectionHeader.TOC_count = chkcast<uint16_t>(tocList.size());
 			
 			for (TocEntry& entry : tocList)
 			{
 				stream.write(&entry, sizeof(entry));
 			}
 			sectionHeader.Folder_offset =
-				uint32_t(stream.getpos() - sizeof(ArchiveHeader));
+				chkcast<uint32_t>(stream.getpos() - sizeof(ArchiveHeader));
 
-			assert(folderList.size() <= std::numeric_limits<uint16_t>::max());
-			sectionHeader.Folder_count = uint16_t(folderList.size());
+			sectionHeader.Folder_count = chkcast<uint16_t>(folderList.size());
 			
 			for (FolderEntry& entry : folderList)
 			{
 				stream.write(&entry, sizeof(entry));
 			}
 			sectionHeader.FileInfo_offset =
-				uint32_t(stream.getpos() - sizeof(ArchiveHeader));
+				chkcast<uint32_t>(stream.getpos() - sizeof(ArchiveHeader));
 
-			assert(fileInfoList.size() <= std::numeric_limits<uint16_t>::max());
-			sectionHeader.FileInfo_count = uint16_t(fileInfoList.size());
+			sectionHeader.FileInfo_count = chkcast<uint16_t>(fileInfoList.size());
 			
 			for (FileInfoEntry& entry : fileInfoList)
 			{
 				stream.write(&entry, sizeof(entry));
 			}
 			sectionHeader.FileName_offset =
-				uint32_t(stream.getpos() - sizeof(ArchiveHeader));
+				chkcast<uint32_t>(stream.getpos() - sizeof(ArchiveHeader));
 
-			assert(folderNameList.size() <= std::numeric_limits<uint16_t>::max());
-			sectionHeader.FileName_count = uint16_t(folderNameList.size());
+			sectionHeader.FileName_count = chkcast<uint16_t>(folderNameList.size());
 			
 			for (FileName& filename : folderNameList)
 			{
@@ -816,7 +803,7 @@ namespace archive
 			}
 
 			archiveHeader.sectionHeaderSize =
-				uint32_t(stream.getpos() - sectionHeaderBegPos);
+				chkcast<uint32_t>(stream.getpos() - sectionHeaderBegPos);
 
 			std::list<std::future<File>> l;
 			logger->info("Starting File Compression..");
@@ -828,7 +815,7 @@ namespace archive
 					compress_level));
 			}
 
-			archiveHeader.exactFileDataOffset = uint32_t(stream.getpos());
+			archiveHeader.exactFileDataOffset = chkcast<uint32_t>(stream.getpos());
 
 			logger->info("Writing Compressed Files...");
 			if (Archive::Mode::Write_Encrypted == mode)
@@ -844,7 +831,7 @@ namespace archive
 					auto file = filefuture.get();
 					stream.write(file.getFileDataHeader(), sizeof(FileDataHeader));
 					file.fileInfoEntry->fileDataOffset =
-						uint32_t(stream.getpos() - archiveHeader.exactFileDataOffset);
+						chkcast<uint32_t>(stream.getpos() - archiveHeader.exactFileDataOffset);
 					stream.write(file.compressedData.get_const(),
 						file.fileInfoEntry->compressedLen);
 					// calculate progress
@@ -1016,8 +1003,10 @@ namespace archive
 			for (uint16_t i = 0; i < _internal->sectionHeader.FileName_count; ++i)
 			{
 				_internal->fileNameList.emplace_back();
-				_internal->fileNameList.back().offset =
-					uint32_t(_internal->stream.getpos() - filenameOffset);
+
+				_internal->fileNameList.back().offset = chkcast<uint32_t>(
+					_internal->stream.getpos() - filenameOffset);
+				
 				_internal->fileNameList.back().name = u8"";
 				char8_t c;
 				while (_internal->stream.read(&c, 1), bool(c))

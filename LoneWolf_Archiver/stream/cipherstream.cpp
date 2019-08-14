@@ -1,7 +1,10 @@
 ﻿#include <random>
 
+#include "../helper/helper.h"
+
 #include "cipherstream.h"
 #include "cipher.h"
+
 
 namespace stream
 {
@@ -325,9 +328,7 @@ namespace stream
 		_memmapStream.setpos(size_t(_memmapStream.getFileSize() - sizeof(_cipherBegBackPos)));
 		_memmapStream.read(&_cipherBegBackPos, sizeof(_cipherBegBackPos));
 
-		const auto tmpBegPos = _memmapStream.getFileSize() - _cipherBegBackPos;
-		assert(tmpBegPos <= std::numeric_limits<uint32_t>::max());
-		_cipherBegPos = uint32_t(tmpBegPos);
+		_cipherBegPos = chkcast<uint32_t>(_memmapStream.getFileSize() - _cipherBegBackPos);
 		
 		_memmapStream.setpos(_cipherBegPos);
 		_memmapStream.read(&_deadbe7a, sizeof(_deadbe7a));
@@ -347,9 +348,7 @@ namespace stream
 	{
 		_deadbe7a = 0xdeadbe7a;
 
-		const auto tmpBegPos = getpos();
-		assert(tmpBegPos <= std::numeric_limits<uint32_t>::max());
-		_cipherBegPos = uint32_t(tmpBegPos);
+		_cipherBegPos = chkcast<uint32_t>(getpos());
 		
 		_filestream.write(reinterpret_cast<const char*>(&_deadbe7a), sizeof(_deadbe7a));
 		_filestream.write(reinterpret_cast<const char*>(&_keySize), sizeof(_keySize));
@@ -368,9 +367,7 @@ namespace stream
 		_filestream.seekp(0, std::ios::end);
 		const uintmax_t filesize = _filestream.tellp();
 
-		const auto tmpBegBackPos = filesize + sizeof(_cipherBegBackPos) - _cipherBegPos;
-		assert(tmpBegBackPos <= std::numeric_limits<uint32_t>::max());
-		_cipherBegBackPos = uint32_t(tmpBegBackPos);
+		_cipherBegBackPos = chkcast<uint32_t>(filesize + sizeof(_cipherBegBackPos) - _cipherBegPos);
 		
 		_filestream.write(reinterpret_cast<const char*>(&_cipherBegBackPos), sizeof(_cipherBegBackPos));
 
@@ -380,7 +377,8 @@ namespace stream
 			throw FileIoError("Filestream failed.");
 		}
 	}
-	template <typename Tv, typename Tb>
+	template <typename Tv, typename Tb,
+		std::enable_if_t<std::is_integral_v<Tv>&& std::is_integral_v<Tb>>* = nullptr>
 	static Tv ROTL(Tv val, Tb bits)
 	{
 		return (val << bits) | (val >> (32 - bits));

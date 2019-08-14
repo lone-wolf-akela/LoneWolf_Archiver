@@ -13,7 +13,9 @@
 
 #include <boost/locale.hpp>
 
+#include "../helper/helper.h"
 #include "buildfile.h"
+
 
 using namespace std::literals;
 
@@ -24,12 +26,11 @@ namespace
 	std::wstring ConvertANSIToWchar(std::string_view in)
 	{
 		std::wstring r;
-		assert(in.size() <= std::numeric_limits<int>::max());
 		const int buffersize = MultiByteToWideChar(
 			CP_ACP, //CodePage,
 			0, //dwFlags,
 			in.data(), //lpMultiByteStr,
-			int(in.size()), //cbMultiByte,
+			chkcast<int>(in.size()), //cbMultiByte,
 			nullptr, //lpWideCharStr,
 			0);				//cchWideChar
 		if (!buffersize)
@@ -41,7 +42,7 @@ namespace
 			CP_ACP,			//CodePage,
 			0,				//dwFlags,
 			in.data(),		//lpMultiByteStr,
-			int(in.size()),	//cbMultiByte,
+			chkcast<int>(in.size()),	//cbMultiByte,
 			r.data(),		//lpWideCharStr,
 			buffersize))	//cchWideChar
 		{
@@ -74,9 +75,8 @@ namespace buildfile
 	std::string ConvertToUTF8(std::string_view in)
 	{
 #if defined(_WIN32)
-		assert(in.size() <= std::numeric_limits<int>::max());
 		int test = IS_TEXT_UNICODE_REVERSE_MASK;
-		IsTextUnicode(in.data(), int(in.size()), &test);
+		IsTextUnicode(in.data(), chkcast<int>(in.size()), &test);
 		if (test)
 		{
 			// is reverse UNICODE
@@ -89,7 +89,7 @@ namespace buildfile
 			return boost::locale::conv::utf_to_utf<char>(stream.str());
 		}
 		test = IS_TEXT_UNICODE_UNICODE_MASK;
-		IsTextUnicode(in.data(), int(in.size()), &test);
+		IsTextUnicode(in.data(), chkcast<int>(in.size()), &test);
 		if (test)
 		{
 			// is UNICODE

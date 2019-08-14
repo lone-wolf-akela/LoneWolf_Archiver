@@ -97,9 +97,9 @@ namespace
 	{
 		z_stream strm{
 			.next_in = reinterpret_cast<const Bytef*>(in),
-			.avail_in = uInt(insize),
+			.avail_in = chkcast<uInt>(insize),
 			.next_out = reinterpret_cast<Bytef*>(out),
-			.avail_out = uInt(outsize),
+			.avail_out = chkcast<uInt>(outsize),
 			.zalloc = nullptr,
 			.zfree = nullptr,
 			.opaque = nullptr };
@@ -115,7 +115,7 @@ namespace
 		}
 		uLong outlen = strm.total_out;
 		uint32_t check = adler32(0, nullptr, 0);
-		check = adler32(check, reinterpret_cast<const Bytef*>(in), uInt(insize));
+		check = adler32(check, reinterpret_cast<const Bytef*>(in), chkcast<uInt>(insize));
 		// deflateEnd is supposed to return Z_OK
 		// but its seems to return a strange value
 		// so I don't check it
@@ -173,7 +173,7 @@ namespace
 
 		uint32_t check = adler32(0, nullptr, 0);
 		check = adler32(check, reinterpret_cast<const Bytef*>(in) + instart,
-			uInt(inend - instart));
+			chkcast<uInt>(inend - instart));
 
 		return { std::move(out), outsize, check };
 	}
