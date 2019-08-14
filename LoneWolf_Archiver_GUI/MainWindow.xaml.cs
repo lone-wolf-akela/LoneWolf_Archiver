@@ -77,7 +77,7 @@ namespace LoneWolf_Archiver_GUI
             var root = new JObject {["msg"] = msg, ["param"] = param};
             SendMsg(root);
         }
-        private const int BufferSize = 1024;
+        private const int BufferSize = 4096;
         private readonly byte[] _pipebuffer = new byte[BufferSize + 1];
         private int _bytesInBuffer = 0;
         private JObject RecvMsg()

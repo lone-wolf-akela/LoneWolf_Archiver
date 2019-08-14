@@ -137,7 +137,7 @@ namespace buildfile
 		Archive archive{ .filename = filepath.filename().string() };
 		builfile_parser<decltype(iter)> parser;
 		bf_skipper<decltype(iter)> skipper;
-		bool r = boost::spirit::qi::phrase_parse(iter, eof, parser, skipper, archive);
+		bool r = phrase_parse(iter, eof, parser, skipper, archive);
 		
 		if (!(r && iter == eof)) throw FormatError("Cannot parse input build file");
 

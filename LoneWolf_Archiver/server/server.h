@@ -16,7 +16,7 @@
 
 namespace server
 {
-	constexpr DWORD BUFFER_SIZE = 1024;
+	constexpr DWORD BUFFER_SIZE = 4096;
 	class JsonServer
 	{
 	public:

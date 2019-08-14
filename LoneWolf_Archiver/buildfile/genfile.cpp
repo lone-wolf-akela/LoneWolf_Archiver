@@ -108,7 +108,7 @@ namespace buildfile
 		std::string generated;
 		std::back_insert_iterator<std::string> iter(generated);
 		const builfile_gen<decltype(iter)> gen;
-		const bool r = karma::generate(iter, gen, archive);
+		const bool r = generate(iter, gen, archive);
 
 		if (!r) throw UnkownError("Unkown error happened when generating build file");
 

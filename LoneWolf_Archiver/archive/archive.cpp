@@ -4,6 +4,7 @@
 #include <iostream>
 #include <chrono>
 #include <cmath>
+#include <array>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/locale.hpp>
@@ -140,13 +141,13 @@ namespace
 #pragma pack (1)
 	struct ArchiveHeader
 	{
-		char _ARCHIVE[8];
+		std::array<char, 8> _ARCHIVE;
 		uint32_t version;
-		//E01519D6-2DB7-4640-AF54-0A23319C56C3 + 除Archive_Header外所有部分的数据的MD5
-		std::byte toolSignature[16];
-		char16_t archiveName[64];
-		//DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF + Archive_Header之后、exact file data之前的所有数据的MD5
-		std::byte archiveSignature[16];
+		//MD5 of "E01519D6-2DB7-4640-AF54-0A23319C56C3 + data after Archive_Header"
+		std::array<std::byte, 16> toolSignature;
+		std::array<char16_t, 64> archiveName;
+		//MD5 of "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF + data after Archive_Header but before exact_file_data"
+		std::array<std::byte, 16> archiveSignature;
 		uint32_t sectionHeaderSize;
 		uint32_t exactFileDataOffset;
 	};
@@ -164,8 +165,8 @@ namespace
 	};
 	struct TocEntry
 	{
-		char alias[64];
-		char name[64];
+		std::array<char, 64> alias;
+		std::array<char, 64> name;
 		uint16_t firstFolderIndex;
 		uint16_t lastFolderIndex;
 		uint16_t firstFileIndex;
@@ -191,7 +192,7 @@ namespace
 	struct FileDataHeader
 	{
 		// we don't really know which encoding was used when compressed the archive...
-		union { char8_t utf8[256]; char ansi[256]; }fileName;
+		union { std::array<char8_t, 256> utf8; std::array<char, 256> ansi; }fileName;
 		uint32_t modificationDate;
 		uint32_t CRC;	//CRC of uncompressed file data
 	};
@@ -295,12 +296,12 @@ namespace archive
 			// so let's try parse it as a utf8 string first
 			try
 			{
-				filepath = path / f.getFileDataHeader()->fileName.utf8;
+				filepath = path / f.getFileDataHeader()->fileName.utf8.data();
 			}
 			catch (std::system_error&)
 			{
 				// it failed. Maybe this is an ANSI string？
-				filepath = path / f.getFileDataHeader()->fileName.ansi;
+				filepath = path / f.getFileDataHeader()->fileName.ansi.data();
 			}
 			std::future<File> r;
 			if (CompressMethod::Uncompressed == f.fileInfoEntry->compressMethod)
@@ -447,17 +448,17 @@ namespace archive
 				reinterpret_cast<const Bytef*>(f.decompressedData.get_const()),
 				entry.decompressedLen)
 			};
-			memmove(h->fileName.utf8,
+			memmove(h->fileName.utf8.data(),
 				task.name.c_str(),
 				(std::min)(sizeof(FileDataHeader::fileName) - 1, task.name.length()));
 			/// \TODO waiting VS2019 to adapt the new c++20 clock_cast
-			/*h->modificationDate = chkcast<uint32_t>(system_clock::to_time_t(
-				std::chrono::clock_cast<system_clock>(
+			/*h->modificationDate = chkcast<uint32_t>(std::chrono::system_clock::to_time_t(
+				std::chrono::clock_cast<std::chrono::system_clock>(
 					last_write_time(task.realpath))));*/
 			h->modificationDate = 0;
 			
-			if ((0 == strncmp(h->fileName.ansi, "\x5f\xb4\xcb\xb4\xa6\xbd\xfb\xd6\xb9\xcd\xa8\xd0\xd0", 15)) ||
-				(0 == strncmp(h->fileName.ansi, "\x5f\xe6\xad\xa4\xe5\xa4\x84\xe7\xa6\x81\xe6\xad\xa2\xe9\x80\x9a\xe8\xa1\x8c", 21)))
+			if ((0 == strncmp(h->fileName.ansi.data(), "\x5f\xb4\xcb\xb4\xa6\xbd\xfb\xd6\xb9\xcd\xa8\xd0\xd0", 15)) ||
+				(0 == strncmp(h->fileName.ansi.data(), "\x5f\xe6\xad\xa4\xe5\xa4\x84\xe7\xa6\x81\xe6\xad\xa2\xe9\x80\x9a\xe8\xa1\x8c", 21)))
 			{
 				logger->critical("Hello there!");
 				constexpr size_t compressedLen = 1024;
@@ -723,7 +724,7 @@ namespace archive
 			const std::u16string tmpU16str =
 				boost::locale::conv::utf_to_utf<char16_t>(task.name);
 
-			memmove(archiveHeader.archiveName,
+			memmove(archiveHeader.archiveName.data(),
 				tmpU16str.c_str(),
 				(std::min)(sizeof(ArchiveHeader::archiveName) - sizeof(char16_t),
 					tmpU16str.length() * sizeof(char16_t)));
@@ -837,7 +838,7 @@ namespace archive
 					// calculate progress
 					fileswritten++;
 					logProgress(logger.get(), fileswritten, l.size(),
-						file.getFileDataHeader()->fileName.ansi);
+						file.getFileDataHeader()->fileName.ansi.data());
 				}
 
 				logger->info("Rewrite Section Header...");
@@ -876,8 +877,7 @@ namespace archive
 
 				//calculate archiveSignature
 				logger->info("Calculating Archive Signature...");
-				std::byte buffer[1024];
-				std::byte md5_digest[16];
+				std::array<std::byte, 4096> buffer = {};
 				MD5_CTX md5_context;
 				MD5_Init(&md5_context);
 				MD5_Update(&md5_context, ARCHIVE_SIG, sizeof(ARCHIVE_SIG) - 1);
@@ -885,14 +885,14 @@ namespace archive
 				size_t lengthToRead = archiveHeader.exactFileDataOffset - stream.getpos();
 				while (lengthToRead > sizeof(buffer))
 				{
-					stream.read(buffer, sizeof(buffer));
-					MD5_Update(&md5_context, buffer, sizeof(buffer));
+					stream.read(buffer.data(), sizeof(buffer));
+					MD5_Update(&md5_context, buffer.data(), sizeof(buffer));
 					lengthToRead -= sizeof(buffer);
 				}
-				stream.read(buffer, lengthToRead);
-				MD5_Update(&md5_context, buffer, lengthToRead);
-				MD5_Final(reinterpret_cast<unsigned char*>(md5_digest), &md5_context);
-				memmove(archiveHeader.archiveSignature, md5_digest, 16);
+				stream.read(buffer.data(), lengthToRead);
+				MD5_Update(&md5_context, buffer.data(), lengthToRead);
+				MD5_Final(reinterpret_cast<unsigned char*>(
+					archiveHeader.archiveSignature.data()), &md5_context);
 
 				if (skip_tool_signature)
 				{
@@ -908,11 +908,11 @@ namespace archive
 					size_t lenthRead = sizeof(buffer);
 					while (lenthRead == sizeof(buffer))
 					{
-						lenthRead = stream.read(buffer, sizeof(buffer));
-						MD5_Update(&md5_context, buffer, lenthRead);
+						lenthRead = stream.read(buffer.data(), sizeof(buffer));
+						MD5_Update(&md5_context, buffer.data(), lenthRead);
 					}
-					MD5_Final(reinterpret_cast<unsigned char*>(md5_digest), &md5_context);
-					memmove(archiveHeader.toolSignature, md5_digest, 16);
+					MD5_Final(reinterpret_cast<unsigned char*>(
+						archiveHeader.toolSignature.data()), &md5_context);
 				}
 
 				//rewrite archiveHeader
@@ -1041,7 +1041,7 @@ namespace archive
 		std::list<std::tuple<std::future<File>, std::filesystem::path>> files;
 		for (const TocEntry& toc : _internal->tocList)
 		{
-			auto r = _internal->extractFolder(pool, root / toc.name, toc.startHierarchyFolderIndex);
+			auto r = _internal->extractFolder(pool, root / toc.name.data(), toc.startHierarchyFolderIndex);
 			files.splice(files.end(), r);
 		}
 		return std::async(std::launch::async,
@@ -1092,8 +1092,8 @@ namespace archive
 		for (TocEntry& toc : _internal->tocList)
 		{
 			std::cout << "TOCEntry\n";
-			std::cout << "  Name : '" << toc.name << "'\n";
-			std::cout << "  Alias: '" << toc.alias << "'\n\n";
+			std::cout << "  Name : '" << toc.name.data() << "'\n";
+			std::cout << "  Alias: '" << toc.alias.data() << "'\n\n";
 			std::cout << std::left << std::setw(72) << "File Name"
 				<< std::right << std::setw(16) << "Original Size"
 				<< std::right << std::setw(16) << "Stored Size"
@@ -1109,7 +1109,7 @@ namespace archive
 
 		Json::Value r(Json::objectValue);
 		r["name"] = boost::locale::conv::utf_to_utf<char>(
-			std::u16string(_internal->archiveHeader.archiveName,
+			std::u16string(_internal->archiveHeader.archiveName.data(),
 				sizeof(ArchiveHeader::archiveName) / sizeof(char16_t)));
 
 		r["tocs"] = Json::Value(Json::arrayValue);
@@ -1117,8 +1117,8 @@ namespace archive
 		{
 			Json::Value t(Json::objectValue);
 			// use .c_str() to trim '\0' at end
-			t["name"] = std::string(toc.name, sizeof(toc.name)).c_str();
-			t["alias"] = std::string(toc.alias, sizeof(toc.alias)).c_str();
+			t["name"] = std::string(toc.name.data(), sizeof(toc.name)).c_str();
+			t["alias"] = std::string(toc.alias.data(), sizeof(toc.alias)).c_str();
 			t["tocfolder"] = _internal->getFolderTree(toc.startHierarchyFolderIndex);
 
 			r["tocs"].append(t);
@@ -1153,7 +1153,7 @@ namespace archive
 	}
 	std::u8string Archive::getArchiveSignature() const
 	{
-		return reinterpret_cast<char8_t*>(_internal->archiveHeader.archiveSignature);
+		return reinterpret_cast<char8_t*>(_internal->archiveHeader.archiveSignature.data());
 	}
 	void Archive::close()
 	{
