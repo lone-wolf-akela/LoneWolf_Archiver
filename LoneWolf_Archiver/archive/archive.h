@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <future>
+#include <string_view>
 
 #include <json/json.h>
 

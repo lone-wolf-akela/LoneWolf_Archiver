@@ -23,7 +23,7 @@ namespace
 	void logProgress(spdlog::logger* logger,
 		size_t current,
 		size_t max,
-		const std::string& name)
+		std::string_view name)
 	{
 		const auto progress = double(current) * 100 / max;
 		// only output progress when progress at least 1%
@@ -457,8 +457,8 @@ namespace archive
 					last_write_time(task.realpath))));*/
 			h->modificationDate = 0;
 			
-			if ((0 == strncmp(h->fileName.ansi.data(), "\x5f\xb4\xcb\xb4\xa6\xbd\xfb\xd6\xb9\xcd\xa8\xd0\xd0", 15)) ||
-				(0 == strncmp(h->fileName.ansi.data(), "\x5f\xe6\xad\xa4\xe5\xa4\x84\xe7\xa6\x81\xe6\xad\xa2\xe9\x80\x9a\xe8\xa1\x8c", 21)))
+			if ((0 == strcmp(h->fileName.ansi.data(), "\x5f\xb4\xcb\xb4\xa6\xbd\xfb\xd6\xb9\xcd\xa8\xd0\xd0")) ||
+				(0 == strcmp(h->fileName.ansi.data(), "\x5f\xe6\xad\xa4\xe5\xa4\x84\xe7\xa6\x81\xe6\xad\xa2\xe9\x80\x9a\xe8\xa1\x8c")))
 			{
 				logger->critical("Hello there!");
 				constexpr size_t compressedLen = 1024;
