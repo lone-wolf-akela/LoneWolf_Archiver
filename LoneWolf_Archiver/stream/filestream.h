@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <cstddef>
 
-#include <type_traits>
+#include <concepts>
 #include <utility>
 #include <vector>
 #include <tuple>
@@ -10,12 +10,12 @@
 namespace stream
 {
 	template <typename T>
-	concept OptionalData = std::is_same_v<T, const std::byte*> ||
-		std::is_same_v<T, std::byte*> ||
-		std::is_same_v <T, std::vector<std::byte> >;
+	concept OptionalData = std::Same<T, const std::byte*> ||
+		std::Same<T, std::byte*> ||
+		std::Same<T, std::vector<std::byte> >;
 	template <typename T>
-	concept OptionalPointer = std::is_same_v<T, const std::byte*> ||
-		std::is_same_v<T, std::byte*>;
+	concept OptionalPointer = std::Same<T, const std::byte*> ||
+		std::Same<T, std::byte*>;
 	
 	class OptionalOwnerBuffer
 	{
