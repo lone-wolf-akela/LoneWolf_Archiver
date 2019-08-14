@@ -385,7 +385,7 @@ namespace buildfile
 			.filesetting = filesettings_template,
 			.files = std::move(allfiles) });
 		// then build all the locale archive
-		for (const auto& [loc, locpath] : locales)
+		for (auto& [loc, locpath] : locales)
 		{
 			std::string locname = loc.string();
 			std::u8string u8locname = loc.u8string();
