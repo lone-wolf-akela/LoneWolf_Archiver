@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <string>
+#include <array>
 
 #include <Windows.h>
 
@@ -29,7 +30,7 @@ namespace server
 		
 		void start_listen();
 	private:		
-		char _buffer[BUFFER_SIZE + 1] = { 0 };
+		std::array<char, BUFFER_SIZE> _buffer = {};
 		DWORD _bytes_in_buffer = 0;
 		HANDLE _hPipe = INVALID_HANDLE_VALUE;
 		std::shared_ptr<spdlog::logger> _logger;

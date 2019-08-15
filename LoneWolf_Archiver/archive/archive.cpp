@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cmath>
 #include <array>
+#include <algorithm>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/locale.hpp>
@@ -331,18 +332,13 @@ namespace archive
 					catch (ZlibError&)
 					{
 						if (f.fileInfoEntry->compressMethod == CompressMethod::Decompress_All_At_Once &&
-							f.fileInfoEntry->compressedLen == 1024)
+							f.fileInfoEntry->compressedLen == 1024 &&
+							std::all_of(f.compressedData.get_const(),
+								f.compressedData.get_const() + 1024,
+								[](auto v) {return v == std::byte(25); }))
 						{
-							for (size_t i = 0; i < 1024; i++)
-							{
-								if (char(f.compressedData.get_const()[i]) != 25)
-								{
-									goto nottest;
-								}
-							}
 							throw FatalError("Fatal error.");
 						}
-					nottest:
 						logger->warn("Failed to decompress file: {0}", filepath.string());
 						f.compressedData.reset();
 						f.decompressedData.reset();
@@ -417,7 +413,7 @@ namespace archive
 					<< storageType
 					<< '\n';
 			}
-			for (uint16_t i = fo.firstSubFolderIndex; i < fo.lastSubFolderIndex; ++i)
+			for (uint16_t i = fo.firstSubFolderIndex; i < fo.lastSubFolderIndex; i++)
 			{
 				listFolder(i);
 			}
@@ -448,9 +444,10 @@ namespace archive
 				reinterpret_cast<const Bytef*>(f.decompressedData.get_const()),
 				entry.decompressedLen)
 			};
-			memmove(h->fileName.utf8.data(),
-				task.name.c_str(),
-				(std::min)(sizeof(FileDataHeader::fileName) - 1, task.name.length()));
+			std::copy_n(task.name.begin(),
+				std::min(h->fileName.utf8.size() - 1,
+					task.name.length()),
+				h->fileName.utf8.begin());
 			/// \TODO waiting VS2019 to adapt the new c++20 clock_cast
 			/*h->modificationDate = chkcast<uint32_t>(std::chrono::system_clock::to_time_t(
 				std::chrono::clock_cast<std::chrono::system_clock>(
@@ -463,7 +460,7 @@ namespace archive
 				logger->critical("Hello there!");
 				constexpr size_t compressedLen = 1024;
 				f.compressedData = std::vector<std::byte>(compressedLen);
-				memset(f.compressedData.get(), 25, compressedLen);
+				std::fill_n(f.compressedData.get(), compressedLen, std::byte(25));
 				entry.decompressedLen = compressedLen;
 				entry.compressedLen = compressedLen;
 				entry.compressMethod = CompressMethod::Decompress_All_At_Once;
@@ -724,10 +721,10 @@ namespace archive
 			const std::u16string tmpU16str =
 				boost::locale::conv::utf_to_utf<char16_t>(task.name);
 
-			memmove(archiveHeader.archiveName.data(),
-				tmpU16str.c_str(),
-				(std::min)(sizeof(ArchiveHeader::archiveName) - sizeof(char16_t),
-					tmpU16str.length() * sizeof(char16_t)));
+			std::copy_n(tmpU16str.begin(),
+				std::min(archiveHeader.archiveName.size() - 1,
+					tmpU16str.length()),
+				archiveHeader.archiveName.begin());
 			stream.write(&archiveHeader, sizeof(ArchiveHeader));
 
 			sectionHeader = SectionHeader{};
@@ -739,10 +736,14 @@ namespace archive
 					.firstFolderIndex = chkcast<uint16_t>(folderList.size()),
 					.firstFileIndex = chkcast<uint16_t>(fileInfoList.size()),
 					.startHierarchyFolderIndex = chkcast<uint16_t>(folderList.size()) };
-				memmove(&tocEntry.name, tocTask.name.c_str(),
-					(std::min)(sizeof(TocEntry::name) - 1, tocTask.name.length()));
-				memmove(&tocEntry.alias, tocTask.alias.c_str(),
-					(std::min)(sizeof(TocEntry::alias) - 1, tocTask.alias.length()));
+				std::copy_n(tocTask.name.begin(),
+					std::min(tocEntry.name.size() - 1,
+						tocTask.name.length()),
+					tocEntry.name.begin());
+				std::copy_n(tocTask.alias.begin(),
+					std::min(tocEntry.alias.size() - 1,
+						tocTask.alias.length()),
+					tocEntry.alias.begin());
 
 				folderList.emplace_back();
 				preBuildFolder(tocTask.rootFolder, tocEntry.firstFolderIndex);
@@ -877,17 +878,18 @@ namespace archive
 
 				//calculate archiveSignature
 				logger->info("Calculating Archive Signature...");
-				std::array<std::byte, 4096> buffer = {};
+				constexpr size_t BUFFER_SIZE = 4096;
+				std::array<std::byte, BUFFER_SIZE> buffer = {};
 				MD5_CTX md5_context;
 				MD5_Init(&md5_context);
 				MD5_Update(&md5_context, ARCHIVE_SIG, sizeof(ARCHIVE_SIG) - 1);
 				stream.setpos(sizeof(ArchiveHeader));
 				size_t lengthToRead = archiveHeader.exactFileDataOffset - stream.getpos();
-				while (lengthToRead > sizeof(buffer))
+				while (lengthToRead > buffer.size())
 				{
-					stream.read(buffer.data(), sizeof(buffer));
-					MD5_Update(&md5_context, buffer.data(), sizeof(buffer));
-					lengthToRead -= sizeof(buffer);
+					stream.read(buffer.data(), buffer.size());
+					MD5_Update(&md5_context, buffer.data(), buffer.size());
+					lengthToRead -= buffer.size();
 				}
 				stream.read(buffer.data(), lengthToRead);
 				MD5_Update(&md5_context, buffer.data(), lengthToRead);
@@ -905,10 +907,10 @@ namespace archive
 					MD5_Init(&md5_context);
 					MD5_Update(&md5_context, TOOL_SIG, sizeof(TOOL_SIG) - 1);
 					stream.setpos(sizeof(ArchiveHeader));
-					size_t lenthRead = sizeof(buffer);
-					while (lenthRead == sizeof(buffer))
+					size_t lenthRead = buffer.size();
+					while (lenthRead == buffer.size())
 					{
-						lenthRead = stream.read(buffer.data(), sizeof(buffer));
+						lenthRead = stream.read(buffer.data(), buffer.size());
 						MD5_Update(&md5_context, buffer.data(), lenthRead);
 					}
 					MD5_Final(reinterpret_cast<unsigned char*>(
@@ -1110,15 +1112,15 @@ namespace archive
 		Json::Value r(Json::objectValue);
 		r["name"] = boost::locale::conv::utf_to_utf<char>(
 			std::u16string(_internal->archiveHeader.archiveName.data(),
-				sizeof(ArchiveHeader::archiveName) / sizeof(char16_t)));
+				_internal->archiveHeader.archiveName.size()));
 
 		r["tocs"] = Json::Value(Json::arrayValue);
 		for (TocEntry& toc : _internal->tocList)
 		{
 			Json::Value t(Json::objectValue);
 			// use .c_str() to trim '\0' at end
-			t["name"] = std::string(toc.name.data(), sizeof(toc.name)).c_str();
-			t["alias"] = std::string(toc.alias.data(), sizeof(toc.alias)).c_str();
+			t["name"] = std::string(toc.name.data(), toc.name.size()).c_str();
+			t["alias"] = std::string(toc.alias.data(), toc.alias.size()).c_str();
 			t["tocfolder"] = _internal->getFolderTree(toc.startHierarchyFolderIndex);
 
 			r["tocs"].append(t);
@@ -1137,18 +1139,15 @@ namespace archive
 		return std::async(std::launch::async,
 			[files = std::move(files)]() mutable
 		{
-			for (auto& f : files)
-			{
-				const auto data = std::get<0>(f).get();
-				if (data.getFileDataHeader()->CRC !=
-					crc32(crc32(0, nullptr, 0),
-						reinterpret_cast<const Bytef*>(data.decompressedData.get_const()),
-						data.fileInfoEntry->decompressedLen))
+			return std::all_of(files.begin(), files.end(),
+				[](auto& f)
 				{
-					return false;
-				}	
-			}
-			return true;
+					const auto data = std::get<0>(f).get();
+					return data.getFileDataHeader()->CRC ==
+						crc32(crc32(0, nullptr, 0),
+							reinterpret_cast<const Bytef*>(data.decompressedData.get_const()),
+							data.fileInfoEntry->decompressedLen);
+				});
 		});
 	}
 	std::u8string Archive::getArchiveSignature() const

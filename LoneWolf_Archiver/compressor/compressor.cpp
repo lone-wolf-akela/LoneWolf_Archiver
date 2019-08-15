@@ -1,4 +1,6 @@
 ﻿#include <array>
+#include <algorithm>
+#include <numeric>
 
 #include "../helper/helper.h"
 #include "compressor.h"
@@ -203,13 +205,14 @@ namespace
 		std::vector<std::future<std::tuple<uLong, uint32_t>>> futures;
 		for (size_t i = 0; i < partnum; i++)
 		{
+			const bool lastpart = partnum == i + 1;
 			futures.push_back(pool.enqueue(compress_worker_zlib_part,
 				data + i * partinsize,
 				compressed.data() + i * partoutsize,
-				partnum - 1 == i ? inputsize - i * partinsize : partinsize,
+				lastpart ? inputsize - i * partinsize : partinsize,
 				partoutsize,
 				level,
-				partnum - 1 == i));
+				lastpart));
 		}
 		return std::async(std::launch::deferred,
 			[futures = std::move(futures),
@@ -221,23 +224,24 @@ namespace
 			uint32_t check_comb = adler32(0, nullptr, 0);
 			auto header = get_header(level);
 			// reserve bytes for header
-			std::byte* p = compressed.data() + header.size();
+			auto p = compressed.begin() + header.size();
 			// merge data
 			for (size_t i = 0; i < futures.size(); i++)
 			{
 				auto [outlen, check] = futures[i].get();
-				memmove(p, compressed.data() + i * size_t(partoutsize), outlen);
+				// we have to use memmove here, because the memory range may be overlapped
+				memmove(&(*p), compressed.data() + i * size_t(partoutsize), outlen);
 				p += outlen;
 				check_comb = adler32_comb(check_comb,
 					check,
 					futures.size() == i + 1 ? inputsize - i * partinsize : partinsize);
 			}
 			// write header
-			memmove(compressed.data(), header.data(), header.size());
+			std::copy(header.begin(), header.end(), compressed.begin());
 			// write trailer
 			auto trailer = get_trailer(check_comb);
-			memmove(p, trailer.data(), trailer.size());
-			compressed.resize(p + trailer.size() - compressed.data());
+			std::copy(trailer.begin(), trailer.end(), p);
+			compressed.resize(p + trailer.size() - compressed.begin());
 			compressed.shrink_to_fit();
 			return compressed;
 		});
@@ -274,25 +278,24 @@ namespace
 				worker_results.push_back(f.get());
 			}
 			// get compressed size and allocate a vector
-			size_t compressed_size = 0;
-			for (const auto& t : worker_results)
-			{
-				compressed_size += std::get<1>(t);
-			}
+			const size_t compressed_size = std::accumulate(
+				worker_results.begin(),
+				worker_results.end(), size_t(0),
+				[](auto sum, auto& res) {return sum + std::get<1>(res); });
 			auto header = get_header(level);
 			// reserve bytes for header & trailer
 			std::vector<std::byte> compressed(header.size() +
 				compressed_size +
 				std::tuple_size<decltype(get_trailer(0))>::value
 			);
-			std::byte* p = compressed.data() + header.size();
+			auto p = compressed.begin() + header.size();
 			
 			uint32_t check_comb = adler32(0, nullptr, 0);
 			// merge data
 			for (size_t i = 0; i < worker_results.size(); i++)
 			{
 				const auto& [outdata, outlen, check] = worker_results[i];
-				memmove(p, outdata.get(), outlen);
+				std::copy_n(outdata.get(), outlen, p);
 				p += outlen;
 				check_comb = adler32_comb(check_comb,
 					check,
@@ -300,10 +303,10 @@ namespace
 			}
 
 			// write header
-			memmove(compressed.data(), header.data(), header.size());
+			std::copy(header.begin(), header.end(), compressed.begin());
 			// write trailer
 			auto trailer = get_trailer(check_comb);
-			memmove(p, trailer.data(), trailer.size());
+			std::copy(trailer.begin(), trailer.end(), p);
 			return compressed;
 		});
 	}
@@ -327,7 +330,7 @@ namespace
 			&outsize);
 		const auto out = unique_c_ptr<std::byte[]>(reinterpret_cast<std::byte*>(out_c_ptr));
 		std::vector<std::byte> r(outsize);
-		memmove(r.data(), out.get(), outsize);
+		std::copy_n(out.get(), outsize, r.begin());
 		return r;
 	}
 

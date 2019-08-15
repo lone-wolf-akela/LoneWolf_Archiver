@@ -150,22 +150,26 @@ namespace server
 		
 		while (true)
 		{
-			const auto zero_pos = std::find(_buffer, _buffer + _bytes_in_buffer, 0);
-			if (_buffer + _bytes_in_buffer != zero_pos)
+			const auto zero_pos = std::find(_buffer.begin(), _buffer.end(), 0);
+			if (_buffer.begin() + _bytes_in_buffer > zero_pos)
 			{
 				//found 0 in buffer
-				strm << std::string_view(_buffer, zero_pos - _buffer);
-				_bytes_in_buffer -= DWORD(zero_pos - _buffer + 1);
-				memmove(_buffer, zero_pos + 1, _buffer + BUFFER_SIZE - zero_pos - 1);
+				strm << std::string_view(_buffer.data(), zero_pos - _buffer.begin());
+				_bytes_in_buffer -= DWORD(zero_pos - _buffer.begin() + 1);
+				if (_bytes_in_buffer > 0)
+				{
+					// this is copy to left, so even it may be overlapped, we can safely use std::copy
+					std::copy(zero_pos + 1, _buffer.end(), _buffer.begin());
+				}
 				break;
 			}
 			else
 			{
-				strm << std::string_view(_buffer, _bytes_in_buffer);
+				strm << std::string_view(_buffer.data(), _bytes_in_buffer);
 			}
 			const BOOL bSuccess = ReadFile(
 				_hPipe,					// handle to pipe 
-				_buffer,					// buffer to receive data 
+				_buffer.data(),					// buffer to receive data 
 				BUFFER_SIZE,			// size of buffer 
 				&_bytes_in_buffer,			// number of bytes read 
 				nullptr);				// default security attribute	

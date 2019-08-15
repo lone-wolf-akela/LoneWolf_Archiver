@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <cstdint>
 #include <fstream>
+#include <vector>
 
 #include "memmapfilestream.h"
 
@@ -55,8 +56,8 @@ namespace stream
 		uint32_t _cipherBegBackPos = 0;
 		uint32_t _cipherBegPos = 0;
 		uint32_t _deadbe7a = 0;
-		std::unique_ptr<uint32_t[]> _cipherKey;
-		std::unique_ptr<uint32_t[]> _fileKey;
+		std::vector<uint8_t> _cipherKey;
+		std::vector<uint8_t> _fileKey;
 		uint16_t _keySize = 0;
 	};
 }

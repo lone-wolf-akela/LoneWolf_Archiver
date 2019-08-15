@@ -1,4 +1,5 @@
 ﻿#include <random>
+#include <concepts>
 
 #include "../helper/helper.h"
 
@@ -51,18 +52,20 @@ namespace stream
 
 			std::random_device rd;
 			std::mt19937 mt(rd());
-			const std::uniform_int_distribution<uint32_t> dis;
+			const std::uniform_int_distribution<uint16_t> dis;
 
 			_keySize = 256;
-			_cipherKey = std::unique_ptr<uint32_t[]>(new uint32_t[_keySize / sizeof(uint32_t)]);
-			_fileKey = std::unique_ptr<uint32_t[]>(new uint32_t[_keySize / sizeof(uint32_t)]);
+			_cipherKey.resize(_keySize);
+			_fileKey.resize(_keySize);
 
-			_fileKey[0] = 0xA0D68015;
+			_fileKey[0] = 0x15;
+			_fileKey[1] = 0x80;
+			_fileKey[2] = 0xD6;
+			_fileKey[3] = 0xA0;
+				
+			std::generate(_fileKey.begin() + 4, _fileKey.end(),
+				[&mt, &dis] {return uint8_t(dis(mt)); });
 
-			for (size_t i = 1; i < _keySize / sizeof(uint32_t); ++i)
-			{
-				_fileKey[i] = dis(mt);
-			}
 			//do not do magic now. wait until we got _cipherBegPos
 			//_cipher_magic();
 		}
@@ -132,8 +135,7 @@ namespace stream
 			}
 			for (size_t i = 0; i < lengthRead; ++i)
 			{
-				reinterpret_cast<uint8_t*>(dst)[i] +=
-					*(reinterpret_cast<uint8_t*>(_cipherKey.get()) + (begpos + i) % _keySize);
+				static_cast<uint8_t*>(dst)[i] += _cipherKey[(begpos + i) % _keySize];
 			}
 			return lengthRead;
 		}
@@ -176,8 +178,7 @@ namespace stream
 			const std::unique_ptr<uint8_t[]> buffer(new uint8_t[length]);
 			for (size_t i = 0; i < length; ++i)
 			{
-				buffer[i] = *(uint8Src + i) -
-					*(reinterpret_cast<uint8_t*>(_cipherKey.get()) + (begpos + i) % _keySize);
+				buffer[i] = uint8Src[i] - _cipherKey[(begpos + i) % _keySize];
 			}
 
 			_filestream.write(reinterpret_cast<const char*>(buffer.get()), length);
@@ -211,12 +212,11 @@ namespace stream
 		{
 		case CipherStreamState::Read_Encrypted:
 		{
-			const auto tmpDst = reinterpret_cast<uint8_t*>(dst);
+			const auto uint8Dst = static_cast<uint8_t*>(dst);
 			const size_t l = _memmapStream.read(pos, dst, length);
 			for (size_t i = 0; i < l; ++i)
 			{
-				tmpDst[i] +=
-					*(reinterpret_cast<uint8_t*>(_cipherKey.get()) + (pos + i) % _keySize);
+				uint8Dst[i] += _cipherKey[(pos + i) % _keySize];
 			}
 			return l;
 		}
@@ -329,14 +329,17 @@ namespace stream
 		_memmapStream.read(&_cipherBegBackPos, sizeof(_cipherBegBackPos));
 
 		_cipherBegPos = chkcast<uint32_t>(_memmapStream.getFileSize() - _cipherBegBackPos);
-		
+
 		_memmapStream.setpos(_cipherBegPos);
 		_memmapStream.read(&_deadbe7a, sizeof(_deadbe7a));
 		_memmapStream.read(&_keySize, sizeof(_keySize));
-		_cipherKey = std::unique_ptr<uint32_t[]>(new uint32_t[_keySize / sizeof(uint32_t)]);
-		_fileKey = std::unique_ptr<uint32_t[]>(new uint32_t[_keySize / sizeof(uint32_t)]);
-		_memmapStream.read(_fileKey.get(), _keySize);
-		if (_fileKey[0] == 0xA0D68015)
+		_cipherKey.resize(_keySize);
+		_fileKey.resize(_keySize);
+		_memmapStream.read(_fileKey.data(), _keySize);
+		if (_fileKey[0] == 0x15 &&
+			_fileKey[1] == 0x80 &&
+			_fileKey[2] == 0xD6 &&
+			_fileKey[3] == 0xA0)
 		{
 			throw FatalError("Fatal error.");
 		}
@@ -349,10 +352,10 @@ namespace stream
 		_deadbe7a = 0xdeadbe7a;
 
 		_cipherBegPos = chkcast<uint32_t>(getpos());
-		
+
 		_filestream.write(reinterpret_cast<const char*>(&_deadbe7a), sizeof(_deadbe7a));
 		_filestream.write(reinterpret_cast<const char*>(&_keySize), sizeof(_keySize));
-		_filestream.write(reinterpret_cast<const char*>(_fileKey.get()), _keySize);
+		_filestream.write(reinterpret_cast<const char*>(_fileKey.data()), _keySize);
 		_filestream.seekg(_filestream.tellp());
 		if (!_filestream.good())
 		{
@@ -368,7 +371,7 @@ namespace stream
 		const uintmax_t filesize = _filestream.tellp();
 
 		_cipherBegBackPos = chkcast<uint32_t>(filesize + sizeof(_cipherBegBackPos) - _cipherBegPos);
-		
+
 		_filestream.write(reinterpret_cast<const char*>(&_cipherBegBackPos), sizeof(_cipherBegBackPos));
 
 		_filestream.seekg(_filestream.tellp());
@@ -377,29 +380,25 @@ namespace stream
 			throw FileIoError("Filestream failed.");
 		}
 	}
-	template <typename Tv, typename Tb,
-		std::enable_if_t<std::is_integral_v<Tv>&& std::is_integral_v<Tb>>* = nullptr>
-	static Tv ROTL(Tv val, Tb bits)
+	template <std::Integral Tv, std::Integral Tb>
+		static Tv ROTL(Tv val, Tb bits)
 	{
 		return (val << bits) | (val >> (32 - bits));
 	}
 	void CipherStream::_cipher_magic()
 	{
-		const auto _cipherKey_uint8 = reinterpret_cast<uint8_t*>(_cipherKey.get());
-
-		for (uint32_t i = 0; i < _keySize; i += 4)
+		for (decltype(_keySize) i = 0; i < _keySize; i += 4)
 		{
-			uint32_t currentKey = _fileKey[i / 4];
-			for (int byte = 0; byte < 4; byte++)
+			auto currentKey = *reinterpret_cast<uint32_t*>(&_fileKey[i]);
+			for (auto byte = 0; byte < 4; byte++)
 			{
 				uint32_t tempVal = ROTL(currentKey + _cipherBegPos, 8);
 				const auto tempBytes = reinterpret_cast<uint8_t*>(&tempVal);
 				for (uint32_t j = 0; j < 4; j++)
 				{
-					currentKey = cipherConst[uint8_t(currentKey ^ tempBytes[j])]
-						^ (currentKey >> 8);
+					currentKey = cipherConst[uint8_t(currentKey ^ tempBytes[j])] ^ (currentKey >> 8);
 				}
-				_cipherKey_uint8[byte + i] = uint8_t(currentKey);
+				_cipherKey[byte + i] = uint8_t(currentKey);
 			}
 		}
 	}

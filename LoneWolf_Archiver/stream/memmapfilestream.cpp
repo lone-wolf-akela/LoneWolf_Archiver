@@ -1,4 +1,5 @@
 ﻿#include <cstring>
+#include <algorithm>
 
 #include "memmapfilestream.h"
 
@@ -42,9 +43,10 @@ namespace stream
 
 	size_t MemMapFileStream::read(size_t pos, void* dst, size_t length)
 	{
-		//brackets around std::min is required to prevent some problems
-		const size_t lengthToRead = (std::min)(size_t(_filesize - pos), length);
-		memmove(dst, _filesrc.data() + pos, lengthToRead);
+		const size_t lengthToRead = std::min(size_t(_filesize - pos), length);
+		std::copy_n(_filesrc.begin() + pos,
+			lengthToRead,
+			reinterpret_cast<char*>(dst));
 		return lengthToRead;
 	}
 
