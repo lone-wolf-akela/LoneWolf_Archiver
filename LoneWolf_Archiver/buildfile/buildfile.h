@@ -20,43 +20,43 @@ namespace buildfile
 
 	struct FileSettingCommand
 	{
-		enum class Command { Override, SkipFile } command;
+		enum class Command { Override, SkipFile } command = Command(0);
 		struct Param
 		{
-			std::u8string wildcard;
-			int64_t minsize;
-			int64_t maxsize;
-			boost::optional<Compression> ct;
-		}param;
+			std::u8string wildcard = u8"";
+			int64_t minsize = 0;
+			int64_t maxsize = 0;
+			boost::optional<Compression> ct = boost::none;
+		}param = {};
 	};
 
 	struct FileSettings
 	{
 		struct Param
 		{
-			Compression defcompression;
+			Compression defcompression = Compression(0);
 		}param = {};
-		std::vector<FileSettingCommand> commands;
+		std::vector<FileSettingCommand> commands = {};
 	};
 
 	struct TOC
 	{
 		struct Param
 		{
-			std::u8string name;
-			std::u8string alias;
-			std::u8string relativeroot;
+			std::u8string name = u8"";
+			std::u8string alias = u8"";
+			std::u8string relativeroot = u8"";
 		}param;
-		FileSettings filesetting;
-		std::list<std::filesystem::path> files;
+		FileSettings filesetting = {};
+		std::list<std::filesystem::path> files = {};
 	};
 
 	struct Archive
 	{
-		std::u8string name;
-		std::vector<TOC> TOCs;
+		std::u8string name = u8"";
+		std::vector<TOC> TOCs = {};
 
-		std::string filename;
+		std::string filename = "";
 	};
 
 

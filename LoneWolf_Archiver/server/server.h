@@ -33,8 +33,8 @@ namespace server
 		std::array<char, BUFFER_SIZE> _buffer = {};
 		DWORD _bytes_in_buffer = 0;
 		HANDLE _hPipe = INVALID_HANDLE_VALUE;
-		std::shared_ptr<spdlog::logger> _logger;
-		std::unique_ptr<archive::Archive> _file;
+		std::shared_ptr<spdlog::logger> _logger = nullptr;
+		std::unique_ptr<archive::Archive> _file = nullptr;
 
 		Json::Value _read();
 		void _write(const Json::Value& msg);

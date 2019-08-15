@@ -100,7 +100,7 @@ namespace
 	struct FileStruct
 	{
 		std::u8string name = u8"";
-		std::filesystem::path realpath;
+		std::filesystem::path realpath = {};
 		CompressMethod compressMethod = {};
 		uint32_t filesize = 0;
 	};
@@ -108,19 +108,19 @@ namespace
 	{
 		std::u8string name = u8""; // only used during parsing
 		std::u8string path_relative_to_root = u8"";
-		std::vector<FolderStruct> subFolders;
-		std::vector<FileStruct> subFiles;
+		std::vector<FolderStruct> subFolders = {};
+		std::vector<FileStruct> subFiles = {};
 	};
 	struct TocStruct
 	{
 		std::u8string name = u8"";
 		std::u8string alias = u8"";
-		FolderStruct rootFolder;
+		FolderStruct rootFolder = {};
 	};
 	struct ArchiveStruct
 	{
 		std::u8string name = u8"";
-		std::vector<TocStruct> TOCs;
+		std::vector<TocStruct> TOCs = {};
 	};
 
 	/*
@@ -142,100 +142,100 @@ namespace
 #pragma pack (1)
 	struct ArchiveHeader
 	{
-		std::array<char, 8> _ARCHIVE;
-		uint32_t version;
+		std::array<char, 8> _ARCHIVE = {};
+		uint32_t version = 0;
 		//MD5 of "E01519D6-2DB7-4640-AF54-0A23319C56C3 + data after Archive_Header"
-		std::array<std::byte, 16> toolSignature;
-		std::array<char16_t, 64> archiveName;
+		std::array<std::byte, 16> toolSignature = {};
+		std::array<char16_t, 64> archiveName = {};
 		//MD5 of "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF + data after Archive_Header but before exact_file_data"
-		std::array<std::byte, 16> archiveSignature;
-		uint32_t sectionHeaderSize;
-		uint32_t exactFileDataOffset;
+		std::array<std::byte, 16> archiveSignature = {};
+		uint32_t sectionHeaderSize = 0;
+		uint32_t exactFileDataOffset = 0;
 	};
 	struct SectionHeader
 	{
 		//all offsets are relative to archive header
-		uint32_t TOC_offset;
-		uint16_t TOC_count;
-		uint32_t Folder_offset;
-		uint16_t Folder_count;
-		uint32_t FileInfo_offset;
-		uint16_t FileInfo_count;
-		uint32_t FileName_offset;
-		uint16_t FileName_count;
+		uint32_t TOC_offset = 0;
+		uint16_t TOC_count = 0;
+		uint32_t Folder_offset = 0;
+		uint16_t Folder_count = 0;
+		uint32_t FileInfo_offset = 0;
+		uint16_t FileInfo_count = 0;
+		uint32_t FileName_offset = 0;
+		uint16_t FileName_count = 0;
 	};
 	struct TocEntry
 	{
-		std::array<char, 64> alias;
-		std::array<char, 64> name;
-		uint16_t firstFolderIndex;
-		uint16_t lastFolderIndex;
-		uint16_t firstFileIndex;
-		uint16_t lastFileIndex;
-		uint16_t startHierarchyFolderIndex;
+		std::array<char, 64> alias = {};
+		std::array<char, 64> name = {};
+		uint16_t firstFolderIndex = 0;
+		uint16_t lastFolderIndex = 0;
+		uint16_t firstFileIndex = 0;
+		uint16_t lastFileIndex = 0;
+		uint16_t startHierarchyFolderIndex = 0;
 	};
 	struct FolderEntry
 	{
-		uint32_t fileNameOffset;		//relative to FileName_offset
-		uint16_t firstSubFolderIndex;	//[first, last)
-		uint16_t lastSubFolderIndex;
-		uint16_t firstFileIndex;		//[first, last)
-		uint16_t lastFileIndex;
+		uint32_t fileNameOffset = 0;		//relative to FileName_offset
+		uint16_t firstSubFolderIndex = 0;	//[first, last)
+		uint16_t lastSubFolderIndex = 0;
+		uint16_t firstFileIndex = 0;		//[first, last)
+		uint16_t lastFileIndex = 0;
 	};
 	struct FileInfoEntry
 	{
-		uint32_t fileNameOffset;		//relative to FileName_offset
-		CompressMethod compressMethod;
-		uint32_t fileDataOffset;		//relative to overall file data offset
-		uint32_t compressedLen;
-		uint32_t decompressedLen;
+		uint32_t fileNameOffset = 0;		//relative to FileName_offset
+		CompressMethod compressMethod = {};
+		uint32_t fileDataOffset = 0;		//relative to overall file data offset
+		uint32_t compressedLen = 0;
+		uint32_t decompressedLen = 0;
 	};
 	struct FileDataHeader
 	{
 		// we don't really know which encoding was used when compressed the archive...
-		union { std::array<char8_t, 256> utf8; std::array<char, 256> ansi; }fileName;
-		uint32_t modificationDate;
-		uint32_t CRC;	//CRC of uncompressed file data
+		union { std::array<char8_t, 256> utf8; std::array<char, 256> ansi; }fileName = {};
+		uint32_t modificationDate = 0;
+		uint32_t CRC = 0;	//CRC of uncompressed file data
 	};
 #pragma pack ()
 	/*container class*/
 	struct FileName
 	{
-		std::u8string name = {};
+		std::u8string name = u8"";
 		uint32_t offset = 0;	//relative to FileName_offset
 	};
 	struct File
 	{
 		FileInfoEntry* fileInfoEntry = nullptr;
 
-		stream::OptionalOwnerBuffer fileDataHeader;
+		stream::OptionalOwnerBuffer fileDataHeader = {};
 		[[nodiscard]] const FileDataHeader* getFileDataHeader() const
 		{
 			return reinterpret_cast<const FileDataHeader*>(fileDataHeader.get_const());
 		}
-		stream::OptionalOwnerBuffer compressedData;
-		stream::OptionalOwnerBuffer decompressedData;
+		stream::OptionalOwnerBuffer compressedData = {};
+		stream::OptionalOwnerBuffer decompressedData = {};
 
-		boost::iostreams::mapped_file_source mappedfile; // this is used for readding
+		boost::iostreams::mapped_file_source mappedfile = {}; // this is used for readding
 	};
 }
 namespace archive
 {
 	struct ArchiveInternal
 	{
-		std::shared_ptr<spdlog::logger> logger;
+		std::shared_ptr<spdlog::logger> logger = nullptr;
 		Archive::Mode mode = Archive::Mode::Invalid;
-		stream::CipherStream stream;
+		stream::CipherStream stream = {};
 
 		ArchiveHeader archiveHeader = {};
 		SectionHeader sectionHeader = {};
-		std::vector<TocEntry> tocList;
-		std::vector<FolderEntry> folderList;
-		std::vector<FileInfoEntry> fileInfoList;
-		std::list<FileName> fileNameList;
-		std::list<FileName> folderNameList;
+		std::vector<TocEntry> tocList = {};
+		std::vector<FolderEntry> folderList = {};
+		std::vector<FileInfoEntry> fileInfoList = {};
+		std::list<FileName> fileNameList = {};
+		std::list<FileName> folderNameList = {};
 
-		std::unordered_map<uint32_t, FileName*> fileNameLookUpTable;
+		std::unordered_map<uint32_t, FileName*> fileNameLookUpTable = {};
 
 		Json::Value getFolderTree(uint16_t folderIndex)
 		{

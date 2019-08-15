@@ -23,7 +23,7 @@ namespace core
 				<< diff.count() << " seconds." << std::endl;
 		}
 	private:
-		decltype(std::chrono::system_clock::now()) start;
+		decltype(std::chrono::system_clock::now()) start = {};
 	};
 	void generate(
 		const std::filesystem::path& rootpath,

@@ -156,10 +156,10 @@ namespace server
 				//found 0 in buffer
 				strm << std::string_view(_buffer.data(), zero_pos - _buffer.begin());
 				_bytes_in_buffer -= DWORD(zero_pos - _buffer.begin() + 1);
-				if (_bytes_in_buffer > 0)
+				if (_bytes_in_buffer != 0)
 				{
 					// this is copy to left, so even it may be overlapped, we can safely use std::copy
-					std::copy(zero_pos + 1, _buffer.end(), _buffer.begin());
+					std::copy_n(zero_pos + 1, _bytes_in_buffer, _buffer.begin());
 				}
 				break;
 			}

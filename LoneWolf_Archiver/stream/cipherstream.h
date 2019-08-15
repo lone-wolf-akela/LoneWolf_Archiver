@@ -50,14 +50,14 @@ namespace stream
 		void _cipher_magic();
 
 		CipherStreamState _state = CipherStreamState::Read_EncryptionUnknown;
-		MemMapFileStream _memmapStream;
-		std::fstream _filestream;
+		MemMapFileStream _memmapStream = {};
+		std::fstream _filestream = {};
 
 		uint32_t _cipherBegBackPos = 0;
 		uint32_t _cipherBegPos = 0;
 		uint32_t _deadbe7a = 0;
-		std::vector<uint8_t> _cipherKey;
-		std::vector<uint8_t> _fileKey;
+		std::vector<uint8_t> _cipherKey = {};
+		std::vector<uint8_t> _fileKey = {};
 		uint16_t _keySize = 0;
 	};
 }

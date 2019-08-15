@@ -78,7 +78,7 @@ namespace LoneWolf_Archiver_GUI
             SendMsg(root);
         }
         private const int BufferSize = 4096;
-        private readonly byte[] _pipebuffer = new byte[BufferSize + 1];
+        private readonly byte[] _pipebuffer = new byte[BufferSize];
         private int _bytesInBuffer = 0;
         private JObject RecvMsg()
         {
@@ -93,8 +93,11 @@ namespace LoneWolf_Archiver_GUI
                         //found 0 in buffer
                         strm.Write(_pipebuffer, 0, zeroPos);
                         _bytesInBuffer -= zeroPos + 1;
-                        Buffer.BlockCopy(_pipebuffer, zeroPos + 1,
-                            _pipebuffer, 0, BufferSize - zeroPos - 1);
+                        if (_bytesInBuffer != 0)
+                        {
+                            Buffer.BlockCopy(_pipebuffer, zeroPos + 1,
+                                _pipebuffer, 0, _bytesInBuffer);
+                        }
                         break;
                     }
                     else

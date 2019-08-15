@@ -37,7 +37,7 @@ namespace stream
 		[[nodiscard]] const std::byte* getReadptr() const;
 		[[nodiscard]] uintmax_t getFileSize() const;
 	private:
-		boost::iostreams::mapped_file_source _filesrc;
+		boost::iostreams::mapped_file_source _filesrc = {};
 		uintmax_t _filesize = 0;
 		size_t _pos = 0;
 	};
