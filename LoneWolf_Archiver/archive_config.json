@@ -5,6 +5,7 @@
   "encryption": false,  // enable encryption when creating archives.
   "ignore_list": [      // list of files & folders to ignore when  creating archives. works in 'create' command & 'generate' command, but not 'scan' command
     "keeper.txt",       // only file names without path are supported.
-    ".git/"             // to ignore a folder, please add a '/' at the end of the folder name.
+    ".git/",             // to ignore a folder, please add a '/' at the end of the folder name.
+    "do_not_pack_this/"        
   ]
 }
