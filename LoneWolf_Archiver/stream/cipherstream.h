@@ -20,11 +20,15 @@ namespace stream
 	{
 	public:
 		CipherStream() = default;
-		CipherStream(const std::filesystem::path& file, CipherStreamState state)
+		CipherStream(const std::filesystem::path& file,
+			CipherStreamState state,
+			uint_fast32_t encryption_key_seed = 0)
 		{
-			open(file, state);
+			open(file, state, encryption_key_seed);
 		}
-		void open(const std::filesystem::path& file, CipherStreamState state);
+		void open(const std::filesystem::path& file,
+			CipherStreamState state,
+			uint_fast32_t encryption_key_seed = 0);
 		void close();
 
 		size_t read(void* dst, size_t length) override;

@@ -129,7 +129,8 @@ namespace server
 						param["encryption"].asBool(),
 						param["compresslevel"].asInt(),
 						param["keepsign"].asBool(),
-						ignorelist);
+						ignorelist,
+						param["seed"].asUInt());
 					_write("ok");
 				}
 				else

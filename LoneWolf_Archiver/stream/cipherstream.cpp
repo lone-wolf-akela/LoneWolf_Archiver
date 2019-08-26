@@ -9,8 +9,12 @@
 
 namespace stream
 {
-	void CipherStream::open(const std::filesystem::path& file, CipherStreamState state)
+	void CipherStream::open(const std::filesystem::path& file,
+		CipherStreamState state,
+		uint_fast32_t encryption_key_seed)
 	{
+		assert(encryption_key_seed != 0 ? state == CipherStreamState::Write_Encrypted : true);
+		
 		_state = state;
 		switch (state)
 		{
@@ -51,7 +55,7 @@ namespace stream
 			}
 
 			std::random_device rd;
-			std::mt19937 mt(rd());
+			std::mt19937 mt(encryption_key_seed == 0 ? rd() : encryption_key_seed);
 			const std::uniform_int_distribution<uint16_t> dis;
 
 			_keySize = 256;

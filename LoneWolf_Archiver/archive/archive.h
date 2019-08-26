@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <future>
 #include <string_view>
+#include <cstdint>
 
 #include <json/json.h>
 
@@ -22,7 +23,7 @@ namespace archive
 		Archive(Archive&& o) noexcept;
 		Archive& operator=(Archive&& o) noexcept;
 		enum class Mode { Read, Write_NonEncrypted, Write_Encrypted, Invalid};
-		void open(const std::filesystem::path& filepath, Mode mode);
+		void open(const std::filesystem::path& filepath, Mode mode, uint_fast32_t encryption_key_seed = 0);
 
 		// action
 		std::future<void> extract(ThreadPool& pool, const std::filesystem::path& root);

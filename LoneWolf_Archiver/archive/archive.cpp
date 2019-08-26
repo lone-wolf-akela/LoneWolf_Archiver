@@ -952,8 +952,10 @@ namespace archive
 		return *this;
 	}
 	void Archive::open(
-		const std::filesystem::path& filepath, Mode mode)
+		const std::filesystem::path& filepath, Mode mode, uint_fast32_t encryption_key_seed)
 	{
+		assert(encryption_key_seed != 0 ? mode == Mode::Write_Encrypted : true);
+		
 		_internal->archiveHeader = ArchiveHeader{};
 		_internal->sectionHeader = SectionHeader{};
 		_internal->tocList.clear();

@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <iostream>
 
@@ -33,6 +34,7 @@ namespace core
 		bool encryption,
 		int compressLevel,
 		bool keepSign,
-		const std::vector<std::u8string>& ignoreList
+		const std::vector<std::u8string>& ignoreList,
+		uint_fast32_t encryption_key_seed = 0
 	);
 }

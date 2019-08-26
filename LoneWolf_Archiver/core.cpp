@@ -10,7 +10,8 @@ namespace core
 		bool encryption,
 		int compressLevel,
 		bool keepSign,
-		const std::vector<std::u8string>& ignoreList
+		const std::vector<std::u8string>& ignoreList,
+		uint_fast32_t encryption_key_seed
 	)
 	{
 		Timer t;
@@ -27,7 +28,8 @@ namespace core
 				archivepath.parent_path() / (tasks[i].filename + ".big"),
 				encryption ?
 				archive::Archive::Mode::Write_Encrypted :
-				archive::Archive::Mode::Write_NonEncrypted);
+				archive::Archive::Mode::Write_NonEncrypted,
+				encryption ? encryption_key_seed : 0);
 			futurelist.push_back(files.back().create(pool,
 				tasks[i],
 				rootpath,

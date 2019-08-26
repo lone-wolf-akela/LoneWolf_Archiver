@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <thread>
+#include <cstdint>
 
 #include <boost/program_options.hpp>
 #include <json/json.h>
@@ -21,6 +22,8 @@ struct
 	int compressLevel = 9;
 	bool keepSign = false;	
 	bool encryption = false;
+	uint_fast32_t encryption_key_seed = 0;
+	
 	std::vector<std::u8string> ignoreList = {};
 }options;
 
@@ -54,6 +57,7 @@ int main(const int argc, char *argv[])
 					options.compressLevel = config.get("compress_level", 6).asInt();
 					options.keepSign = config.get("keep_sign", false).asBool();
 					options.encryption = config.get("encryption", false).asBool();
+					options.encryption_key_seed = config.get("encryption_key_seed", 0).asUInt();
 					for (auto &v : config.get("ignore_list", {}))
 					{
 						options.ignoreList.emplace_back(
@@ -201,7 +205,8 @@ int main(const int argc, char *argv[])
 			file.open(vm["archive"].as<std::string>(),
 				options.encryption ?
 				archive::Archive::Mode::Write_Encrypted :
-				archive::Archive::Mode::Write_NonEncrypted);
+				archive::Archive::Mode::Write_NonEncrypted,
+				options.encryption ? options.encryption_key_seed : 0);
 			auto task = buildfile::parseFile(vm["create"].as<std::string>());
 			ThreadPool pool(options.threadNum);
 			file.create(pool,
@@ -220,7 +225,8 @@ int main(const int argc, char *argv[])
 				options.encryption,
 				options.compressLevel,
 				options.keepSign,
-				options.ignoreList);
+				options.ignoreList,
+				options.encryption_key_seed);
 		}
 		else if (vm.count("scan"))
 		{
