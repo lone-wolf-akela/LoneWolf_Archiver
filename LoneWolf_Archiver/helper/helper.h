@@ -24,13 +24,13 @@ public:
 	unique_c_ptr(T* p) : base_type(p, std::free) {}
 };
 
-template<std::Integral T>
+template<std::integral T>
 constexpr T CEIL_DIV(T x, T y)
 {
 	return x / y + ((x % y) != 0);
 }
 
-template<std::Integral Tout, std::Integral Tin>
+template<std::integral Tout, std::integral Tin>
 constexpr Tout chkcast(Tin in)
 {
 	assert(in <= std::numeric_limits<Tout>::max());

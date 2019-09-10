@@ -384,7 +384,7 @@ namespace stream
 			throw FileIoError("Filestream failed.");
 		}
 	}
-	template <std::Integral Tv, std::Integral Tb>
+	template <std::integral Tv, std::integral Tb>
 		static Tv ROTL(Tv val, Tb bits)
 	{
 		return (val << bits) | (val >> (32 - bits));

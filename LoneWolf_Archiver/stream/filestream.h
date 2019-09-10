@@ -10,12 +10,12 @@
 namespace stream
 {
 	template <typename T>
-	concept OptionalData = std::Same<T, const std::byte*> ||
-		std::Same<T, std::byte*> ||
-		std::Same<T, std::vector<std::byte> >;
+	concept OptionalData = std::same_as<T, const std::byte*> ||
+		std::same_as<T, std::byte*> ||
+		std::same_as<T, std::vector<std::byte> >;
 	template <typename T>
-	concept OptionalPointer = std::Same<T, const std::byte*> ||
-		std::Same<T, std::byte*>;
+	concept OptionalPointer = std::same_as<T, const std::byte*> ||
+		std::same_as<T, std::byte*>;
 	
 	class OptionalOwnerBuffer
 	{
