@@ -1,41 +1,41 @@
 ﻿#pragma once
 
-#if defined(_WIN32)
-
 #include <memory>
 #include <string>
 #include <array>
 
-#include <Windows.h>
-
 #include <json/json.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+
+#include <boost/asio.hpp>
 
 #include "../exceptions/exceptions.h"
 #include "../core.h"
 
 namespace server
 {
-	constexpr DWORD BUFFER_SIZE = 4096;
 	class JsonServer
 	{
 	public:
-		JsonServer(const std::string& pipename);
+		JsonServer();
 		JsonServer(const JsonServer&) = delete;
 		JsonServer& operator=(const JsonServer&) = delete;
 		JsonServer(JsonServer&&) = delete;
 		JsonServer& operator=(JsonServer&&) = delete;
-		~JsonServer();
+		~JsonServer() = default;
 		
 		void start_listen();
-	private:		
-		std::array<char, BUFFER_SIZE> _buffer = {};
-		DWORD _bytes_in_buffer = 0;
-		HANDLE _hPipe = INVALID_HANDLE_VALUE;
+	private:
+		using tcp = boost::asio::ip::tcp;
+		
 		std::shared_ptr<spdlog::logger> _logger = nullptr;
 		std::unique_ptr<archive::Archive> _file = nullptr;
 
+		boost::asio::io_context _io_context;
+		tcp::acceptor _acceptor;
+		tcp::socket _socket;
+		
 		Json::Value _read();
 		void _write(const Json::Value& msg);
 		void _write(const std::string& msg);
@@ -43,6 +43,6 @@ namespace server
 		void _write(const char* msg);
 		void _write(const char* msg, const Json::Value& param);
 	};
-	void start(const std::string& pipename);
+	void start();
 }
-#endif
+

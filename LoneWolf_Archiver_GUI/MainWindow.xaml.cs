@@ -11,15 +11,17 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
 
 namespace LoneWolf_Archiver_GUI
 {
-    /// <summary>
-    /// MainWindow.xaml 的交互逻辑
-    /// </summary>
-    public sealed partial class MainWindow : Window, IDisposable
+    class JsonClient : IDisposable
     {
         private bool _disposed = false;
+        private readonly TcpClient _tcpClient = new TcpClient();
+        private NetworkStream _netStream;
         public void Dispose()
         {
             Dispose(true);
@@ -31,23 +33,24 @@ namespace LoneWolf_Archiver_GUI
             if (_disposed) return;
             if (disposing)
             {
-                _pipe.Dispose();
+                _tcpClient.Dispose();
             }
             _disposed = true;
         }
 
-        ~MainWindow()
+        ~JsonClient()
         {
             Dispose(false);
         }
-
-        private NamedPipeClientStream _pipe;
-        private readonly Treeitem _treeroot = new Treeitem { Alias = "", Title = "Root" };
-        public MainWindow()
+        public JsonClient(int port)
         {
-            InitializeComponent();
+            _tcpClient.Connect(IPAddress.Loopback, port);
+            _netStream = _tcpClient.GetStream();
+            SendMsg("hello");
+            RecvAndCheck("hello");
         }
-        private JObject RecvAndCheck(string expectedMsg)
+
+        public JObject RecvAndCheck(string expectedMsg)
         {
             var r = RecvMsg();
             if ((string)r["msg"] != expectedMsg)
@@ -60,84 +63,91 @@ namespace LoneWolf_Archiver_GUI
                 return r;
             }
         }
+
         private void SendMsg(JObject msg)
         {
-            byte[] bytes = Encoding.Default.GetBytes(msg.ToString());
-            _pipe.Write(bytes, 0, bytes.Length);
-            bytes[0] = 0;
-            _pipe.Write(bytes, 0, 1);
+            byte[] bytes = Encoding.UTF8.GetBytes(msg.ToString());
+            var len = BitConverter.GetBytes((UInt64) bytes.Length);
+            _netStream.Write(len, 0, len.Length);
+            _netStream.Write(bytes, 0, bytes.Length);
         }
-        private void SendMsg(string msg)
+        public void SendMsg(string msg)
         {
-            var root = new JObject {["msg"] = msg};
+            var root = new JObject { ["msg"] = msg };
             SendMsg(root);
         }
-        private void SendMsg(string msg, JObject param)
+        public void SendMsg(string msg, JObject param)
         {
-            var root = new JObject {["msg"] = msg, ["param"] = param};
+            var root = new JObject { ["msg"] = msg, ["param"] = param };
             SendMsg(root);
         }
-        private const int BufferSize = 4096;
-        private readonly byte[] _pipebuffer = new byte[BufferSize];
-        private int _bytesInBuffer = 0;
+
         private JObject RecvMsg()
         {
-            using (var strm = new MemoryStream())
-            {
-                while (true)
-                {
-                    int zeroPos =
-                        Array.FindIndex(_pipebuffer, 0, _bytesInBuffer, b => (b == '\0'));
-                    if (-1 != zeroPos)
-                    {
-                        //found 0 in buffer
-                        strm.Write(_pipebuffer, 0, zeroPos);
-                        _bytesInBuffer -= zeroPos + 1;
-                        if (_bytesInBuffer != 0)
-                        {
-                            Buffer.BlockCopy(_pipebuffer, zeroPos + 1,
-                                _pipebuffer, 0, _bytesInBuffer);
-                        }
-                        break;
-                    }
-                    else
-                    {
-                        strm.Write(_pipebuffer, 0, _bytesInBuffer);
-                    }
-                    _bytesInBuffer = _pipe.Read(_pipebuffer, 0, BufferSize);
-                    if (_bytesInBuffer == 0)
-                    {
-                        throw new Exception("Pipe Failed.");
-                    }
-                }
-                strm.Position = 0;
-                using (var sr = new StreamReader(strm))
-                {
-                    var a = sr.ReadToEnd();
-                    var root = JObject.Parse(a);
-                    return root;
-                }
-            }
+            byte[] fulllenBytes = new byte[sizeof(UInt64)];
+            _netStream.Read(fulllenBytes, 0, sizeof(UInt64));
+            var fulllen = BitConverter.ToUInt64(fulllenBytes, 0);
+            byte[] buf = new byte[fulllen];
+            _netStream.Read(buf, 0, (int)fulllen);
+            return JObject.Parse(Encoding.UTF8.GetString(buf));
         }
+    }
+    /// <summary>
+    /// MainWindow.xaml 的交互逻辑
+    /// </summary>
+    public sealed partial class MainWindow : Window, IDisposable
+    {
+        const string PortnumFile = "archiver_server_port.tmp";
+        private bool _disposed = false;
+        private JsonClient _client;
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing)
+        {
+            if (_disposed) return;
+            if (disposing)
+            {
+                _client.Dispose();
+                File.Delete(PortnumFile);
+            }
+            _disposed = true;
+        }
+
+        ~MainWindow()
+        {
+            Dispose(false);
+        }
+
+        private readonly Treeitem _treeroot = new Treeitem { Alias = "", Title = "Root" };
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+        
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            string pipename = "LoneWolf_Archiver_Pipe_" + DateTime.Now.ToFileTimeUtc();
             // Configure the process using the StartInfo properties.
             Process process = new Process
             {
                 StartInfo = {
-                FileName = "LoneWolf_Archiver.exe",
-                Arguments = $"--pipe {pipename}",
+                FileName = @"LoneWolf_Archiver.exe",
+                Arguments = @"--server",
                 WindowStyle = ProcessWindowStyle.Minimized
             }
             };
+
+            File.Delete(PortnumFile);
             process.Start();
-
-            _pipe = new NamedPipeClientStream(pipename);
-
-            _pipe.Connect();
-            SendMsg("hello");
-            RecvAndCheck("hello");
+            do
+            {
+                Thread.Sleep(500);
+            } while (!File.Exists(PortnumFile));
+            var port = int.Parse(File.ReadAllText(PortnumFile));
+            _client = new JsonClient(port);
 
             filetree.Items.Add(_treeroot);
         }
@@ -261,8 +271,8 @@ namespace LoneWolf_Archiver_GUI
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            SendMsg("bye");
-            RecvAndCheck("bye");
+            _client.SendMsg("bye");
+            _client.RecvAndCheck("bye");
         }
 
         private Treeitem parseFolderJson(JToken folder)
@@ -315,12 +325,12 @@ namespace LoneWolf_Archiver_GUI
                 filegrid.ItemsSource = null;
 
                 var openparam = new JObject {["path"] = dialog.FileName};
-                SendMsg("open", openparam);
-                if (RecvAndCheck("ok") is null) return;
-                SendMsg("get_filetree");
+                _client.SendMsg("open", openparam);
+                if (_client.RecvAndCheck("ok") is null) return;
+                _client.SendMsg("get_filetree");
                 _treeroot.Items.Clear();
 
-                var response = RecvAndCheck("filetree");
+                var response = _client.RecvAndCheck("filetree");
                 if (response is null) return;
                 var jsonFiletree = response["param"];
                 var name = (string)jsonFiletree["name"];

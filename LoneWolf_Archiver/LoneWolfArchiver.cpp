@@ -120,9 +120,8 @@ int main(const int argc, char *argv[])
 			("hash", "- List the hash on the archive.")
 			("verbose,v", "- (This option is deprecated)")
 			(
-				"pipe",
-				po::value<std::string>()->value_name("<pipe name>"),
-				"- Launch in pipe mode. Used for LoneWolfArchiverGUI. Only available on Windows."
+				"server",
+				"- Launch in server mode. Used for LoneWolfArchiverGUI."
 			)
 			("help,h", "- show this help message.")
 			;
@@ -160,7 +159,7 @@ int main(const int argc, char *argv[])
 			vm.count("test") ||
 			vm.count("hash") ||
 			vm.count("extract") ||
-			vm.count("pipe")
+			vm.count("server")
 			))
 		{
 			std::cerr << "Missing argument." << std::endl;
@@ -269,13 +268,9 @@ int main(const int argc, char *argv[])
 			file.open(vm["archive"].as<std::string>(), archive::Archive::Mode::Read);
 			std::cout << reinterpret_cast<const char*>(file.getArchiveSignature().c_str()) << std::endl;
 		}
-		else if (vm.count("pipe"))
+		else if (vm.count("server"))
 		{
-#if defined(_WIN32)
-			server::start(vm["pipe"].as<std::string>());
-#else
-			throw NotImplementedError();
-#endif
+			server::start();
 		}
 		return 0;
 	}
