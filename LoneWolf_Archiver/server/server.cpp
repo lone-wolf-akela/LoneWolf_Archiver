@@ -1,18 +1,24 @@
-﻿#include <algorithm>
+﻿#include <cstddef>
+
+#include <algorithm>
 #include <sstream>
 #include <fstream>
 #include <vector>
+#include <array>
 
+#include <json/writer.h>
+
+#include "../helper/helper.h"
 #include "server.h"
 
 namespace server
 {
 	JsonServer::JsonServer() :
+		_logger(std::make_shared<spdlog::logger>("server",
+			std::make_shared<spdlog::sinks::stdout_color_sink_mt>())),
 		_acceptor(_io_context, tcp::endpoint(tcp::v4(), 0)),
 		_socket(_io_context)
 	{
-		auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-		_logger = std::make_shared<spdlog::logger>("server", sink);
 		
 		const auto port = _acceptor.local_endpoint().port();
 		{	
@@ -56,7 +62,7 @@ namespace server
 			{
 				_logger->info("open big file.");
 				std::filesystem::path filepath(msg_json["param"]["path"].asString());
-				_file = std::make_unique<archive::Archive>(filepath.filename().string());
+				_file = archive::Archive(filepath.filename().string());
 				_file->open(filepath, archive::Archive::Mode::Read);
 				_write("ok");
 			}
@@ -110,25 +116,32 @@ namespace server
 	}
 	Json::Value JsonServer::_read()
 	{
-		uint64_t fulllen;
-		boost::asio::read(_socket, boost::asio::buffer(&fulllen, sizeof(uint64_t)));
+		std::array<std::byte, sizeof(uint64_t)> lenarray;	
+		boost::asio::read(_socket, boost::asio::buffer(lenarray));
+		const auto len = FromBigEndian<uint64_t>(lenarray);
 		
-		std::vector<char> buf(fulllen, 0);
-		boost::asio::read(_socket, boost::asio::buffer(buf));
+		std::vector<char> buf(len);
+		boost::asio::streambuf strmbuf;
+		//boost::asio::read(_socket, boost::asio::buffer(buf));
+		boost::asio::read(_socket, strmbuf, len);
 		
 		std::stringstream strm;
-		strm.write(buf.data(), fulllen);
+		strm.write(buf.data(), len);
 		Json::Value msg;
 		strm >> msg;
 		return msg;
 	}
 	void JsonServer::_write(const Json::Value& msg)
 	{
+		Json::StreamWriterBuilder builder;
+		builder["commentStyle"] = "None";
+		builder["indentation"] = "";
+		std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
 		std::stringstream strm;
-		strm << msg;
+		writer->write(msg, &strm);
 		const std::string str = strm.str();
 		const uint64_t len = str.length();
-		boost::asio::write(_socket, boost::asio::buffer(&len, sizeof(len)));
+		boost::asio::write(_socket, boost::asio::buffer(ToBigEndian(len)));
 		boost::asio::write(_socket, boost::asio::buffer(str));
 	}
 	void JsonServer::_write(const std::string& msg)

@@ -14,14 +14,32 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using Newtonsoft.Json;
 
 namespace LoneWolf_Archiver_GUI
 {
-    class JsonClient : IDisposable
+    public static class Extensions
+    {
+        public static void ReadBytes(this Stream strm, byte[] bytes)
+        {
+            int offset = 0;
+            while (offset < bytes.Length)
+            {
+                var read = strm.Read(bytes, offset, bytes.Length - offset);
+                if (read == 0)
+                {
+                    throw new ApplicationException("Stream read failed.");
+                }
+
+                offset += read;
+            }
+        }
+    }
+    public class JsonClient : IDisposable
     {
         private bool _disposed = false;
         private readonly TcpClient _tcpClient = new TcpClient();
-        private NetworkStream _netStream;
+        private readonly NetworkStream _netStream;
         public void Dispose()
         {
             Dispose(true);
@@ -33,6 +51,8 @@ namespace LoneWolf_Archiver_GUI
             if (_disposed) return;
             if (disposing)
             {
+                SendMsg("bye");
+                RecvAndCheck("bye");
                 _tcpClient.Dispose();
             }
             _disposed = true;
@@ -66,7 +86,7 @@ namespace LoneWolf_Archiver_GUI
 
         private void SendMsg(JObject msg)
         {
-            byte[] bytes = Encoding.UTF8.GetBytes(msg.ToString());
+            byte[] bytes = Encoding.UTF8.GetBytes(msg.ToString(Formatting.None));
             var len = BitConverter.GetBytes((UInt64) bytes.Length);
             _netStream.Write(len, 0, len.Length);
             _netStream.Write(bytes, 0, bytes.Length);
@@ -84,11 +104,12 @@ namespace LoneWolf_Archiver_GUI
 
         private JObject RecvMsg()
         {
-            byte[] fulllenBytes = new byte[sizeof(UInt64)];
-            _netStream.Read(fulllenBytes, 0, sizeof(UInt64));
+            var fulllenBytes = new byte[sizeof(UInt64)];
+            _netStream.ReadBytes(fulllenBytes);
+            
             var fulllen = BitConverter.ToUInt64(fulllenBytes, 0);
-            byte[] buf = new byte[fulllen];
-            _netStream.Read(buf, 0, (int)fulllen);
+            var buf = new byte[fulllen];
+            _netStream.ReadBytes(buf);
             return JObject.Parse(Encoding.UTF8.GetString(buf));
         }
     }
@@ -144,7 +165,7 @@ namespace LoneWolf_Archiver_GUI
             process.Start();
             do
             {
-                Thread.Sleep(500);
+                Thread.Sleep(250);
             } while (!File.Exists(PortnumFile));
             var port = int.Parse(File.ReadAllText(PortnumFile));
             _client = new JsonClient(port);
@@ -271,8 +292,7 @@ namespace LoneWolf_Archiver_GUI
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            _client.SendMsg("bye");
-            _client.RecvAndCheck("bye");
+            _client.Dispose();
         }
 
         private Treeitem parseFolderJson(JToken folder)

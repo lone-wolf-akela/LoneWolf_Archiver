@@ -1,9 +1,11 @@
 ﻿#pragma once
 #include <cstdlib>
 #include <cassert>
+#include <cstddef>
 
 #include <memory>
 #include <limits>
+#include <array>
 #include <concepts>
 
 template<typename T>
@@ -35,4 +37,26 @@ constexpr Tout chkcast(Tin in)
 {
 	assert(in <= std::numeric_limits<Tout>::max());
 	return Tout(in);
+}
+
+template<std::integral T>
+constexpr std::array<std::byte, sizeof(T)> ToBigEndian(T in)
+{
+	std::array<std::byte, sizeof(T)> out;
+	for (size_t i = 0; i < sizeof(T); i++)
+	{
+		out[sizeof(T) - i] = std::byte((in >> (8 * i)) & 0xff);
+	}
+	return out;
+}
+
+template<std::integral T>
+constexpr T FromBigEndian(std::array<std::byte, sizeof(T)> in)
+{
+	T out = 0;
+	for (size_t i = 0; i < sizeof(T); i++)
+	{
+		out |= (T(in[sizeof(T) - i]) << (8 * i));
+	}
+	return out;
 }

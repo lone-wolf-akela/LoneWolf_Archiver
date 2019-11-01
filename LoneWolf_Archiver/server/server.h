@@ -2,7 +2,7 @@
 
 #include <memory>
 #include <string>
-#include <array>
+#include <optional>
 
 #include <json/json.h>
 #include <spdlog/spdlog.h>
@@ -29,8 +29,8 @@ namespace server
 	private:
 		using tcp = boost::asio::ip::tcp;
 		
-		std::shared_ptr<spdlog::logger> _logger = nullptr;
-		std::unique_ptr<archive::Archive> _file = nullptr;
+		std::shared_ptr<spdlog::logger> _logger;
+		std::optional<archive::Archive> _file{};
 
 		boost::asio::io_context _io_context;
 		tcp::acceptor _acceptor;

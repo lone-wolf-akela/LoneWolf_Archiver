@@ -1112,9 +1112,10 @@ namespace archive
 		assert(Mode::Read == _internal->mode);
 
 		Json::Value r(Json::objectValue);
+		// use .c_str() to trim '\0' at end
 		r["name"] = boost::locale::conv::utf_to_utf<char>(
 			std::u16string(_internal->archiveHeader.archiveName.data(),
-				_internal->archiveHeader.archiveName.size()));
+				_internal->archiveHeader.archiveName.size())).c_str();
 
 		r["tocs"] = Json::Value(Json::arrayValue);
 		for (TocEntry& toc : _internal->tocList)

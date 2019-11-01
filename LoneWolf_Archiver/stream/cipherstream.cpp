@@ -179,13 +179,13 @@ namespace stream
 			auto* uint8Src = reinterpret_cast<const uint8_t*>(src);
 			const size_t begpos = getpos();
 
-			const std::unique_ptr<uint8_t[]> buffer(new uint8_t[length]);
+			std::vector<uint8_t> buffer(length);
 			for (size_t i = 0; i < length; ++i)
 			{
 				buffer[i] = uint8Src[i] - _cipherKey[(begpos + i) % _keySize];
 			}
 
-			_filestream.write(reinterpret_cast<const char*>(buffer.get()), length);
+			_filestream.write(reinterpret_cast<const char*>(buffer.data()), length);
 			_filestream.seekg(_filestream.tellp());
 			if (!_filestream.good())
 			{
