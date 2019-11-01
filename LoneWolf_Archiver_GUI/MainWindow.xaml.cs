@@ -14,27 +14,11 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Windows.Media.Animation;
 using Newtonsoft.Json;
 
 namespace LoneWolf_Archiver_GUI
 {
-    public static class Extensions
-    {
-        public static void ReadBytes(this Stream strm, byte[] bytes)
-        {
-            int offset = 0;
-            while (offset < bytes.Length)
-            {
-                var read = strm.Read(bytes, offset, bytes.Length - offset);
-                if (read == 0)
-                {
-                    throw new ApplicationException("Stream read failed.");
-                }
-
-                offset += read;
-            }
-        }
-    }
     public class JsonClient : IDisposable
     {
         private bool _disposed = false;
@@ -87,9 +71,13 @@ namespace LoneWolf_Archiver_GUI
         private void SendMsg(JObject msg)
         {
             byte[] bytes = Encoding.UTF8.GetBytes(msg.ToString(Formatting.None));
-            var len = BitConverter.GetBytes((UInt64) bytes.Length);
-            _netStream.Write(len, 0, len.Length);
-            _netStream.Write(bytes, 0, bytes.Length);
+            Int32 len = bytes.Length;
+
+            using (var writer = new BinaryWriter(_netStream, Encoding.UTF8, true))
+            {
+                writer.Write(IPAddress.HostToNetworkOrder(len));
+                writer.Write(bytes);
+            }
         }
         public void SendMsg(string msg)
         {
@@ -104,13 +92,12 @@ namespace LoneWolf_Archiver_GUI
 
         private JObject RecvMsg()
         {
-            var fulllenBytes = new byte[sizeof(UInt64)];
-            _netStream.ReadBytes(fulllenBytes);
-            
-            var fulllen = BitConverter.ToUInt64(fulllenBytes, 0);
-            var buf = new byte[fulllen];
-            _netStream.ReadBytes(buf);
-            return JObject.Parse(Encoding.UTF8.GetString(buf));
+            using (var reader = new BinaryReader(_netStream, Encoding.UTF8, true))
+            {
+                var len = IPAddress.NetworkToHostOrder(reader.ReadInt32());
+                var buf = reader.ReadBytes(len);
+                return JObject.Parse(Encoding.UTF8.GetString(buf));
+            }
         }
     }
     /// <summary>
@@ -148,7 +135,7 @@ namespace LoneWolf_Archiver_GUI
         {
             InitializeComponent();
         }
-        
+
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             // Configure the process using the StartInfo properties.
@@ -300,7 +287,7 @@ namespace LoneWolf_Archiver_GUI
             var folderitem = new Treeitem
             {
                 Title = Path.GetFileName(
-                    ((string) folder["path"]).TrimEnd('\\', '/'))
+                    ((string)folder["path"]).TrimEnd('\\', '/'))
             };
             foreach (var subfolder in folder["subfolders"])
             {
@@ -310,11 +297,11 @@ namespace LoneWolf_Archiver_GUI
             {
                 var f = new Treeitem.File
                 {
-                    CompressMethod = (string) file["storage"],
-                    Filename = (string) file["name"],
-                    ModificationDate = (string) file["date"],
-                    SizeCompressed = (string) file["compressedlen"],
-                    SizeUncompressed = (string) file["decompressedlen"]
+                    CompressMethod = (string)file["storage"],
+                    Filename = (string)file["name"],
+                    ModificationDate = (string)file["date"],
+                    SizeCompressed = (string)file["compressedlen"],
+                    SizeUncompressed = (string)file["decompressedlen"]
                 };
 
                 folderitem.Files.Add(f);
@@ -344,7 +331,7 @@ namespace LoneWolf_Archiver_GUI
             {
                 filegrid.ItemsSource = null;
 
-                var openparam = new JObject {["path"] = dialog.FileName};
+                var openparam = new JObject { ["path"] = dialog.FileName };
                 _client.SendMsg("open", openparam);
                 if (_client.RecvAndCheck("ok") is null) return;
                 _client.SendMsg("get_filetree");

@@ -1,7 +1,8 @@
 ﻿#include <cstddef>
 
 #include <algorithm>
-#include <sstream>
+#include <istream>
+#include <ostream>
 #include <fstream>
 #include <vector>
 #include <array>
@@ -19,6 +20,10 @@ namespace server
 		_acceptor(_io_context, tcp::endpoint(tcp::v4(), 0)),
 		_socket(_io_context)
 	{
+		Json::StreamWriterBuilder builder;
+		builder["commentStyle"] = "None";
+		builder["indentation"] = "";
+		_jsonwriter.reset(builder.newStreamWriter());
 		
 		const auto port = _acceptor.local_endpoint().port();
 		{	
@@ -116,33 +121,25 @@ namespace server
 	}
 	Json::Value JsonServer::_read()
 	{
-		std::array<std::byte, sizeof(uint64_t)> lenarray;	
+		std::array<std::byte, sizeof(int32_t)> lenarray;	
 		boost::asio::read(_socket, boost::asio::buffer(lenarray));
-		const auto len = FromBigEndian<uint64_t>(lenarray);
+		const auto len = FromBigEndian<int32_t>(lenarray);
 		
-		std::vector<char> buf(len);
 		boost::asio::streambuf strmbuf;
-		//boost::asio::read(_socket, boost::asio::buffer(buf));
-		boost::asio::read(_socket, strmbuf, len);
+		boost::asio::read(_socket, strmbuf, boost::asio::transfer_exactly(len));
 		
-		std::stringstream strm;
-		strm.write(buf.data(), len);
+		std::istream strm(&strmbuf);
 		Json::Value msg;
 		strm >> msg;
 		return msg;
 	}
 	void JsonServer::_write(const Json::Value& msg)
 	{
-		Json::StreamWriterBuilder builder;
-		builder["commentStyle"] = "None";
-		builder["indentation"] = "";
-		std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
-		std::stringstream strm;
-		writer->write(msg, &strm);
-		const std::string str = strm.str();
-		const uint64_t len = str.length();
-		boost::asio::write(_socket, boost::asio::buffer(ToBigEndian(len)));
-		boost::asio::write(_socket, boost::asio::buffer(str));
+		boost::asio::streambuf strmbuf;
+		std::ostream strm(&strmbuf);
+		_jsonwriter->write(msg, &strm);
+		boost::asio::write(_socket, boost::asio::buffer(ToBigEndian(int32_t(strmbuf.size()))));
+		boost::asio::write(_socket, strmbuf, boost::asio::transfer_all());
 	}
 	void JsonServer::_write(const std::string& msg)
 	{

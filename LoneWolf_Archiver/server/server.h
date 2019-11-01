@@ -35,6 +35,8 @@ namespace server
 		boost::asio::io_context _io_context;
 		tcp::acceptor _acceptor;
 		tcp::socket _socket;
+
+		std::unique_ptr<Json::StreamWriter> _jsonwriter{};
 		
 		Json::Value _read();
 		void _write(const Json::Value& msg);

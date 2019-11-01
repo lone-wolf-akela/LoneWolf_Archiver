@@ -73,19 +73,7 @@ namespace
 				2 << 6);            // optional compression level clue
 		head += 31 - (head % 31);   // make it a multiple of 31
 		// zlib format uses big-endian order
-		return  std::array<std::byte, 2>{
-			std::byte((head >> 8) & 0xff),
-			std::byte(head & 0xff) };
-	}
-
-	std::array<std::byte, 4> get_trailer(uint32_t check)
-	{
-		// zlib format uses big-endian order
-		return std::array<std::byte, 4>{
-			std::byte((check >> 24) & 0xff),
-				std::byte((check >> 16) & 0xff),
-				std::byte((check >> 8) & 0xff),
-				std::byte(check & 0xff)};
+		return ToBigEndian(head);
 	}
 
 	/// \return <output_length, checksum>
@@ -239,7 +227,7 @@ namespace
 			// write header
 			std::copy(header.begin(), header.end(), compressed.begin());
 			// write trailer
-			auto trailer = get_trailer(check_comb);
+			auto trailer = ToBigEndian(check_comb);
 			std::copy(trailer.begin(), trailer.end(), p);
 			compressed.resize(p + trailer.size() - compressed.begin());
 			compressed.shrink_to_fit();
@@ -286,7 +274,7 @@ namespace
 			// reserve bytes for header & trailer
 			std::vector<std::byte> compressed(header.size() +
 				compressed_size +
-				std::tuple_size<decltype(get_trailer(0))>::value
+				sizeof(uint32_t)
 			);
 			auto p = compressed.begin() + header.size();
 			
@@ -305,7 +293,7 @@ namespace
 			// write header
 			std::copy(header.begin(), header.end(), compressed.begin());
 			// write trailer
-			auto trailer = get_trailer(check_comb);
+			auto trailer = ToBigEndian(check_comb);
 			std::copy(trailer.begin(), trailer.end(), p);
 			return compressed;
 		});
