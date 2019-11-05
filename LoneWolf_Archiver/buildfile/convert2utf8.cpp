@@ -1,19 +1,8 @@
-﻿#include <cassert>
+﻿#include <locale>
 
-#include <sstream>
-#include <locale>
-#include <tuple>
-#include <limits>
+#include <unicode/ucnv.h>
+#include <unicode/ucsdet.h>
 
-#if defined(_WIN32)
-#define NOMINMAX
-#include <Windows.h>
-#undef NOMINMAX
-#endif
-
-#include <boost/locale.hpp>
-
-#include "../helper/helper.h"
 #include "buildfile.h"
 
 
@@ -21,108 +10,86 @@ using namespace std::literals;
 
 namespace
 {
-#if defined(_WIN32)
-	///\brief	Convert ANSI string to wstring
-	std::wstring ConvertANSIToWchar(std::string_view in)
+	void IcuCheckFailure(UErrorCode status)
 	{
-		std::wstring r;
-		const int buffersize = MultiByteToWideChar(
-			CP_ACP, //CodePage,
-			0, //dwFlags,
-			in.data(), //lpMultiByteStr,
-			chkcast<int>(in.size()), //cbMultiByte,
-			nullptr, //lpWideCharStr,
-			0);				//cchWideChar
-		if (!buffersize)
+		if (U_FAILURE(status))
 		{
-			goto ConvertANSIToWcharErr;
+			throw SystemApiError("Error opening: "s + u_errorName(status));
 		}
-		r.resize(buffersize);
-		if (!MultiByteToWideChar(
-			CP_ACP,			//CodePage,
-			0,				//dwFlags,
-			in.data(),		//lpMultiByteStr,
-			chkcast<int>(in.size()),	//cbMultiByte,
-			r.data(),		//lpWideCharStr,
-			buffersize))	//cchWideChar
-		{
-			goto ConvertANSIToWcharErr;
-		}
-		return r;
-	ConvertANSIToWcharErr:
-		const auto errcode = GetLastError();
-		///\note	the error can be:
-		///			ERROR_INSUFFICIENT_BUFFER
-		///			ERROR_INVALID_FLAGS
-		///			ERROR_INVALID_PARAMETER
-		///			ERROR_NO_UNICODE_TRANSLATION
-		throw SystemApiError(
-			"Error happened when calling `MultiByteToWideChar': "s + (
-			(errcode == ERROR_INSUFFICIENT_BUFFER) ? "ERROR_INSUFFICIENT_BUFFER" :
-				(errcode == ERROR_INVALID_FLAGS) ? "ERROR_INVALID_FLAGS" :
-				(errcode == ERROR_INVALID_PARAMETER) ? "ERROR_INVALID_PARAMETER" :
-				(errcode == ERROR_NO_UNICODE_TRANSLATION) ? "ERROR_NO_UNICODE_TRANSLATION" :
-				"Unkown Error"));
 	}
-#endif
 }
 
 namespace buildfile
 {
 	///\brief	Convert string to utf8.
 	///		(But still store it in a std::string instead of std::u8string, for convenience).
-	///\note	UTF16 is only supported on Windows. 
 	std::string ConvertToUTF8(std::string_view in)
 	{
-#if defined(_WIN32)
-		int test = IS_TEXT_UNICODE_REVERSE_MASK;
-		IsTextUnicode(in.data(), chkcast<int>(in.size()), &test);
-		if (test)
+		UErrorCode status = U_ZERO_ERROR;
+		const icu_61::LocalUCharsetDetectorPointer detector(ucsdet_open(&status));
+		IcuCheckFailure(status);
+
+		ucsdet_setText(detector.getAlias(), in.data(), int32_t(in.size()), &status);
+		IcuCheckFailure(status);
+
+		int32_t matches_num;
+		const auto matches = ucsdet_detectAll(detector.getAlias(), &matches_num, &status);
+		IcuCheckFailure(status);
+
+		// try every possible codepage
+		std::u16string u16;
+		bool success = false;
+		for (int32_t i = 0; i < matches_num; i++)
 		{
-			// is reverse UNICODE
-			std::wstringstream stream;
-			for (size_t i = 0; i < in.size(); i += 2)
+			const auto name = ucsdet_getName(matches[i], &status);
+			IcuCheckFailure(status);
+			const icu_61::LocalUConverterPointer conv(ucnv_open(name, &status));
+			IcuCheckFailure(status);
+			try
 			{
-				const wchar_t t = *reinterpret_cast<const wchar_t*>(in.data() + i);
-				stream << wchar_t((t << 8) | ((t >> 8) & 0x00ff));
+				const auto len = ucnv_toUChars(conv.getAlias(),
+					nullptr, 0,
+					in.data(), int32_t(in.size()),
+					&status);
+				IcuCheckFailure(status);
+
+				u16.resize(size_t(len) + 1);
+				ucnv_toUChars(conv.getAlias(),
+					u16.data(), int32_t(u16.size()),
+					in.data(), int32_t(in.size()),
+					&status);
+				IcuCheckFailure(status);
 			}
-			return boost::locale::conv::utf_to_utf<char>(stream.str());
+			catch (SystemApiError&)
+			{
+				continue;
+			}
+			success = true;
+			break;
 		}
-		test = IS_TEXT_UNICODE_UNICODE_MASK;
-		IsTextUnicode(in.data(), chkcast<int>(in.size()), &test);
-		if (test)
+		if (!success)
 		{
-			// is UNICODE
-			const auto wptr = reinterpret_cast<const WCHAR*>(in.data());
-			const auto wlen = in.size() * sizeof(in[0]) / sizeof(WCHAR);
-			return boost::locale::conv::utf_to_utf<char>(wptr, wptr + wlen);
+			throw SystemApiError("File encode coversion failed.");
 		}
-#endif
-		// not UNICODE, need codepage detection
-		// we will try to parse the file as a UTF8 file
-		try
-		{
-			std::ignore = boost::locale::conv::to_utf<char>(
-				in.data(),
-				in.data() + in.size(),
-				"UTF-8",
-				boost::locale::conv::method_type::stop);
-			// Success. This is a UTF8 string. no need for conversion.
-			return std::string(in);
-		}
-		catch (boost::locale::conv::conversion_error&)
-		{
-			// seems not UTF8, will try to parse as system default ANSI code page	
-#if defined(_WIN32)
-			// It seems that boost cannot reliably detect current codepage on windows,
-			// so I have to use Windows API.
-			return boost::locale::conv::utf_to_utf<char>(ConvertANSIToWchar(in));
-#else
-			return boost::locale::conv::to_utf<char>(
-				in.data(),
-				in.data() + in.size(),
-				std::locale(""));
-#endif
-		}
+
+		std::string u8;
+
+		const icu_61::LocalUConverterPointer conv(ucnv_open("utf8", &status));
+		IcuCheckFailure(status);
+
+		const auto len = ucnv_fromUChars(conv.getAlias(),
+			nullptr, 0,
+			u16.data(), int32_t(u16.size()),
+			&status);
+		IcuCheckFailure(status);
+
+		u8.resize(size_t(len) + 1);
+		ucnv_fromUChars(conv.getAlias(),
+			u8.data(), int32_t(u8.size()),
+			u16.data(), int32_t(u16.size()),
+			&status);
+		IcuCheckFailure(status);
+
+		return u8;
 	}
 }
