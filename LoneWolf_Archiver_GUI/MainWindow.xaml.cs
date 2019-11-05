@@ -13,17 +13,19 @@ using System.Windows.Controls;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Media.Animation;
 using Newtonsoft.Json;
 
 namespace LoneWolf_Archiver_GUI
 {
-    public class JsonClient : IDisposable
+    public class IpcWorker : IDisposable
     {
         private bool _disposed = false;
-        private readonly TcpClient _tcpClient = new TcpClient();
-        private readonly NetworkStream _netStream;
+        private readonly TcpListener _listener;
+        private TcpClient _client;
+        private NetworkStream _netStream;
         public void Dispose()
         {
             Dispose(true);
@@ -37,22 +39,30 @@ namespace LoneWolf_Archiver_GUI
             {
                 SendMsg("bye");
                 RecvAndCheck("bye");
-                _tcpClient.Dispose();
+                _client.Dispose();
+                _listener.Stop();
             }
             _disposed = true;
         }
 
-        ~JsonClient()
+        ~IpcWorker()
         {
             Dispose(false);
         }
-        public JsonClient(int port)
+        public IpcWorker()
         {
-            _tcpClient.Connect(IPAddress.Loopback, port);
-            _netStream = _tcpClient.GetStream();
+            _listener = new TcpListener(IPAddress.Loopback, 0);
+            _listener.Start();
+        }
+
+        public void Connect()
+        {
+            _client = _listener.AcceptTcpClient();
+            _netStream = _client.GetStream();
             SendMsg("hello");
             RecvAndCheck("hello");
         }
+        public int Port => ((IPEndPoint) _listener.LocalEndpoint).Port;
 
         public JObject RecvAndCheck(string expectedMsg)
         {
@@ -67,7 +77,6 @@ namespace LoneWolf_Archiver_GUI
                 return r;
             }
         }
-
         private void SendMsg(JObject msg)
         {
             byte[] bytes = Encoding.UTF8.GetBytes(msg.ToString(Formatting.None));
@@ -89,7 +98,6 @@ namespace LoneWolf_Archiver_GUI
             var root = new JObject { ["msg"] = msg, ["param"] = param };
             SendMsg(root);
         }
-
         private JObject RecvMsg()
         {
             using (var reader = new BinaryReader(_netStream, Encoding.UTF8, true))
@@ -107,7 +115,7 @@ namespace LoneWolf_Archiver_GUI
     {
         const string PortnumFile = "archiver_server_port.tmp";
         private bool _disposed = false;
-        private JsonClient _client;
+        private readonly IpcWorker _ipc = new IpcWorker();
         public void Dispose()
         {
             Dispose(true);
@@ -119,7 +127,7 @@ namespace LoneWolf_Archiver_GUI
             if (_disposed) return;
             if (disposing)
             {
-                _client.Dispose();
+                _ipc.Dispose();
                 File.Delete(PortnumFile);
             }
             _disposed = true;
@@ -143,19 +151,12 @@ namespace LoneWolf_Archiver_GUI
             {
                 StartInfo = {
                 FileName = @"LoneWolf_Archiver.exe",
-                Arguments = @"--server",
+                Arguments = $"--ipc {_ipc.Port}",
                 WindowStyle = ProcessWindowStyle.Minimized
             }
             };
-
-            File.Delete(PortnumFile);
             process.Start();
-            do
-            {
-                Thread.Sleep(250);
-            } while (!File.Exists(PortnumFile));
-            var port = int.Parse(File.ReadAllText(PortnumFile));
-            _client = new JsonClient(port);
+            _ipc.Connect();
 
             filetree.Items.Add(_treeroot);
         }
@@ -279,7 +280,7 @@ namespace LoneWolf_Archiver_GUI
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            _client.Dispose();
+            _ipc.Dispose();
         }
 
         private Treeitem parseFolderJson(JToken folder)
@@ -332,12 +333,12 @@ namespace LoneWolf_Archiver_GUI
                 filegrid.ItemsSource = null;
 
                 var openparam = new JObject { ["path"] = dialog.FileName };
-                _client.SendMsg("open", openparam);
-                if (_client.RecvAndCheck("ok") is null) return;
-                _client.SendMsg("get_filetree");
+                _ipc.SendMsg("open", openparam);
+                if (_ipc.RecvAndCheck("ok") is null) return;
+                _ipc.SendMsg("get_filetree");
                 _treeroot.Items.Clear();
 
-                var response = _client.RecvAndCheck("filetree");
+                var response = _ipc.RecvAndCheck("filetree");
                 if (response is null) return;
                 var jsonFiletree = response["param"];
                 var name = (string)jsonFiletree["name"];

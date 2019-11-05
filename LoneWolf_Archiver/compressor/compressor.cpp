@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <numeric>
 
+#include <boost/endian/conversion.hpp>
+
 #include "../helper/helper.h"
 #include "compressor.h"
 
@@ -64,7 +66,7 @@ namespace
 		return sum1 | (sum2 << 16);
 	}
 	///\note this function is copied from pigz
-	std::array<std::byte, 2> get_header(int level)
+	auto get_header(int level)
 	{
 		uint16_t head = (0x78 << 8) +        // deflate, 32K window
 			(level >= 9 ? 3 << 6 :
@@ -73,7 +75,7 @@ namespace
 				2 << 6);            // optional compression level clue
 		head += 31 - (head % 31);   // make it a multiple of 31
 		// zlib format uses big-endian order
-		return ToBigEndian(head);
+		return bit_cast<std::array<std::byte, sizeof(head)>>(boost::endian::native_to_big(head));
 	}
 
 	/// \return <output_length, checksum>
@@ -210,7 +212,7 @@ namespace
 			inputsize]() mutable
 		{
 			uint32_t check_comb = adler32(0, nullptr, 0);
-			auto header = get_header(level);
+			const auto header = get_header(level);
 			// reserve bytes for header
 			auto p = compressed.begin() + header.size();
 			// merge data
@@ -227,9 +229,10 @@ namespace
 			// write header
 			std::copy(header.begin(), header.end(), compressed.begin());
 			// write trailer
-			auto trailer = ToBigEndian(check_comb);
+			const auto trailer = bit_cast<std::array<std::byte, sizeof(check_comb)>>
+				(boost::endian::native_to_big(check_comb));
 			std::copy(trailer.begin(), trailer.end(), p);
-			compressed.resize(p + trailer.size() - compressed.begin());
+			compressed.resize(p + sizeof(check_comb) - compressed.begin());
 			compressed.shrink_to_fit();
 			return compressed;
 		});
@@ -293,7 +296,8 @@ namespace
 			// write header
 			std::copy(header.begin(), header.end(), compressed.begin());
 			// write trailer
-			auto trailer = ToBigEndian(check_comb);
+			const auto trailer = bit_cast<std::array<std::byte, sizeof(check_comb)>>
+				(boost::endian::native_to_big(check_comb));
 			std::copy(trailer.begin(), trailer.end(), p);
 			return compressed;
 		});

@@ -8,46 +8,38 @@
 #include <array>
 
 #include <json/writer.h>
+#include <boost/endian/conversion.hpp>
 
-#include "../helper/helper.h"
-#include "server.h"
+#include "ipc.h"
 
-namespace server
+namespace ipc
 {
-	JsonServer::JsonServer() :
-		_logger(std::make_shared<spdlog::logger>("server",
+	IpcWorker::IpcWorker() :
+		_logger(std::make_shared<spdlog::logger>("ipc",
 			std::make_shared<spdlog::sinks::stdout_color_sink_mt>())),
-		_acceptor(_io_context, tcp::endpoint(tcp::v4(), 0)),
 		_socket(_io_context)
 	{
 		Json::StreamWriterBuilder builder;
 		builder["commentStyle"] = "None";
 		builder["indentation"] = "";
 		_jsonwriter.reset(builder.newStreamWriter());
-		
-		const auto port = _acceptor.local_endpoint().port();
-		{	
-			std::ofstream portfile;
-			portfile.exceptions(std::ofstream::failbit | std::ofstream::badbit);
-			portfile.open("archiver_server_port.tmp");
-			portfile << port;
-		}
-		_logger->info("Server launched at port {0}.", port);
 	}
-	void JsonServer::start_listen()
+	void IpcWorker::connect(uint32_t port)
 	{
 		{
-			_acceptor.accept(_socket);
+			const auto endpoint =
+				tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), port);
+			_socket.connect(endpoint);
 			Json::Value msg_read = _read();
 			const auto msg_str = msg_read["msg"].asString();
 			if ("hello" == msg_str)
 			{
 				_write("hello");
-				_logger->info("connected client.");
+				_logger->info("connected to port {0}.", port);
 			}
 			else
 			{
-				throw ServerError("Unknown client message: " + msg_str);
+				throw IpcError("Unknown ipc message: " + msg_str);
 			}
 		}
 		while (true)
@@ -57,7 +49,6 @@ namespace server
 			if ("bye" == msg_str)
 			{
 				_write("bye");
-				_acceptor.close();
 				_socket.close();
 				_logger->info("connection closed.");
 
@@ -115,15 +106,15 @@ namespace server
 			}
 			else
 			{
-				throw ServerError("Unknown client message: " + msg_str);
+				throw IpcError("Unknown client message: " + msg_str);
 			}
 		}
 	}
-	Json::Value JsonServer::_read()
+	Json::Value IpcWorker::_read()
 	{
-		std::array<std::byte, sizeof(int32_t)> lenarray;	
-		boost::asio::read(_socket, boost::asio::buffer(lenarray));
-		const auto len = FromBigEndian<int32_t>(lenarray);
+		int32_t len;	
+		boost::asio::read(_socket, boost::asio::buffer(&len, sizeof(len)));
+		boost::endian::big_to_native_inplace(len);
 		
 		boost::asio::streambuf strmbuf;
 		boost::asio::read(_socket, strmbuf, boost::asio::transfer_exactly(len));
@@ -133,44 +124,45 @@ namespace server
 		strm >> msg;
 		return msg;
 	}
-	void JsonServer::_write(const Json::Value& msg)
+	void IpcWorker::_write(const Json::Value& msg)
 	{
 		boost::asio::streambuf strmbuf;
 		std::ostream strm(&strmbuf);
 		_jsonwriter->write(msg, &strm);
-		boost::asio::write(_socket, boost::asio::buffer(ToBigEndian(int32_t(strmbuf.size()))));
+		auto len = boost::endian::native_to_big(int32_t(strmbuf.size()));
+		boost::asio::write(_socket, boost::asio::buffer(&len, sizeof(len)));
 		boost::asio::write(_socket, strmbuf, boost::asio::transfer_all());
 	}
-	void JsonServer::_write(const std::string& msg)
+	void IpcWorker::_write(const std::string& msg)
 	{
 		Json::Value root(Json::objectValue);
 		root["msg"] = msg;
 		_write(root);
 	}
-	void JsonServer::_write(const std::string& msg, const Json::Value& param)
-	{
-		Json::Value root(Json::objectValue);
-		root["msg"] = msg;
-		root["param"] = param;
-		_write(root);
-	}
-	void JsonServer::_write(const char* msg)
-	{
-		Json::Value root(Json::objectValue);
-		root["msg"] = msg;
-		_write(root);
-	}
-	void JsonServer::_write(const char* msg, const Json::Value& param)
+	void IpcWorker::_write(const std::string& msg, const Json::Value& param)
 	{
 		Json::Value root(Json::objectValue);
 		root["msg"] = msg;
 		root["param"] = param;
 		_write(root);
 	}
-	void start()
+	void IpcWorker::_write(const char* msg)
 	{
-		JsonServer s;
-		s.start_listen();
+		Json::Value root(Json::objectValue);
+		root["msg"] = msg;
+		_write(root);
+	}
+	void IpcWorker::_write(const char* msg, const Json::Value& param)
+	{
+		Json::Value root(Json::objectValue);
+		root["msg"] = msg;
+		root["param"] = param;
+		_write(root);
+	}
+	void connect(uint32_t port)
+	{
+		IpcWorker s;
+		s.connect(port);
 	}
 }
 

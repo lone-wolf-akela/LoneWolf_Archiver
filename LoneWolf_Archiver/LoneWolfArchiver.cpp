@@ -12,7 +12,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#include "server/server.h"
+#include "ipc/ipc.h"
 #include "core.h"
 
 namespace po = boost::program_options;
@@ -120,8 +120,9 @@ int main(const int argc, char *argv[])
 			("hash", "- List the hash on the archive.")
 			("verbose,v", "- (This option is deprecated)")
 			(
-				"server",
-				"- Launch in server mode. Used for LoneWolfArchiverGUI."
+				"ipc",
+				po::value<uint32_t>()->value_name("<port>"),
+				"- Launch in ipc mode. Used for LoneWolfArchiverGUI."
 			)
 			("help,h", "- show this help message.")
 			;
@@ -159,7 +160,7 @@ int main(const int argc, char *argv[])
 			vm.count("test") ||
 			vm.count("hash") ||
 			vm.count("extract") ||
-			vm.count("server")
+			vm.count("ipc")
 			))
 		{
 			std::cerr << "Missing argument." << std::endl;
@@ -268,9 +269,9 @@ int main(const int argc, char *argv[])
 			file.open(vm["archive"].as<std::string>(), archive::Archive::Mode::Read);
 			std::cout << reinterpret_cast<const char*>(file.getArchiveSignature().c_str()) << std::endl;
 		}
-		else if (vm.count("server"))
+		else if (vm.count("ipc"))
 		{
-			server::start();
+			ipc::connect(vm["ipc"].as<uint32_t>());
 		}
 		return 0;
 	}

@@ -39,24 +39,18 @@ constexpr Tout chkcast(Tin in)
 	return Tout(in);
 }
 
-template<std::integral T>
-constexpr std::array<std::byte, sizeof(T)> ToBigEndian(T in)
+// this will be in c++20
+template <class To, class From>
+typename std::enable_if<
+(sizeof(To) == sizeof(From)) &&
+std::is_trivially_copyable<From>::value &&
+std::is_trivial<To>::value,
+// this implementation requires that To is trivially default constructible
+To>::type
+// constexpr support needs compiler magic
+bit_cast(const From& src) noexcept
 {
-	std::array<std::byte, sizeof(T)> out;
-	for (int i = 0; i < sizeof(T); i++)
-	{
-		out[sizeof(T) - 1 - i] = std::byte((in >> (8 * i)) & 0xff);
-	}
-	return out;
-}
-
-template<std::integral T>
-constexpr T FromBigEndian(std::array<std::byte, sizeof(T)> in)
-{
-	T out = 0;
-	for (int i = 0; i < sizeof(T); i++)
-	{
-		out |= (T(in[sizeof(T) - 1 - i]) << (8 * i));
-	}
-	return out;
+	To dst;
+	std::memcpy(&dst, &src, sizeof(To));
+	return dst;
 }

@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <cstdint>
+
 #include <memory>
 #include <string>
 #include <optional>
@@ -13,19 +15,19 @@
 #include "../exceptions/exceptions.h"
 #include "../core.h"
 
-namespace server
+namespace ipc
 {
-	class JsonServer
+	class IpcWorker
 	{
 	public:
-		JsonServer();
-		JsonServer(const JsonServer&) = delete;
-		JsonServer& operator=(const JsonServer&) = delete;
-		JsonServer(JsonServer&&) = delete;
-		JsonServer& operator=(JsonServer&&) = delete;
-		~JsonServer() = default;
+		IpcWorker();
+		IpcWorker(const IpcWorker&) = delete;
+		IpcWorker& operator=(const IpcWorker&) = delete;
+		IpcWorker(IpcWorker&&) = delete;
+		IpcWorker& operator=(IpcWorker&&) = delete;
+		~IpcWorker() = default;
 		
-		void start_listen();
+		void connect(uint32_t port);
 	private:
 		using tcp = boost::asio::ip::tcp;
 		
@@ -33,7 +35,6 @@ namespace server
 		std::optional<archive::Archive> _file{};
 
 		boost::asio::io_context _io_context;
-		tcp::acceptor _acceptor;
 		tcp::socket _socket;
 
 		std::unique_ptr<Json::StreamWriter> _jsonwriter{};
@@ -45,6 +46,6 @@ namespace server
 		void _write(const char* msg);
 		void _write(const char* msg, const Json::Value& param);
 	};
-	void start();
+	void connect(uint32_t port);
 }
 

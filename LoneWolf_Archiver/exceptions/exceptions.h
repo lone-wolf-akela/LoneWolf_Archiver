@@ -51,10 +51,10 @@ public:
 	{}
 };
 
-class ServerError : public std::runtime_error
+class IpcError : public std::runtime_error
 {
 public:
-	explicit ServerError(std::string const& message) :
+	explicit IpcError(std::string const& message) :
 		runtime_error(message)
 	{}
 };
