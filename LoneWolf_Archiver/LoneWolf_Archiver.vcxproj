@@ -101,6 +101,7 @@ copy Drag_Folder_Here_to_Make_an_Archive.bat $(TargetDir)</Command>
     <ClInclude Include="buildfile\buildfile.h" />
     <ClInclude Include="compressor\compressor.h" />
     <ClInclude Include="core.h" />
+    <ClInclude Include="encoding\encoding.h" />
     <ClInclude Include="exceptions\exceptions.h" />
     <ClInclude Include="helper\helper.h" />
     <ClInclude Include="ipc\ipc.h" />
@@ -125,7 +126,6 @@ copy Drag_Folder_Here_to_Make_an_Archive.bat $(TargetDir)</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="archive\archive.cpp" />
-    <ClCompile Include="buildfile\convert2utf8.cpp" />
     <ClCompile Include="buildfile\genfile.cpp" />
     <ClCompile Include="buildfile\parsefile.cpp" />
     <ClCompile Include="buildfile\scanfiles.cpp" />

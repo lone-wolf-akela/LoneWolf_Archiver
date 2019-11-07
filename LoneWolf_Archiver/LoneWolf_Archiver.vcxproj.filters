@@ -58,6 +58,9 @@
     <Filter Include="头文件\ipc">
       <UniqueIdentifier>{62e7057f-bced-4900-a2e3-cf795b0ff7d6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\encoding">
+      <UniqueIdentifier>{ec7f8208-5bd7-41c6-878b-7a658b675d5c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThreadPool\ThreadPool.h">
@@ -135,13 +138,13 @@
     <ClInclude Include="ipc\ipc.h">
       <Filter>头文件\ipc</Filter>
     </ClInclude>
+    <ClInclude Include="encoding\encoding.h">
+      <Filter>头文件\encoding</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="LoneWolfArchiver.cpp">
       <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="buildfile\convert2utf8.cpp">
-      <Filter>源文件\buildfile</Filter>
     </ClCompile>
     <ClCompile Include="buildfile\genfile.cpp">
       <Filter>源文件\buildfile</Filter>

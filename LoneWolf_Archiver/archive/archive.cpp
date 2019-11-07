@@ -8,13 +8,12 @@
 #include <algorithm>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/locale.hpp>
 #include <openssl/md5.h>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #include "../stream/cipherstream.h"
-
+#include "../encoding/encoding.h"
 #include "../compressor/compressor.h"
 #include "../helper/helper.h"
 #include "archive.h"
@@ -718,8 +717,7 @@ namespace archive
 			archiveHeader = ArchiveHeader{
 				._ARCHIVE = {'_','A','R','C','H','I','V','E'},
 				.version = 2};
-			const std::u16string tmpU16str =
-				boost::locale::conv::utf_to_utf<char16_t>(task.name);
+			const std::u16string tmpU16str = encoding::toUTF16<char8_t>(task.name, "utf8");
 
 			std::copy_n(tmpU16str.begin(),
 				std::min(archiveHeader.archiveName.size() - 1,
@@ -1113,10 +1111,10 @@ namespace archive
 
 		Json::Value r(Json::objectValue);
 		// use .c_str() to trim '\0' at end
-		r["name"] = boost::locale::conv::utf_to_utf<char>(
+		r["name"] = encoding::fromUTF16<char>(
 			std::u16string(_internal->archiveHeader.archiveName.data(),
-				_internal->archiveHeader.archiveName.size())).c_str();
-
+				_internal->archiveHeader.archiveName.size()).c_str(),
+			"utf8");
 		r["tocs"] = Json::Value(Json::arrayValue);
 		for (TocEntry& toc : _internal->tocList)
 		{

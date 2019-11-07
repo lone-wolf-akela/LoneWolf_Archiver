@@ -1,6 +1,4 @@
-﻿#include "buildfile.h"
-
-#include <cassert>
+﻿#include <cassert>
 #include <cstring>
 
 #include <fstream>
@@ -13,6 +11,9 @@
 #include <boost/spirit/repository/include/qi_kwd.hpp>
 #include <boost/spirit/repository/include/qi_keywords.hpp>
 #pragma warning(pop)
+
+#include "../encoding/encoding.h"
+#include "buildfile.h"
 
 BOOST_FUSION_ADAPT_STRUCT(buildfile::FileSettingCommand::Param, wildcard, minsize, maxsize, ct)
 BOOST_FUSION_ADAPT_STRUCT(buildfile::FileSettingCommand, command, param)
@@ -115,7 +116,7 @@ namespace buildfile
 		std::stringstream buffer;
 		buffer << ifile.rdbuf();
 		
-		std::string bufstr = ConvertToUTF8(buffer.str());
+		std::string bufstr = encoding::toUTF8<char, char>(buffer.str());
 		std::string::iterator iter, eof;
 		// check & skip BOM head
 		// Also add a '\n', which is a hack to skip possible comment in the first line

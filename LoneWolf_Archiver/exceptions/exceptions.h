@@ -43,14 +43,6 @@ public:
 	{}
 };
 
-class SystemApiError : public std::runtime_error
-{
-public:
-	explicit SystemApiError(std::string const& message) :
-		runtime_error(message)
-	{}
-};
-
 class IpcError : public std::runtime_error
 {
 public:
@@ -71,6 +63,14 @@ class FatalError : public std::runtime_error
 {
 public:
 	explicit FatalError(std::string const& message = "") :
+		runtime_error(message)
+	{}
+};
+
+class EncodingError : public std::runtime_error
+{
+public:
+	explicit EncodingError(std::string const& message = "") :
 		runtime_error(message)
 	{}
 };

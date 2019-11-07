@@ -63,5 +63,4 @@ namespace buildfile
 	Archive parseFile(const std::filesystem::path& filepath);
 	void genFile(const std::filesystem::path& filepath, const Archive& archive);
 	std::vector<Archive> scanFiles(const std::filesystem::path& rootpath, bool allinone);
-	std::string ConvertToUTF8(std::string_view in);
 }
