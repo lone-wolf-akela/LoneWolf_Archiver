@@ -6,6 +6,7 @@
 #include <cmath>
 #include <array>
 #include <algorithm>
+#include <string_view>
 
 #include <boost/algorithm/string.hpp>
 #include <openssl/md5.h>
@@ -135,8 +136,8 @@ namespace
 	* File Data for all the files (including the 264 byte header
 	*		preceeding the file data of each file)
 	*/
-	constexpr char TOOL_SIG[] = "E01519D6-2DB7-4640-AF54-0A23319C56C3";
-	constexpr char ARCHIVE_SIG[] = "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF";
+	constexpr std::string_view TOOL_SIG = "E01519D6-2DB7-4640-AF54-0A23319C56C3";
+	constexpr std::string_view ARCHIVE_SIG = "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF";
 	/*data struct*/
 #pragma pack (1)
 	struct ArchiveHeader
@@ -880,7 +881,7 @@ namespace archive
 				std::array<std::byte, BUFFER_SIZE> buffer = {};
 				MD5_CTX md5_context;
 				MD5_Init(&md5_context);
-				MD5_Update(&md5_context, ARCHIVE_SIG, sizeof(ARCHIVE_SIG) - 1);
+				MD5_Update(&md5_context, ARCHIVE_SIG.data(), ARCHIVE_SIG.size());
 				stream.setpos(sizeof(ArchiveHeader));
 				size_t lengthToRead = archiveHeader.exactFileDataOffset - stream.getpos();
 				while (lengthToRead > buffer.size())
@@ -903,7 +904,7 @@ namespace archive
 					//calculate toolSignature
 					logger->info("Calculating Tool Signature...");
 					MD5_Init(&md5_context);
-					MD5_Update(&md5_context, TOOL_SIG, sizeof(TOOL_SIG) - 1);
+					MD5_Update(&md5_context, TOOL_SIG.data(), TOOL_SIG.size());
 					stream.setpos(sizeof(ArchiveHeader));
 					size_t lenthRead = buffer.size();
 					while (lenthRead == buffer.size())
