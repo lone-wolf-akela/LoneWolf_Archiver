@@ -105,6 +105,7 @@ copy Drag_Folder_Here_to_Make_an_Archive.bat $(TargetDir)</Command>
     <ClInclude Include="exceptions\exceptions.h" />
     <ClInclude Include="helper\helper.h" />
     <ClInclude Include="ipc\ipc.h" />
+    <ClInclude Include="LoneWolfArchiver.h" />
     <ClInclude Include="stream\cipher.h" />
     <ClInclude Include="stream\cipherstream.h" />
     <ClInclude Include="stream\filestream.h" />
@@ -133,6 +134,7 @@ copy Drag_Folder_Here_to_Make_an_Archive.bat $(TargetDir)</Command>
     <ClCompile Include="core.cpp" />
     <ClCompile Include="ipc\ipc.cpp" />
     <ClCompile Include="LoneWolfArchiver.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="stream\cipherstream.cpp" />
     <ClCompile Include="stream\filestream.cpp" />
     <ClCompile Include="stream\memmapfilestream.cpp" />

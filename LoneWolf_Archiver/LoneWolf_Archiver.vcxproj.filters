@@ -141,6 +141,9 @@
     <ClInclude Include="encoding\encoding.h">
       <Filter>头文件\encoding</Filter>
     </ClInclude>
+    <ClInclude Include="LoneWolfArchiver.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="LoneWolfArchiver.cpp">
@@ -211,6 +214,9 @@
     </ClCompile>
     <ClCompile Include="ipc\ipc.cpp">
       <Filter>源文件\ipc</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

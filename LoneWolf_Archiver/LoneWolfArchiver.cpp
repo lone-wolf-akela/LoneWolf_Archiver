@@ -14,23 +14,24 @@
 
 #include "ipc/ipc.h"
 #include "core.h"
+#include "LoneWolfArchiver.h"
 
 namespace po = boost::program_options;
 struct
 {
 	unsigned threadNum = std::thread::hardware_concurrency();
 	int compressLevel = 9;
-	bool keepSign = false;	
+	bool keepSign = false;
 	bool encryption = false;
 	uint_fast32_t encryption_key_seed = 0;
-	
+
 	std::vector<std::u8string> ignoreList = {};
 }options;
 
 #if !defined(_DEBUG)
 #define CATCH_EXCEPTION
 #endif
-int main(const int argc, char *argv[])
+int lonewolf_archiver(const int argc, const char** argv)
 {
 #if defined(CATCH_EXCEPTION)
 	try
@@ -58,13 +59,13 @@ int main(const int argc, char *argv[])
 					options.keepSign = config.get("keep_sign", false).asBool();
 					options.encryption = config.get("encryption", false).asBool();
 					options.encryption_key_seed = config.get("encryption_key_seed", 0).asUInt();
-					for (auto &v : config.get("ignore_list", {}))
+					for (auto& v : config.get("ignore_list", {}))
 					{
 						options.ignoreList.emplace_back(
 							reinterpret_cast<const char8_t*>(v.asCString()));
 					}
 				}
-				catch (const Json::Exception& e)
+				catch (const Json::Exception & e)
 				{
 					std::cerr << "'archive_config.json' format invalid. Some settings may use default values:" << std::endl;
 					std::cerr << e.what() << std::endl;
@@ -79,36 +80,36 @@ int main(const int argc, char *argv[])
 				"archive,a",
 				po::value<std::string>()->value_name("<archivefile>"),
 				"- Specify the name of the archive to operate on."
-			)
-			(
-				"create,c",
-				po::value<std::string>()->value_name("<buildfile>"),
-				"- Create an archive <archivefile> using the <buildfile> input file."
-			)
-			("generate,g", "- Create an archive <archivefile>. The tool will be scan the files in <rootpath> automatically so you dont't need to specify a <buildfile>.")
+				)
+				(
+					"create,c",
+					po::value<std::string>()->value_name("<buildfile>"),
+					"- Create an archive <archivefile> using the <buildfile> input file."
+					)
+					("generate,g", "- Create an archive <archivefile>. The tool will be scan the files in <rootpath> automatically so you dont't need to specify a <buildfile>.")
 			(
 				"root,r",
 				po::value<std::string>()->value_name("<rootpath>"),
 				"- Use the <rootpath> as the source folder. (required when -c, -g or -s used)"
-			)
-			(
-				"scan,s",
-				po::value<std::string>()->value_name("<outpout_buildfile>"),
-				"- Scan the files in <rootpath> and generate <outpout_buildfile> for latter use."
-			)
-			(
-				"thread,p",
-				po::value<unsigned>()->value_name("<threadnumber>")->
-				default_value(options.threadNum),
-				"- Use <threadnumber> threads to compress or uncompress. Default value is system logic core number."
-			)
-			(
-				"level",
-				po::value<int>()->value_name("<compresslevel>")->
-				default_value(options.compressLevel),
-				"- compress level. Should be an integer between 0 and 10: 1 gives best speed, 10 gives best compression, 0 gives no compression at all. Default value is 9, which is also what Relic's Archieve.exe uses. P.S. Level 10 is extremely slow!!"
-			)
-			("allinone,o", "- When using -g/-s with --allinone, all locales and the data will be built into the same big file (as separated TOCs); otherwise, when using -g/-s without --allinone, all locales will be built into their own big files.")
+				)
+				(
+					"scan,s",
+					po::value<std::string>()->value_name("<outpout_buildfile>"),
+					"- Scan the files in <rootpath> and generate <outpout_buildfile> for latter use."
+					)
+					(
+						"thread,p",
+						po::value<unsigned>()->value_name("<threadnumber>")->
+						default_value(options.threadNum),
+						"- Use <threadnumber> threads to compress or uncompress. Default value is system logic core number."
+						)
+						(
+							"level",
+							po::value<int>()->value_name("<compresslevel>")->
+							default_value(options.compressLevel),
+							"- compress level. Should be an integer between 0 and 10: 1 gives best speed, 10 gives best compression, 0 gives no compression at all. Default value is 9, which is also what Relic's Archieve.exe uses. P.S. Level 10 is extremely slow!!"
+							)
+							("allinone,o", "- When using -g/-s with --allinone, all locales and the data will be built into the same big file (as separated TOCs); otherwise, when using -g/-s without --allinone, all locales will be built into their own big files.")
 			("sign,i", "- Calculate tool signature when creating archives. When use --create or --generate without --sign, the tool will skip tool signature calculation to speed up the process.")
 			("list,l", "- List the contents of the archive <archivefile>.")
 			("test,t", "- Test the archive File, Check the CRC of each file.")
@@ -116,15 +117,15 @@ int main(const int argc, char *argv[])
 				"extract,e",
 				po::value<std::string>()->value_name("<extract location>"),
 				"- Extract the archive contents to the folder <extract location>."
-			)
-			("hash", "- List the hash on the archive.")
+				)
+				("hash", "- List the hash on the archive.")
 			("verbose,v", "- (This option is deprecated)")
 			(
 				"ipc",
 				po::value<uint32_t>()->value_name("<port>"),
 				"- Launch in ipc mode. Used for LoneWolfArchiverGUI."
-			)
-			("help,h", "- show this help message.")
+				)
+				("help,h", "- show this help message.")
 			;
 
 		po::variables_map vm;
@@ -179,14 +180,14 @@ int main(const int argc, char *argv[])
 			return 1;
 		}
 		if ((vm.count("generate") || vm.count("create") || vm.count("list") ||
-			vm.count("test")  || vm.count("hash")  || vm.count("generate")) && !vm.count("archive"))
+			vm.count("test") || vm.count("hash") || vm.count("generate")) && !vm.count("archive"))
 		{
 			std::cerr << "-a <archivefile>, required argument missing." << std::endl;
 			std::cout << std::endl;
 			std::cout << desc << std::endl;
 			std::cout << cmd_example << std::endl;
 			return 1;
-		}		
+		}
 		/************************/
 		if (vm.count("extract"))
 		{
@@ -246,7 +247,7 @@ int main(const int argc, char *argv[])
 		{
 			archive::Archive file(std::filesystem::path(
 				vm["archive"].as<std::string>()).filename().string());
-			file.open(vm["archive"].as<std::string>(),	archive::Archive::Mode::Read);
+			file.open(vm["archive"].as<std::string>(), archive::Archive::Mode::Read);
 			file.listFiles();
 		}
 		else if (vm.count("test"))
@@ -276,14 +277,14 @@ int main(const int argc, char *argv[])
 		return 0;
 	}
 #if defined(CATCH_EXCEPTION)
-	catch(const std::exception &e)
+	catch (const std::exception & e)
 	{
 		auto sink = std::make_shared<spdlog::sinks::stderr_color_sink_mt>();
 		auto logger = std::make_shared<spdlog::logger>("main", sink);
 		logger->error("Unhandled exception: {0}", typeid(e).name());
 		logger->error("Message: {0}", e.what());
 		logger->error("Aborted");
-		abort();
+		throw;
 	}
 #endif
 }

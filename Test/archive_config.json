@@ -1,0 +1,12 @@
+{
+  "thread_number": 0,   // number of threads to compress or uncompress. '0' means system logic core number.
+  "compress_level": 9,  // compress level. Should be an integer between 0 and 10: 1 gives best speed, 10 gives best compression, 0 gives no compression at all. Default value is 9, which is also what Relic's Archieve.exe uses. P.S. Level 10 is extremely slow!!
+  "keep_sign": false,   // whether to calculate tool signature when creating archives. when set to 'false', the tool will skip tool signature calculation to speed up the process.
+  "encryption": false,  // enable encryption when creating archives.
+  "encryption_key_seed": 3735928559, // key seed used in encryption. '0' means random generated key.
+  "ignore_list": [      // list of files & folders to ignore when  creating archives. works in 'create' command & 'generate' command, but not 'scan' command
+    "keeper.txt",       // only file names without path are supported.
+    ".git/",             // to ignore a folder, please add a '/' at the end of the folder name.
+    "do_not_pack_this/"        
+  ]
+}
