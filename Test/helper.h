@@ -15,7 +15,7 @@
 
 #include <openssl/md5.h>
 
-template<typename Lambda>
+template<std::invocable Lambda>
 constexpr auto GetStdout(Lambda code)
 {
 	const auto cout_buf = std::cout.rdbuf();
