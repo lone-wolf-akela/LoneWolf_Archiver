@@ -236,9 +236,8 @@ namespace LoneWolf_Archiver_GUI
 				filegrid.ItemsSource = null;
 
 				_archiver.Open(dialog.FileName);
-				var jsonvar = JToken.Parse(_archiver.GetFiletree());
+				var jsonFiletree = JToken.Parse(_archiver.GetFiletree());
 				_treeroot.Items.Clear();
-				var jsonFiletree = jsonvar["param"];
 				var name = (string)jsonFiletree["name"];
 				foreach (var toc in jsonFiletree["tocs"])
 				{
@@ -261,14 +260,25 @@ namespace LoneWolf_Archiver_GUI
 
 				var progress = new ExtractProgress();
 				progress.Show();
-				progress.Topmost = true;
+				//progress.Topmost = true;
 
 				var worker = new BackgroundWorker();
 				worker.DoWork += delegate
 				{
-					void Callback(int current, int max, string filename)
+					void Callback(MsgType type, string msg, int current, int max, string filename)
 					{
-						progress.Dispatcher?.BeginInvoke(new Action(() => { progress.Update(current, max, filename); }));
+						if (filename != null)
+						{
+							progress.Dispatcher?.BeginInvoke(new Action(() =>
+								{
+									progress.UpdateProgress(current, max, filename);
+								}));
+						}
+
+						if (msg != null)
+						{
+							progress.Dispatcher?.BeginInvoke(new Action(() => { progress.UpdateCurrentWork(msg); }));
+						}
 					}
 					_archiver.ExtractAll(dialog.SelectedPath, Callback);
 				};

@@ -7,7 +7,8 @@ using namespace System::Collections::Generic;
 
 namespace LoneWolfArchiverDotnet
 {
-	public delegate void ProgressCallback(int current, int max, String^ filename);
+	public enum class MsgType{INFO, WARN, ERR};
+	public delegate void ProgressCallback(MsgType type, String^ msg, int current, int max, String^ filename);
 	
 	public ref class Archiver
 	{

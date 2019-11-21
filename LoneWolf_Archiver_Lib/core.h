@@ -37,12 +37,12 @@ namespace core
 		bool keepSign,
 		const std::vector<std::u8string>& ignoreList,
 		uint_fast32_t encryption_key_seed,
-		const archive::ProgressCallback& callback
+		std::optional<archive::ProgressCallback> callback = std::nullopt
 	);
 	void extract(
 		archive::Archive& file,
 		const std::filesystem::path& rootpath,
 		size_t threadNum,
-		const archive::ProgressCallback& callback
+		std::optional<archive::ProgressCallback> callback = std::nullopt
 	);
 }

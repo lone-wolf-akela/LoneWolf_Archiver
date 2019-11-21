@@ -22,7 +22,7 @@ namespace libexport
 	void Interface::Open(std::wstring_view file) const
 	{
 		const std::filesystem::path filepath(file);
-		_internal->file = archive::Archive(filepath.filename().string());
+		_internal->file = archive::Archive();
 		_internal->file->open(filepath, archive::Archive::Mode::Read);
 	}
 
@@ -31,7 +31,7 @@ namespace libexport
 		const ProgressCallback& callback
 	) const
 	{
-		throw NotImplementedError();
+		core::extract(*_internal->file, output_path, std::thread::hardware_concurrency(), callback);
 	}
 
 	void Interface::ExtractFile(

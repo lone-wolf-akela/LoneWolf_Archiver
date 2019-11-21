@@ -12,10 +12,10 @@ namespace core
 		auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 		const auto logger = std::make_shared<spdlog::logger>(loggername, sink);
 		return [logger](
+			archive::MsgType type,
 			std::optional<std::string> msg,
 			int current, int max,
-			std::optional<std::string> filename,
-			archive::MsgType type
+			std::optional<std::string> filename
 			)
 		{
 			if(msg.has_value())
@@ -45,7 +45,7 @@ namespace core
 						std::string(complete, '#'),
 						std::string(incomplete, '-'),
 						lround(progress),
-						filename);
+						*filename);
 				}
 			}
 		};
@@ -61,17 +61,20 @@ namespace core
 		bool keepSign,
 		const std::vector<std::u8string>& ignoreList,
 		uint_fast32_t encryption_key_seed,
-		const archive::ProgressCallback& callback
+		std::optional<archive::ProgressCallback> callback
 	)
 	{
 		Timer t;
 		auto tasks = buildfile::scanFiles(rootpath, allinone);
+		
 		ThreadPool pool(threadNum);
 		std::vector<archive::Archive> files;
 		std::vector<std::future<void>> futurelist;
+
+		const bool need_gen_callbacks = !callback.has_value();
 		for (size_t i = 0; i < tasks.size(); i++)
 		{
-			files.emplace_back(tasks[i].filename);
+			files.emplace_back();
 			files.back().open(
 				0 == i ?
 				archivepath :
@@ -80,13 +83,17 @@ namespace core
 				archive::Archive::Mode::Write_Encrypted :
 				archive::Archive::Mode::Write_NonEncrypted,
 				encryption ? encryption_key_seed : 0);
+			if (need_gen_callbacks)
+			{
+				callback = makeLoggerCallback(tasks[i].filename);
+			}
 			futurelist.push_back(files.back().create(pool,
 				tasks[i],
 				rootpath,
 				compressLevel,
 				!keepSign,
 				ignoreList,
-				callback));
+				*callback));
 		}
 		for (auto& f : futurelist)
 		{
@@ -98,11 +105,15 @@ namespace core
 		archive::Archive& file,
 		const std::filesystem::path& rootpath,
 		size_t threadNum,
-		const archive::ProgressCallback& callback
+		std::optional<archive::ProgressCallback> callback
 	)
 	{
 		Timer t;
 		ThreadPool pool(threadNum);
-		file.extract(pool, rootpath, callback).get();
+		if(!callback.has_value())
+		{
+			callback = makeLoggerCallback("Extract");
+		}
+		file.extract(pool, rootpath, *callback).get();
 	}
 }

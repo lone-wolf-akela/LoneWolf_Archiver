@@ -9,13 +9,32 @@ namespace
 {
 	using LoneWolfArchiverDotnet::ProgressCallback;
 	using msclr::interop::marshal_as;
-
+	
 	auto to_cpp_callback(ProgressCallback^ callback)
 	{
-		gcroot<ProgressCallback^> c;
-		return [c](int current, int max, std::string filename)
+		gcroot<ProgressCallback^> c = callback;
+		return [c](
+			libexport::MsgType type,
+			std::optional<std::string> msg,
+			int current, int max,
+			std::optional<std::string> filename)
 		{
-			c->Invoke(current, max, marshal_as<String^>(filename));
+			LoneWolfArchiverDotnet::MsgType managed_type;
+			switch(type)
+			{
+			case libexport::INFO:
+				managed_type = LoneWolfArchiverDotnet::MsgType::INFO;
+				break;
+			case libexport::WARN:
+				managed_type = LoneWolfArchiverDotnet::MsgType::WARN;
+				break;
+			default: /*case libexport::ERR*/
+				managed_type = LoneWolfArchiverDotnet::MsgType::ERR;
+				break;
+			}
+			String^ managed_msg = msg.has_value() ? marshal_as<String^>(*msg) : nullptr;
+			String^ managed_filename = filename.has_value() ? marshal_as<String^>(*filename) : nullptr;
+			c->Invoke(managed_type, managed_msg, current, max, managed_filename);
 		};
 	}
 }
@@ -31,10 +50,7 @@ namespace LoneWolfArchiverDotnet
 
 	void Archiver::ExtractAll(String^ output_path, ProgressCallback^ callback)
 	{
-		_interface->ExtractAll(
-			marshal_as<std::wstring>(output_path),
-			to_cpp_callback(callback)
-		);
+		_interface->ExtractAll(marshal_as<std::wstring>(output_path), to_cpp_callback(callback));
 	}
 
 	void Archiver::ExtractFile(String^ output_path, String^ file_path, ProgressCallback^ callback)

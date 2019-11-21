@@ -23,13 +23,17 @@ namespace LoneWolf_Archiver_GUI
         {
             InitializeComponent();
         }
-		
-        public void Update(int current, int max, string filename)
+
+        public void UpdateCurrentWork(string currentwork)
         {
-			bar_progress.Value = current;
+	        lbl_currentwork.Text = currentwork;
+		}
+        public void UpdateProgress(int current, int max, string filename)
+		{ 
+	        bar_progress.Value = current;
 			bar_progress.Minimum = 0;
 			bar_progress.Maximum = max;
-			lbl_filename.Content = filename;
+			lbl_filename.Text = filename;
 		}
 
     }

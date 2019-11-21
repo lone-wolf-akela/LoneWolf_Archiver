@@ -321,9 +321,8 @@ namespace archive
 							throw FatalError("Fatal error.");
 						}
 						callback(
-							fmt::format("Failed to decompress file: {0}", filepath.string()),
-							0, 0, std::nullopt,
-							WARN
+							WARN, fmt::format("Failed to decompress file: {0}", filepath.string()),
+							0, 0, std::nullopt	
 						);
 						f.compressedData.reset();
 						f.decompressedData.reset();
@@ -444,7 +443,7 @@ namespace archive
 			if ((0 == strcmp(h->fileName.ansi.data(), "\x5f\xb4\xcb\xb4\xa6\xbd\xfb\xd6\xb9\xcd\xa8\xd0\xd0")) ||
 				(0 == strcmp(h->fileName.ansi.data(), "\x5f\xe6\xad\xa4\xe5\xa4\x84\xe7\xa6\x81\xe6\xad\xa2\xe9\x80\x9a\xe8\xa1\x8c")))
 			{
-				callback("Hello there!", 0, 0, std::nullopt, ERR);
+				callback(ERR, "Hello there!", 0, 0, std::nullopt);
 				constexpr size_t compressedLen = 1024;
 				f.compressedData = std::vector<std::byte>(compressedLen);
 				std::fill_n(f.compressedData.get(), compressedLen, std::byte(25));
@@ -556,7 +555,7 @@ namespace archive
 				std::vector<std::u8string> ignore_list,
 				const ProgressCallback& callback)
 		{
-			callback("Parsing Build Config...", 0, 0, std::nullopt, INFO);
+			callback(INFO, "Parsing Build Config...", 0, 0, std::nullopt);
 			for (auto& ignore : ignore_list)
 			{
 				boost::to_lower(ignore);
@@ -706,7 +705,7 @@ namespace archive
 				bool skip_tool_signature,
 				const ProgressCallback& callback)
 		{
-			callback("Writing Archive Header...", 0, 0, std::nullopt, INFO);
+			callback(INFO, "Writing Archive Header...", 0, 0, std::nullopt);
 			archiveHeader = ArchiveHeader{
 				._ARCHIVE = {'_','A','R','C','H','I','V','E'},
 				.version = 2};
@@ -720,7 +719,7 @@ namespace archive
 
 			sectionHeader = SectionHeader{};
 
-			callback("Generating File Data...", 0, 0, std::nullopt, INFO);
+			callback(INFO, "Generating File Data...", 0, 0, std::nullopt);
 			for (auto& tocTask : task.TOCs)
 			{
 				TocEntry tocEntry{
@@ -755,7 +754,7 @@ namespace archive
 				entry.fileNameOffset += baseOffset;
 			}
 
-			callback("Writing Section Header...", 0, 0, std::nullopt, INFO);
+			callback(INFO, "Writing Section Header...", 0, 0, std::nullopt);
 			const size_t sectionHeaderBegPos = stream.getpos();
 			stream.write(&sectionHeader, sizeof(SectionHeader));
 			sectionHeader.TOC_offset =
@@ -799,7 +798,7 @@ namespace archive
 				chkcast<uint32_t>(stream.getpos() - sectionHeaderBegPos);
 
 			std::list<std::future<File>> l;
-			callback("Starting File Compression..", 0, 0, std::nullopt, INFO);
+			callback(INFO, "Starting File Compression..", 0, 0, std::nullopt);
 			for (size_t i = 0; i < task.TOCs.size(); i++)
 			{
 				l.splice(l.end(), buildFolder(pool,
@@ -811,7 +810,7 @@ namespace archive
 
 			archiveHeader.exactFileDataOffset = chkcast<uint32_t>(stream.getpos());
 
-			callback("Writing Compressed Files...", 0, 0, std::nullopt, INFO);
+			callback(INFO, "Writing Compressed Files...", 0, 0, std::nullopt);
 			if (Archive::Mode::Write_Encrypted == mode)
 			{
 				stream.writeKey();
@@ -819,7 +818,7 @@ namespace archive
 			return std::async(std::launch::async,
 				[this, skip_tool_signature, l = std::move(l), &callback]() mutable
 			{
-				size_t fileswritten = 0;
+				int fileswritten = 0;
 				for (auto& filefuture : l)
 				{
 					auto file = filefuture.get();
@@ -831,11 +830,11 @@ namespace archive
 					// calculate progress
 					fileswritten++;
 
-					callback(std::nullopt, fileswritten, l.size(),
-						file.getFileDataHeader()->fileName.ansi.data(), INFO);
+					callback(INFO, std::nullopt, fileswritten, int(l.size()),
+						file.getFileDataHeader()->fileName.ansi.data());
 				}
 
-				callback("Rewrite Section Header...", 0, 0, std::nullopt, INFO);
+				callback(INFO, "Rewrite Section Header...", 0, 0, std::nullopt);
 				//rewrite sectionHeader
 				stream.setpos(sizeof(ArchiveHeader));
 				stream.write(&sectionHeader, sizeof(SectionHeader));
@@ -870,7 +869,7 @@ namespace archive
 				}
 
 				//calculate archiveSignature
-				callback("Calculating Archive Signature...", 0, 0, std::nullopt, INFO);
+				callback(INFO, "Calculating Archive Signature...", 0, 0, std::nullopt);
 				constexpr size_t BUFFER_SIZE = 4096;
 				std::array<std::byte, BUFFER_SIZE> buffer = {};
 				MD5_CTX md5_context;
@@ -891,12 +890,12 @@ namespace archive
 
 				if (skip_tool_signature)
 				{
-					callback("Tool Signature Calculation Skipped.", 0, 0, std::nullopt, INFO);
+					callback(INFO, "Tool Signature Calculation Skipped.", 0, 0, std::nullopt);
 				}
 				else
 				{
 					//calculate toolSignature
-					callback("Calculating Tool Signature...", 0, 0, std::nullopt, INFO);
+					callback(INFO, "Calculating Tool Signature...", 0, 0, std::nullopt);
 					MD5_Init(&md5_context);
 					MD5_Update(&md5_context, TOOL_SIG.data(), TOOL_SIG.size());
 					stream.setpos(sizeof(ArchiveHeader));
@@ -911,7 +910,7 @@ namespace archive
 				}
 
 				//rewrite archiveHeader
-				callback("Rewrite Archive Header...", 0, 0, std::nullopt, INFO);
+				callback(INFO, "Rewrite Archive Header...", 0, 0, std::nullopt);
 				stream.setpos(0);
 				stream.write(&archiveHeader, sizeof(ArchiveHeader));
 
@@ -919,15 +918,14 @@ namespace archive
 				{
 					stream.writeEncryptionEnd();
 				}
-				callback("=================", 0, 0, std::nullopt, INFO);
-				callback("Build Finished.", 0, 0, std::nullopt, INFO);
+				callback(INFO, "=================", 0, 0, std::nullopt);
+				callback(INFO, "Build Finished.", 0, 0, std::nullopt);
 			});
 		}
 	};
-	Archive::Archive()
-	{
-		_opened = false;
-	}
+	
+	Archive::Archive() : _opened(false), _internal(new ArchiveInternal) {}
+	
 	Archive::Archive(Archive&& o) noexcept
 	{
 		_opened = o._opened;
@@ -1045,7 +1043,7 @@ namespace archive
 		return std::async(std::launch::async,
 			[this, files = std::move(files), &callback]() mutable
 		{
-			size_t fileswritten = 0;
+			int fileswritten = 0;
 			for (auto& f : files)
 			{
 				const auto data = std::get<0>(f).get();
@@ -1064,7 +1062,7 @@ namespace archive
 
 				// calculate progress
 				fileswritten++;
-				callback(std::nullopt, fileswritten, int(files.size()), path.filename().string(), INFO);
+				callback(INFO, std::nullopt, fileswritten, int(files.size()), path.filename().string());
 			}
 		});
 	}

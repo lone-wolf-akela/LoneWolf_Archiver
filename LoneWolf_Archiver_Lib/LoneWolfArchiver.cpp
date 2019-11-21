@@ -189,16 +189,13 @@ int lonewolf_archiver(const int argc, const char** argv)
 			core::extract(
 				file,
 				vm["extract"].as<std::string>(),
-				options.threadNum,
-				core::makeLoggerCallback(std::filesystem::path(
-					vm["archive"].as<std::string>()).filename().string())
+				options.threadNum
 			);
 		}
 		else if (vm.count("create"))
 		{
 			core::Timer t;
-			archive::Archive file(std::filesystem::path(
-				vm["archive"].as<std::string>()).filename().string());
+			archive::Archive file;
 			file.open(vm["archive"].as<std::string>(),
 				options.encryption ?
 				archive::Archive::Mode::Write_Encrypted :
@@ -206,12 +203,15 @@ int lonewolf_archiver(const int argc, const char** argv)
 				options.encryption ? options.encryption_key_seed : 0);
 			auto task = buildfile::parseFile(vm["create"].as<std::string>());
 			ThreadPool pool(options.threadNum);
+			auto callback = core::makeLoggerCallback(std::filesystem::path(
+				vm["archive"].as<std::string>()).filename().string());
 			file.create(pool,
 				task,
 				vm["root"].as<std::string>(),
 				options.compressLevel,
 				!options.keepSign,
-				options.ignoreList).get();
+				options.ignoreList,
+				callback).get();
 		}
 		else if (vm.count("generate"))
 		{
@@ -241,8 +241,7 @@ int lonewolf_archiver(const int argc, const char** argv)
 		}
 		else if (vm.count("list"))
 		{
-			archive::Archive file(std::filesystem::path(
-				vm["archive"].as<std::string>()).filename().string());
+			archive::Archive file;
 			file.open(vm["archive"].as<std::string>(), archive::Archive::Mode::Read);
 			file.listFiles();
 		}
@@ -251,18 +250,18 @@ int lonewolf_archiver(const int argc, const char** argv)
 			core::Timer t;
 			std::cout << "Archive Self Testing" << std::endl;
 			std::cout << "TEST: RUNNING - Archive Self Integrity Check" << std::endl;
-			archive::Archive file(std::filesystem::path(
-				vm["archive"].as<std::string>()).filename().string());
+			archive::Archive file;
 			file.open(vm["archive"].as<std::string>(), archive::Archive::Mode::Read);
 			ThreadPool pool(options.threadNum);
-			bool passed = file.testArchive(pool).get();
+			auto callback = core::makeLoggerCallback(std::filesystem::path(
+				vm["archive"].as<std::string>()).filename().string());
+			bool passed = file.testArchive(pool, callback).get();
 			std::cout << "TEST: " << (passed ? "PASSED" : "FAILED")
 				<< "  - Archive Self Integrity Check" << std::endl;
 		}
 		else if (vm.count("hash"))
 		{
-			archive::Archive file(std::filesystem::path(
-				vm["archive"].as<std::string>()).filename().string());
+			archive::Archive file;
 			file.open(vm["archive"].as<std::string>(), archive::Archive::Mode::Read);
 			std::cout << reinterpret_cast<const char*>(file.getArchiveSignature().c_str()) << std::endl;
 		}

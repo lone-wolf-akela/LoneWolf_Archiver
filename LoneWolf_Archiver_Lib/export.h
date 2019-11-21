@@ -5,16 +5,21 @@
 #include <string_view>
 #include <vector>
 #include <functional>
+#include <optional>
 
 namespace libexport
 {
-	enum MsgType : uint8_t { INFO = 0, WARN = 1, ERR = 2 };
+	namespace defs
+	{
+		enum MsgType { INFO, WARN, ERR };
+	}
+	using namespace defs;
 	using ProgressCallback = std::function<
 		void(
+			MsgType type,
 			std::optional<std::string> msg,
 			int current, int max,
-			std::optional<std::string> filename,
-			MsgType type
+			std::optional<std::string> filename
 			)
 	>;
 	struct Internal;

@@ -83,34 +83,27 @@ namespace encoding
 		template<Char8 CharT>
 		std::basic_string<CharT> fromUChars(std::u16string_view in)
 		{
-			const auto len = ucnv_fromUChars(_ptr.getAlias(),
-				nullptr, 0,
-				in.data(), int32_t(in.size()),
-				&_status);
-			icuCheckFailure(_status);
-			std::basic_string<CharT> out(size_t(len), 0);
-			ucnv_fromUChars(_ptr.getAlias(),
+			const auto buffersize = UCNV_GET_MAX_BYTES_FOR_STRING(in.size(), ucnv_getMaxCharSize(_ptr.getAlias()));
+			std::basic_string<CharT> out(buffersize, 0);
+			const auto outlen = ucnv_fromUChars(_ptr.getAlias(),
 				reinterpret_cast<char*>(out.data()), int32_t(out.size()),
 				in.data(), int32_t(in.size()),
 				&_status);
 			icuCheckFailure(_status);
+			out.resize(outlen);
 			return out;
 		}
 		template<Char8 CharT>
 		std::u16string toUChars(std::basic_string_view<CharT> in)
 		{
-			const auto len = ucnv_toUChars(_ptr.getAlias(),
-				nullptr, 0,
-				reinterpret_cast<const char*>(in.data()), int32_t(in.size()),
-				&_status);
-			icuCheckFailure(_status);
-
-			std::u16string out(size_t(len), 0);
-			ucnv_toUChars(_ptr.getAlias(),
+			const auto buffersize = 2 * in.size();
+			std::u16string out(buffersize, 0);
+			const auto outlen = ucnv_toUChars(_ptr.getAlias(),
 				out.data(), int32_t(out.size()),
 				reinterpret_cast<const char*>(in.data()), int32_t(in.size()),
 				&_status);
 			icuCheckFailure(_status);
+			out.resize(outlen);
 			return out;
 		}
 	private:
