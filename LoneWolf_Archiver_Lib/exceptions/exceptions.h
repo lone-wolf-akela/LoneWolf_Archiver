@@ -43,14 +43,6 @@ public:
 	{}
 };
 
-class IpcError : public std::runtime_error
-{
-public:
-	explicit IpcError(std::string const& message) :
-		runtime_error(message)
-	{}
-};
-
 class UnkownError : public std::runtime_error
 {
 public:

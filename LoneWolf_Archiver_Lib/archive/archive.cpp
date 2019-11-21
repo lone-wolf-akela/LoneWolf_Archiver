@@ -21,25 +21,6 @@
 
 namespace
 {
-	void logProgress(spdlog::logger* logger,
-		size_t current,
-		size_t max,
-		std::string_view name)
-	{
-		const auto progress = double(current) * 100 / max;
-		// only output progress when progress at least 1%
-		if (lround(progress) != lround(double(current - 1) * 100 / max))
-		{
-			const auto complete = lround(progress * 0.3);
-			const auto incomplete = size_t(30) - complete;
-			logger->info("[{0}{1}] {2}%: {3}",
-				std::string(complete, '#'),
-				std::string(incomplete, '-'),
-				lround(progress),
-				name);
-		}
-	}
-
 	/// \brief			simple function to match filename with wildcard
 	/// \param needle	filename with wildcard
 	/// \param haystack	actual filename to test
@@ -223,7 +204,6 @@ namespace archive
 {
 	struct ArchiveInternal
 	{
-		std::shared_ptr<spdlog::logger> logger = nullptr;
 		Archive::Mode mode = Archive::Mode::Invalid;
 		stream::CipherStream stream = {};
 
@@ -280,7 +260,8 @@ namespace archive
 			extractFile(
 				ThreadPool& pool,
 				const std::filesystem::path& path,
-				uint16_t fileIndex)
+				uint16_t fileIndex,
+				const ProgressCallback& callback)
 		{
 			File f;
 			f.fileInfoEntry = &fileInfoList[fileIndex];
@@ -321,7 +302,7 @@ namespace archive
 					f.fileInfoEntry->compressedLen,
 					f.fileInfoEntry->decompressedLen);
 				r = std::async(std::launch::deferred,
-					[this, f = std::move(f), c = std::move(c), filepath]() mutable
+					[this, f = std::move(f), c = std::move(c), filepath, &callback]() mutable
 				{
 					try
 					{
@@ -339,7 +320,11 @@ namespace archive
 						{
 							throw FatalError("Fatal error.");
 						}
-						logger->warn("Failed to decompress file: {0}", filepath.string());
+						callback(
+							fmt::format("Failed to decompress file: {0}", filepath.string()),
+							0, 0, std::nullopt,
+							WARN
+						);
 						f.compressedData.reset();
 						f.decompressedData.reset();
 						f.fileInfoEntry->decompressedLen = 0;
@@ -353,7 +338,8 @@ namespace archive
 			extractFolder(
 				ThreadPool& pool,
 				const std::filesystem::path& root,
-				uint16_t folderIndex)
+				uint16_t folderIndex,
+				const ProgressCallback& callback)
 		{
 			std::list<std::tuple<std::future<File>, std::filesystem::path>> r;
 			FolderEntry& f = folderList[folderIndex];
@@ -368,11 +354,11 @@ namespace archive
 				root / fileNameLookUpTable[f.fileNameOffset]->name;
 			for (auto i = f.firstFileIndex; i < f.lastFileIndex; i++)
 			{
-				r.push_back(extractFile(pool, filepath, i));
+				r.push_back(extractFile(pool, filepath, i, callback));
 			}
 			for (auto i = f.firstSubFolderIndex; i < f.lastSubFolderIndex; i++)
 			{
-				r.splice(r.end(), extractFolder(pool, root, i));
+				r.splice(r.end(), extractFolder(pool, root, i, callback));
 			}
 			return r;
 		}
@@ -423,7 +409,8 @@ namespace archive
 				ThreadPool& pool,
 				const FileStruct& task,
 				FileInfoEntry& entry,
-				int compress_level)
+				int compress_level,
+				const ProgressCallback& callback)
 		{
 			File f;
 			f.fileInfoEntry = &entry;
@@ -457,7 +444,7 @@ namespace archive
 			if ((0 == strcmp(h->fileName.ansi.data(), "\x5f\xb4\xcb\xb4\xa6\xbd\xfb\xd6\xb9\xcd\xa8\xd0\xd0")) ||
 				(0 == strcmp(h->fileName.ansi.data(), "\x5f\xe6\xad\xa4\xe5\xa4\x84\xe7\xa6\x81\xe6\xad\xa2\xe9\x80\x9a\xe8\xa1\x8c")))
 			{
-				logger->critical("Hello there!");
+				callback("Hello there!", 0, 0, std::nullopt, ERR);
 				constexpr size_t compressedLen = 1024;
 				f.compressedData = std::vector<std::byte>(compressedLen);
 				std::fill_n(f.compressedData.get(), compressedLen, std::byte(25));
@@ -497,7 +484,8 @@ namespace archive
 				ThreadPool& pool,
 				const FolderStruct& task,
 				FolderEntry& entry,
-				int compress_level)
+				int compress_level,
+				const ProgressCallback& callback)
 		{
 			std::list<std::future<File>> l;
 			for (size_t i = 0; i < task.subFiles.size(); i++)
@@ -505,14 +493,16 @@ namespace archive
 				l.emplace_back(buildFile(pool,
 					task.subFiles[i],
 					fileInfoList[size_t(entry.firstFileIndex) + i],
-					compress_level));
+					compress_level,
+					callback));
 			}
 			for (size_t i = 0; i < task.subFolders.size(); i++)
 			{
 				l.splice(l.end(), buildFolder(pool,
 					task.subFolders[i],
 					folderList[size_t(entry.firstSubFolderIndex) + i],
-					compress_level));
+					compress_level,
+					callback));
 			}
 			return l;
 		}
@@ -563,9 +553,10 @@ namespace archive
 			parseTask(
 				buildfile::Archive& archive,
 				const std::filesystem::path& root,
-				std::vector<std::u8string> ignore_list)
+				std::vector<std::u8string> ignore_list,
+				const ProgressCallback& callback)
 		{
-			logger->info("Parsing Build Config...");
+			callback("Parsing Build Config...", 0, 0, std::nullopt, INFO);
 			for (auto& ignore : ignore_list)
 			{
 				boost::to_lower(ignore);
@@ -712,9 +703,10 @@ namespace archive
 				const ArchiveStruct& task,
 				ThreadPool& pool,
 				int compress_level,
-				bool skip_tool_signature)
+				bool skip_tool_signature,
+				const ProgressCallback& callback)
 		{
-			logger->info("Writing Archive Header...");
+			callback("Writing Archive Header...", 0, 0, std::nullopt, INFO);
 			archiveHeader = ArchiveHeader{
 				._ARCHIVE = {'_','A','R','C','H','I','V','E'},
 				.version = 2};
@@ -728,7 +720,7 @@ namespace archive
 
 			sectionHeader = SectionHeader{};
 
-			logger->info("Generating File Data...");
+			callback("Generating File Data...", 0, 0, std::nullopt, INFO);
 			for (auto& tocTask : task.TOCs)
 			{
 				TocEntry tocEntry{
@@ -763,7 +755,7 @@ namespace archive
 				entry.fileNameOffset += baseOffset;
 			}
 
-			logger->info("Writing Section Header...");
+			callback("Writing Section Header...", 0, 0, std::nullopt, INFO);
 			const size_t sectionHeaderBegPos = stream.getpos();
 			stream.write(&sectionHeader, sizeof(SectionHeader));
 			sectionHeader.TOC_offset =
@@ -807,24 +799,25 @@ namespace archive
 				chkcast<uint32_t>(stream.getpos() - sectionHeaderBegPos);
 
 			std::list<std::future<File>> l;
-			logger->info("Starting File Compression..");
+			callback("Starting File Compression..", 0, 0, std::nullopt, INFO);
 			for (size_t i = 0; i < task.TOCs.size(); i++)
 			{
 				l.splice(l.end(), buildFolder(pool,
 					task.TOCs[i].rootFolder,
 					folderList[tocList[i].startHierarchyFolderIndex],
-					compress_level));
+					compress_level,
+					callback));
 			}
 
 			archiveHeader.exactFileDataOffset = chkcast<uint32_t>(stream.getpos());
 
-			logger->info("Writing Compressed Files...");
+			callback("Writing Compressed Files...", 0, 0, std::nullopt, INFO);
 			if (Archive::Mode::Write_Encrypted == mode)
 			{
 				stream.writeKey();
 			}
 			return std::async(std::launch::async,
-				[this, skip_tool_signature, l = std::move(l)]() mutable
+				[this, skip_tool_signature, l = std::move(l), &callback]() mutable
 			{
 				size_t fileswritten = 0;
 				for (auto& filefuture : l)
@@ -837,11 +830,12 @@ namespace archive
 						file.fileInfoEntry->compressedLen);
 					// calculate progress
 					fileswritten++;
-					logProgress(logger.get(), fileswritten, l.size(),
-						file.getFileDataHeader()->fileName.ansi.data());
+
+					callback(std::nullopt, fileswritten, l.size(),
+						file.getFileDataHeader()->fileName.ansi.data(), INFO);
 				}
 
-				logger->info("Rewrite Section Header...");
+				callback("Rewrite Section Header...", 0, 0, std::nullopt, INFO);
 				//rewrite sectionHeader
 				stream.setpos(sizeof(ArchiveHeader));
 				stream.write(&sectionHeader, sizeof(SectionHeader));
@@ -876,7 +870,7 @@ namespace archive
 				}
 
 				//calculate archiveSignature
-				logger->info("Calculating Archive Signature...");
+				callback("Calculating Archive Signature...", 0, 0, std::nullopt, INFO);
 				constexpr size_t BUFFER_SIZE = 4096;
 				std::array<std::byte, BUFFER_SIZE> buffer = {};
 				MD5_CTX md5_context;
@@ -897,12 +891,12 @@ namespace archive
 
 				if (skip_tool_signature)
 				{
-					logger->info("Tool Signature Calculation Skipped.");
+					callback("Tool Signature Calculation Skipped.", 0, 0, std::nullopt, INFO);
 				}
 				else
 				{
 					//calculate toolSignature
-					logger->info("Calculating Tool Signature...");
+					callback("Calculating Tool Signature...", 0, 0, std::nullopt, INFO);
 					MD5_Init(&md5_context);
 					MD5_Update(&md5_context, TOOL_SIG.data(), TOOL_SIG.size());
 					stream.setpos(sizeof(ArchiveHeader));
@@ -917,7 +911,7 @@ namespace archive
 				}
 
 				//rewrite archiveHeader
-				logger->info("Rewrite Archive Header...");
+				callback("Rewrite Archive Header...", 0, 0, std::nullopt, INFO);
 				stream.setpos(0);
 				stream.write(&archiveHeader, sizeof(ArchiveHeader));
 
@@ -925,17 +919,14 @@ namespace archive
 				{
 					stream.writeEncryptionEnd();
 				}
-				logger->info("=================");
-				logger->info("Build Finished.");
+				callback("=================", 0, 0, std::nullopt, INFO);
+				callback("Build Finished.", 0, 0, std::nullopt, INFO);
 			});
 		}
 	};
-	Archive::Archive(const std::string& loggername)
+	Archive::Archive()
 	{
 		_opened = false;
-		_internal = std::unique_ptr<ArchiveInternal>(new ArchiveInternal);
-		auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-		_internal->logger =std::make_shared<spdlog::logger>(loggername, sink);
 	}
 	Archive::Archive(Archive&& o) noexcept
 	{
@@ -1037,18 +1028,22 @@ namespace archive
 		_internal->mode = mode;
 		_opened = true;
 	}
-	std::future<void> Archive::extract(ThreadPool& pool, const std::filesystem::path& root)
+	std::future<void> Archive::extract(
+		ThreadPool& pool,
+		const std::filesystem::path& root,
+		const ProgressCallback& callback
+	)
 	{
 		assert(Mode::Read == _internal->mode);
 		create_directories(root);
 		std::list<std::tuple<std::future<File>, std::filesystem::path>> files;
 		for (const TocEntry& toc : _internal->tocList)
 		{
-			auto r = _internal->extractFolder(pool, root / toc.name.data(), toc.startHierarchyFolderIndex);
+			auto r = _internal->extractFolder(pool, root / toc.name.data(), toc.startHierarchyFolderIndex, callback);
 			files.splice(files.end(), r);
 		}
 		return std::async(std::launch::async,
-			[this, files = std::move(files)]() mutable
+			[this, files = std::move(files), &callback]() mutable
 		{
 			size_t fileswritten = 0;
 			for (auto& f : files)
@@ -1069,8 +1064,7 @@ namespace archive
 
 				// calculate progress
 				fileswritten++;
-				logProgress(_internal->logger.get(), fileswritten, files.size(),
-					path.filename().string());
+				callback(std::nullopt, fileswritten, int(files.size()), path.filename().string(), INFO);
 			}
 		});
 	}
@@ -1080,14 +1074,17 @@ namespace archive
 		const std::filesystem::path& root,
 		int compress_level,
 		bool skip_tool_signature,
-		const std::vector<std::u8string>& ignore_list)
+		const std::vector<std::u8string>& ignore_list,
+		const ProgressCallback& callback
+	)
 	{
 		assert(Mode::Read != _internal->mode);
 		return _internal->buildTask(
-			_internal->parseTask(task, root, ignore_list),
+			_internal->parseTask(task, root, ignore_list, callback),
 			pool,
 			compress_level,
-			skip_tool_signature);
+			skip_tool_signature,
+			callback);
 	}
 	void Archive::listFiles() const
 	{
@@ -1129,13 +1126,13 @@ namespace archive
 		}
 		return r;
 	}
-	std::future<bool> Archive::testArchive(ThreadPool& pool)
+	std::future<bool> Archive::testArchive(ThreadPool& pool, const ProgressCallback& callback)
 	{
 		assert(Mode::Read == _internal->mode);
 		std::list<std::tuple<std::future<File>, std::filesystem::path>> files;
 		for (const TocEntry& toc : _internal->tocList)
 		{
-			auto r = _internal->extractFolder(pool, "", toc.startHierarchyFolderIndex);
+			auto r = _internal->extractFolder(pool, "", toc.startHierarchyFolderIndex, callback);
 			files.splice(files.end(), r);
 		}
 		return std::async(std::launch::async,

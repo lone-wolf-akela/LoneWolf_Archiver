@@ -22,6 +22,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Test", "Test\Test.vcxproj",
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LoneWolf_Archiver_Lib", "LoneWolf_Archiver_Lib\LoneWolf_Archiver_Lib.vcxproj", "{EDE78693-8040-4828-A141-35DD10DED7F9}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LoneWolf_Archiver_Dotnet", "LoneWolf_Archiver_Dotnet\LoneWolf_Archiver_Dotnet.vcxproj", "{0A15FB1A-C9A2-42CD-B4B2-6EB319470A37}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -44,6 +46,10 @@ Global
 		{EDE78693-8040-4828-A141-35DD10DED7F9}.Debug|x64.Build.0 = Debug|x64
 		{EDE78693-8040-4828-A141-35DD10DED7F9}.Release|x64.ActiveCfg = Release|x64
 		{EDE78693-8040-4828-A141-35DD10DED7F9}.Release|x64.Build.0 = Release|x64
+		{0A15FB1A-C9A2-42CD-B4B2-6EB319470A37}.Debug|x64.ActiveCfg = Debug|x64
+		{0A15FB1A-C9A2-42CD-B4B2-6EB319470A37}.Debug|x64.Build.0 = Debug|x64
+		{0A15FB1A-C9A2-42CD-B4B2-6EB319470A37}.Release|x64.ActiveCfg = Release|x64
+		{0A15FB1A-C9A2-42CD-B4B2-6EB319470A37}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

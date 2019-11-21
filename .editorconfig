@@ -1,7 +1,17 @@
+root = true
+
 [*.{c,cc,cxx,cpp,h,hpp}]
 indent_style = tab
 charset = utf-8-bom
 end_of_line = crlf
 trim_trailing_whitespace = true
 insert_final_newline = true
-guidelines = 80
+guidelines = 120
+
+[*.{cs,csx,cake,vb}]
+indent_style = tab
+charset = utf-8-bom
+end_of_line = crlf
+trim_trailing_whitespace = true
+insert_final_newline = true
+guidelines = 120

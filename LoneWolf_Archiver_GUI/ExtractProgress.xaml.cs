@@ -23,18 +23,14 @@ namespace LoneWolf_Archiver_GUI
         {
             InitializeComponent();
         }
-
-        public void init(uint totalNum)
+		
+        public void Update(int current, int max, string filename)
         {
-            readBar.Maximum = decompressBar.Maximum = writeBar.Maximum = totalNum;
-        }
-
-        public void Update(uint readNum, uint deCompressNum, uint writeNum)
-        {
-            readBar.Value = readNum;
-            decompressBar.Value = deCompressNum;
-            writeBar.Value = writeNum;
-        }
+			bar_progress.Value = current;
+			bar_progress.Minimum = 0;
+			bar_progress.Maximum = max;
+			lbl_filename.Content = filename;
+		}
 
     }
 }

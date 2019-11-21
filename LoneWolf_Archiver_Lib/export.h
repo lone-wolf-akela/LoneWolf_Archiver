@@ -1,0 +1,52 @@
+﻿#pragma once
+
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
+#include <functional>
+
+namespace libexport
+{
+	enum MsgType : uint8_t { INFO = 0, WARN = 1, ERR = 2 };
+	using ProgressCallback = std::function<
+		void(
+			std::optional<std::string> msg,
+			int current, int max,
+			std::optional<std::string> filename,
+			MsgType type
+			)
+	>;
+	struct Internal;
+	class Interface
+	{
+	public:
+		Interface();
+		///\note: we need this dtor to fully hide struct Internal into the .cpp file
+		~Interface();
+		Interface(const Interface&) = delete;
+		Interface& operator=(const Interface&) = delete;
+		Interface(Interface&&) = default;
+		Interface& operator=(Interface&&) = default;
+		
+		void Open(std::wstring_view file) const;
+		void ExtractAll(std::wstring output_path, const ProgressCallback& callback) const;
+		void ExtractFile(std::wstring output_path, std::wstring file_path, const ProgressCallback& callback) const;
+		void ExtractFolder(std::wstring output_path, std::wstring folder_path, const ProgressCallback& callback) const;
+		void ExtractToc(std::wstring output_path, std::wstring toc, const ProgressCallback& callback) const;
+		std::string GetFiletree() const;
+		void Generate(
+			std::wstring_view root,
+			bool all_in_one,
+			std::wstring_view archivepath,
+			int thread_num,
+			bool encryption,
+			int compress_level,
+			bool keep_sign,
+			const std::vector<std::wstring>& ignore_list,
+			uint_fast32_t seed
+		);
+	private:
+		std::unique_ptr<Internal> _internal;
+	};
+}

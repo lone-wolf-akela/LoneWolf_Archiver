@@ -11,14 +11,14 @@
             <RowDefinition Height="38*"/>
             <RowDefinition Height="109*"/>
         </Grid.RowDefinitions>
-        <UniformGrid Margin="2,0,0,0" Grid.Row="1" d:LayoutOverrides="LeftMargin, RightMargin, TopMargin, BottomMargin" Rows="3">
-            <Viewbox StretchDirection="DownOnly" Stretch="UniformToFill">
+        <UniformGrid Margin="2,0,0,0" Grid.Row="1" d:LayoutOverrides="LeftMargin, RightMargin, TopMargin, BottomMargin" Rows="2">
+            <Viewbox StretchDirection="DownOnly" Stretch="UniformToFill" Margin="0,0,-0.4,0">
                 <StackPanel Height="30.368" Width="413.663" Orientation="Horizontal">
                     <Grid Width="78.4">
-                        <Label Content="读取：" Margin="10,0" d:LayoutOverrides="Height" FontFamily="DengXian" FontSize="16" VerticalContentAlignment="Center"/>
+                        <Label Content="解压：" Margin="10,0" d:LayoutOverrides="Height" FontSize="14" VerticalContentAlignment="Center"/>
                     </Grid>
                     <Grid Width="335.2">
-                        <ProgressBar x:Name="readBar" Margin="10,5" Value="50">
+                        <ProgressBar x:Name="bar_progress" Margin="10,5" Value="50">
                             <ProgressBar.Background>
                                 <SolidColorBrush Color="{DynamicResource {x:Static SystemColors.HighlightTextColorKey}}"/>
                             </ProgressBar.Background>
@@ -28,35 +28,15 @@
             </Viewbox>
             <Viewbox StretchDirection="DownOnly" Stretch="UniformToFill">
                 <StackPanel Height="30.368" Width="413.663" Orientation="Horizontal">
-                    <Grid Width="78.4">
-                        <Label Content="解压：" Margin="10,0" d:LayoutOverrides="Height" FontFamily="DengXian" FontSize="16" VerticalContentAlignment="Center"/>
-                    </Grid>
+                    <Grid Width="78.4"/>
                     <Grid Width="335.2">
-                        <ProgressBar x:Name="decompressBar" Margin="10,5" Value="50">
-                            <ProgressBar.Background>
-                                <SolidColorBrush Color="{DynamicResource {x:Static SystemColors.HighlightTextColorKey}}"/>
-                            </ProgressBar.Background>
-                        </ProgressBar>
-                    </Grid>
-                </StackPanel>
-            </Viewbox>
-            <Viewbox StretchDirection="DownOnly" Stretch="UniformToFill">
-                <StackPanel Height="30.368" Width="413.663" Orientation="Horizontal">
-                    <Grid Width="78.4">
-                        <Label Content="保存：" Margin="10,0" d:LayoutOverrides="Height" FontFamily="DengXian" FontSize="16" VerticalContentAlignment="Center"/>
-                    </Grid>
-                    <Grid Width="335.2">
-                        <ProgressBar x:Name="writeBar" Margin="10,5" Value="50">
-                            <ProgressBar.Background>
-                                <SolidColorBrush Color="White"/>
-                            </ProgressBar.Background>
-                        </ProgressBar>
+                        <Label x:Name="lbl_filename" Content="" Margin="10,0" Width="315.2" FontSize="14"/>
                     </Grid>
                 </StackPanel>
             </Viewbox>
         </UniformGrid>
         <Viewbox Margin="10" Stretch="UniformToFill" StretchDirection="DownOnly" d:LayoutOverrides="LeftMargin, RightMargin, TopMargin, BottomMargin">
-            <Label Content="正在解包……" FontFamily="DengXian" FontSize="35" Width="400.361" Height="46.83"/>
+            <Label Content="正在解包……" FontSize="24" Width="400.361" Height="46.83"/>
         </Viewbox>
 
     </Grid>

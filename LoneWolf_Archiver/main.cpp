@@ -1,4 +1,4 @@
-﻿#include "LoneWolfArchiver.h"
+﻿#include "../LoneWolf_Archiver_Lib/LoneWolfArchiver.h"
 
 int main(const int argc, const char* argv[])
 {

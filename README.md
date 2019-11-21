@@ -48,16 +48,12 @@ Install cmake and type:
 This tool can create encrypted .big files which can't be decrypted by this tool itself. With this source code, I believe some of you are able to create tools to decrypt those .big files. I trust you guys and I hope you won't release those decryption tools publicly or use them to do bad things.
 
 ## Copyright Notices ##
-- Uses boost C++ libraries:
-	- iostreams/device/mapped_file.hpp
-	- program_options.hpp
-	- algorithm/string.hpp
-	- filesystem.hpp
-	- locale.hpp
-	- hof.hpp
-- Uses zlib library.
-- Uses openSSL library.
-- Uses jsoncpp library.
+- Uses [boost](https://www.boost.org/) C++ libraries.
+- Uses [zlib](https://www.zlib.net/) library.
+- Uses [openSSL](https://www.openssl.org/) library.
+- Uses [jsoncpp](https://github.com/open-source-parsers/jsoncpp) library.
+- Uses [icu](http://site.icu-project.org/) library.
+- Uses [zopfli](https://github.com/google/zopfli) library.
 - Uses [spdlog](https://github.com/gabime/spdlog) library
 - Uses [ThreadPool](https://github.com/progschj/ThreadPool) library.
 - Uses code from [bigDecrypter](https://github.com/mon/bigDecrypter) project.

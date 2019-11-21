@@ -12,7 +12,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#include "ipc/ipc.h"
+#include "archive/archive.h"
 #include "core.h"
 #include "LoneWolfArchiver.h"
 
@@ -120,12 +120,6 @@ int lonewolf_archiver(const int argc, const char** argv)
 				)
 				("hash", "- List the hash on the archive.")
 			("verbose,v", "- (This option is deprecated)")
-			(
-				"ipc",
-				po::value<uint32_t>()->value_name("<port>"),
-				"- Launch in ipc mode. Used for LoneWolfArchiverGUI."
-				)
-				("help,h", "- show this help message.")
 			;
 
 		po::variables_map vm;
@@ -160,8 +154,7 @@ int lonewolf_archiver(const int argc, const char** argv)
 			vm.count("list") ||
 			vm.count("test") ||
 			vm.count("hash") ||
-			vm.count("extract") ||
-			vm.count("ipc")
+			vm.count("extract")
 			))
 		{
 			std::cerr << "Missing argument." << std::endl;
@@ -191,12 +184,15 @@ int lonewolf_archiver(const int argc, const char** argv)
 		/************************/
 		if (vm.count("extract"))
 		{
-			core::Timer t;
-			archive::Archive file(std::filesystem::path(
-				vm["archive"].as<std::string>()).filename().string());
+			archive::Archive file;
 			file.open(vm["archive"].as<std::string>(), archive::Archive::Mode::Read);
-			ThreadPool pool(options.threadNum);
-			file.extract(pool, vm["extract"].as<std::string>()).get();
+			core::extract(
+				file,
+				vm["extract"].as<std::string>(),
+				options.threadNum,
+				core::makeLoggerCallback(std::filesystem::path(
+					vm["archive"].as<std::string>()).filename().string())
+			);
 		}
 		else if (vm.count("create"))
 		{
@@ -269,10 +265,6 @@ int lonewolf_archiver(const int argc, const char** argv)
 				vm["archive"].as<std::string>()).filename().string());
 			file.open(vm["archive"].as<std::string>(), archive::Archive::Mode::Read);
 			std::cout << reinterpret_cast<const char*>(file.getArchiveSignature().c_str()) << std::endl;
-		}
-		else if (vm.count("ipc"))
-		{
-			ipc::connect(vm["ipc"].as<uint32_t>());
 		}
 		return 0;
 	}

@@ -26,6 +26,7 @@ namespace core
 	private:
 		decltype(std::chrono::system_clock::now()) start = {};
 	};
+	archive::ProgressCallback makeLoggerCallback(const std::string& loggername);
 	void generate(
 		const std::filesystem::path& rootpath,
 		bool allinone,
@@ -35,6 +36,13 @@ namespace core
 		int compressLevel,
 		bool keepSign,
 		const std::vector<std::u8string>& ignoreList,
-		uint_fast32_t encryption_key_seed = 0
+		uint_fast32_t encryption_key_seed,
+		const archive::ProgressCallback& callback
+	);
+	void extract(
+		archive::Archive& file,
+		const std::filesystem::path& rootpath,
+		size_t threadNum,
+		const archive::ProgressCallback& callback
 	);
 }
