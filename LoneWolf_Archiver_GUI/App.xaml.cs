@@ -13,5 +13,15 @@ namespace LoneWolf_Archiver_GUI
     /// </summary>
     public partial class App : Application
     {
-    }
+	    private void UnhandledException(object sender,
+		    System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+	    {
+		    MessageBox.Show(
+			    string.Format("An unhandled exception occurred. Error message: {0}", e.Exception.Message),
+			    "Error",
+			    MessageBoxButton.OK,
+			    MessageBoxImage.Error
+		    );
+	    }
+	}
 }
