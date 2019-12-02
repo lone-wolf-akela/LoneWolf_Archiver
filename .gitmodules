@@ -1,3 +1,6 @@
 [submodule "LoneWolf_Archiver_Lib/zopfli"]
 	path = LoneWolf_Archiver_Lib/zopfli
 	url = https://github.com/google/zopfli.git
+[submodule "LoneWolf_Archiver_Lib/spdlog"]
+	path = LoneWolf_Archiver_Lib/spdlog
+	url = https://github.com/gabime/spdlog.git
