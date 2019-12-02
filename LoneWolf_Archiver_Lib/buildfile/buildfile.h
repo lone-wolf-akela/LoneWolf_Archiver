@@ -6,9 +6,10 @@
 #include <list>
 #include <filesystem>
 
-#include <boost/optional.hpp>
+#include <boost/optional/optional.hpp>
 
 #include "../exceptions/exceptions.h"
+
 
 namespace buildfile
 {
