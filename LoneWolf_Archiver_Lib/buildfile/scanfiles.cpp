@@ -54,7 +54,7 @@ namespace buildfile
 		// 1
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.*",
 			.minsize = -1,
 			.maxsize = 100,
@@ -62,7 +62,7 @@ namespace buildfile
 		// 2
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.mp3",
 			.minsize = -1,
 			.maxsize = -1,
@@ -70,7 +70,7 @@ namespace buildfile
 		// 3
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.wav",
 			.minsize = -1,
 			.maxsize = -1,
@@ -78,7 +78,7 @@ namespace buildfile
 		// 4
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.jpg",
 			.minsize = -1,
 			.maxsize = -1,
@@ -86,7 +86,7 @@ namespace buildfile
 		// 5
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.lua",
 			.minsize = -1,
 			.maxsize = -1,
@@ -94,7 +94,7 @@ namespace buildfile
 		// 6
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.fda",
 			.minsize = -1,
 			.maxsize = -1,
@@ -104,7 +104,7 @@ namespace buildfile
 		// 7
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.txt",
 			.minsize = -1,
 			.maxsize = -1,
@@ -112,7 +112,7 @@ namespace buildfile
 		// 8
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.ship",
 			.minsize = -1,
 			.maxsize = -1,
@@ -120,7 +120,7 @@ namespace buildfile
 		// 9
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.resource",
 			.minsize = -1,
 			.maxsize = -1,
@@ -128,7 +128,7 @@ namespace buildfile
 		// 10
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.pebble",
 			.minsize = -1,
 			.maxsize = -1,
@@ -136,7 +136,7 @@ namespace buildfile
 		// 11
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.level",
 			.minsize = -1,
 			.maxsize = -1,
@@ -144,7 +144,7 @@ namespace buildfile
 		// 12
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.wepn",
 			.minsize = -1,
 			.maxsize = -1,
@@ -152,7 +152,7 @@ namespace buildfile
 		// 13
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.subs",
 			.minsize = -1,
 			.maxsize = -1,
@@ -160,7 +160,7 @@ namespace buildfile
 		// 14
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.miss",
 			.minsize = -1,
 			.maxsize = -1,
@@ -168,7 +168,7 @@ namespace buildfile
 		// 15
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.events",
 			.minsize = -1,
 			.maxsize = -1,
@@ -176,7 +176,7 @@ namespace buildfile
 		// 16
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.madstate",
 			.minsize = -1,
 			.maxsize = -1,
@@ -184,7 +184,7 @@ namespace buildfile
 		// 17
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.script",
 			.minsize = -1,
 			.maxsize = -1,
@@ -192,7 +192,7 @@ namespace buildfile
 		// 18
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.ti",
 			.minsize = -1,
 			.maxsize = -1,
@@ -200,7 +200,7 @@ namespace buildfile
 		// 19
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.st",
 			.minsize = -1,
 			.maxsize = -1,
@@ -208,7 +208,7 @@ namespace buildfile
 		// 20
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.vp",
 			.minsize = -1,
 			.maxsize = -1,
@@ -216,7 +216,7 @@ namespace buildfile
 		// 21
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.wf",
 			.minsize = -1,
 			.maxsize = -1,
@@ -224,7 +224,7 @@ namespace buildfile
 		// 22
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.anim",
 			.minsize = -1,
 			.maxsize = -1,
@@ -232,7 +232,7 @@ namespace buildfile
 		// 23
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.mres",
 			.minsize = -1,
 			.maxsize = -1,
@@ -240,7 +240,7 @@ namespace buildfile
 		// 24
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.navs",
 			.minsize = -1,
 			.maxsize = -1,
@@ -248,7 +248,7 @@ namespace buildfile
 		// 25
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.mc",
 			.minsize = -1,
 			.maxsize = -1,
@@ -256,7 +256,7 @@ namespace buildfile
 		// 26
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.mtga",
 			.minsize = -1,
 			.maxsize = -1,
@@ -264,7 +264,7 @@ namespace buildfile
 		// 27
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.levels",
 			.minsize = -1,
 			.maxsize = -1,
@@ -272,7 +272,7 @@ namespace buildfile
 		// 28
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.campaign",
 			.minsize = -1,
 			.maxsize = -1,
@@ -280,7 +280,7 @@ namespace buildfile
 		// 29
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.flare",
 			.minsize = -1,
 			.maxsize = -1,
@@ -288,7 +288,7 @@ namespace buildfile
 		// 30
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.dustcloud",
 			.minsize = -1,
 			.maxsize = -1,
@@ -296,7 +296,7 @@ namespace buildfile
 		// 31
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.cloud",
 			.minsize = -1,
 			.maxsize = -1,
@@ -304,7 +304,7 @@ namespace buildfile
 		// 32
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.ahod",
 			.minsize = -1,
 			.maxsize = -1,
@@ -312,7 +312,7 @@ namespace buildfile
 		// 33
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.lod",
 			.minsize = -1,
 			.maxsize = -1,
@@ -320,7 +320,7 @@ namespace buildfile
 		// 34
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::SkipFile ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"Keeper.txt",
 			.minsize = -1,
 			.maxsize = -1,
@@ -328,7 +328,7 @@ namespace buildfile
 		// 35
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::SkipFile ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"*.big",
 			.minsize = -1,
 			.maxsize = -1,
@@ -336,12 +336,12 @@ namespace buildfile
 		// 36
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::SkipFile ,
-			.param = FileSettingCommand::Param{
+			.param{
 			.wildcard = u8"_.*",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = boost::none} });
-		
+
 		std::list<std::filesystem::path> allfiles = findAllFiles(rootpath);
 		// find all languages in "locale" folder
 		std::map<std::filesystem::path, std::list<std::filesystem::path>> locales;
@@ -378,7 +378,7 @@ namespace buildfile
 		// build our base archive
 		archive_list.emplace_back(Archive{ .name = u8"MOD" + u8modname,.filename = modname });
 		archive_list.back().TOCs.emplace_back(TOC{
-			.param = TOC::Param{
+			.param{
 			.name = u8"TOC" + u8modname,
 			.alias = u8"Data",
 			.relativeroot = u8""},
@@ -396,7 +396,7 @@ namespace buildfile
 					.name = u8"MOD" + u8modname + u8locname,.filename = locname });
 			}
 			archive_list.back().TOCs.emplace_back(TOC{
-				.param = TOC::Param{
+				.param{
 				.name = u8"TOC" + u8modname + u8locname,
 				.alias = u8"Locale",
 				.relativeroot = u8"locale\\" + u8locname },
