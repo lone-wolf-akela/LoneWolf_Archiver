@@ -37,6 +37,6 @@ namespace stream
 	}
 	void OptionalOwnerBuffer::reset()
 	{
-		data = decltype(data)();
+		data = {};
 	}
 }
