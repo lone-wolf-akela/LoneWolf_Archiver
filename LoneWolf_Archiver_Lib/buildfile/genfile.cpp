@@ -32,7 +32,6 @@ BOOST_FUSION_ADAPT_ADT(
 namespace
 {
 	namespace karma = boost::spirit::karma;
-	namespace stdw = boost::spirit::standard_wide;
 
 	template <typename Iter>
 	struct builfile_gen : karma::grammar<Iter, buildfile::Archive()>
@@ -77,7 +76,7 @@ namespace
 				(buildfile::Compression(1), "\"1\"")
 				(buildfile::Compression(2), "\"2\"");
 
-			quoted_string = '"' << *stdw::char_ << '"';
+			quoted_string = '"' << *karma::char_ << '"';
 		}
 
 		karma::symbols<buildfile::FileSettingCommand::Command, const char*> command_sym;
