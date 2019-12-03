@@ -61,9 +61,6 @@
     <Filter Include="源文件\stream">
       <UniqueIdentifier>{1f87dba0-5078-4a62-bef5-853956fc6033}</UniqueIdentifier>
     </Filter>
-    <Filter Include="源文件\ThreadPool">
-      <UniqueIdentifier>{0265b0be-aaec-404b-9a88-22900fb6783c}</UniqueIdentifier>
-    </Filter>
     <Filter Include="源文件\zopfli">
       <UniqueIdentifier>{99d27df4-6c7a-43b4-a525-705befe112b4}</UniqueIdentifier>
     </Filter>
@@ -138,9 +135,6 @@
     <ClInclude Include="stream\memmapfilestream.h">
       <Filter>头文件\stream</Filter>
     </ClInclude>
-    <ClInclude Include="ThreadPool\ThreadPool.h">
-      <Filter>头文件\ThreadPool</Filter>
-    </ClInclude>
     <ClInclude Include="core.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -149,6 +143,9 @@
     </ClInclude>
     <ClInclude Include="export.h">
       <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreadPool\ThreadPool.h">
+      <Filter>头文件\ThreadPool</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -226,9 +223,6 @@
     </ClCompile>
     <ClCompile Include="stream\memmapfilestream.cpp">
       <Filter>源文件\stream</Filter>
-    </ClCompile>
-    <ClCompile Include="ThreadPool\ThreadPool.cpp">
-      <Filter>源文件\ThreadPool</Filter>
     </ClCompile>
     <ClCompile Include="core.cpp">
       <Filter>源文件</Filter>
