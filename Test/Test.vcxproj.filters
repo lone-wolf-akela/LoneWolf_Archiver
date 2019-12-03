@@ -20,7 +20,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="basic_read.cpp">
+    <ClCompile Include="basic_readwrite.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

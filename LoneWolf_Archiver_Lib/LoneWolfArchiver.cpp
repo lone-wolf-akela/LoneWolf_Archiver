@@ -9,8 +9,8 @@
 
 #include <boost/program_options.hpp>
 #include <json/json.h>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
+#include "spdlog/include/spdlog/spdlog.h"
+#include "spdlog/include/spdlog/sinks/stdout_color_sinks.h"
 
 #include "archive/archive.h"
 #include "core.h"

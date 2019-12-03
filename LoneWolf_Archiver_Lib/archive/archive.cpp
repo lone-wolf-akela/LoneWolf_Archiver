@@ -10,8 +10,8 @@
 
 #include <boost/algorithm/string.hpp>
 #include <openssl/md5.h>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
+#include "../spdlog/include/spdlog/spdlog.h"
+#include "../spdlog/include/spdlog/sinks/stdout_color_sinks.h"
 
 #include "../stream/cipherstream.h"
 #include "../encoding/encoding.h"
@@ -1014,11 +1014,13 @@ namespace archive
 		break;
 		case Mode::Write_NonEncrypted:
 		{
+			create_directories(filepath.parent_path());
 			_internal->stream.open(filepath, stream::CipherStreamState::Write_NonEncrypted);
 		}
 		break;
 		default: // Write_Encrypted
 		{
+			create_directories(filepath.parent_path());
 			_internal->stream.open(filepath, stream::CipherStreamState::Write_Encrypted);
 		}
 		break;
@@ -1051,8 +1053,11 @@ namespace archive
 				create_directories(path.parent_path());
 				{
 					std::ofstream ofile(path, std::ios::binary);
-					if (!ofile) throw FileIoError("Failed to open file: " +
-						path.string() + " for output");
+					if (!ofile)
+					{
+						throw FileIoError("Failed to open file: " +
+							path.string() + " for output");
+					}
 					ofile.write(
 						reinterpret_cast<const char*>(data.decompressedData.get_const()),
 						data.fileInfoEntry->decompressedLen);

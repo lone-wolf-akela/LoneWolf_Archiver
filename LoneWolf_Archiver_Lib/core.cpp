@@ -1,5 +1,5 @@
-﻿#include <spdlog/logger.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
+﻿#include "spdlog/include/spdlog/logger.h"
+#include "spdlog/include/spdlog/sinks/stdout_color_sinks.h"
 
 #include "core.h"
 

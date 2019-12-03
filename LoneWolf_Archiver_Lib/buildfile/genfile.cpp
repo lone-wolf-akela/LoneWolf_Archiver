@@ -26,7 +26,7 @@ BOOST_FUSION_ADAPT_STRUCT(buildfile::Archive, name, TOCs)
 ///			to keep compatible with Relic's old Archive.exe
 BOOST_FUSION_ADAPT_ADT(
 	std::filesystem::path,
-	(obj.string(), std::ignore)
+	(absolute(obj).string(), std::ignore)
 )
 
 namespace
@@ -100,11 +100,14 @@ namespace buildfile
 {	
 	void genFile(const std::filesystem::path& filepath, const Archive& archive)
 	{
+		create_directories(filepath.parent_path());
 		std::ofstream ofile(filepath);
 
-		if (!ofile) throw FileIoError("Failed to open file: " +
-			filepath.string() + " for output");
-
+		if (!ofile)
+		{
+			throw FileIoError("Failed to open file: " +
+				filepath.string() + " for output");
+		}
 		std::string generated;
 		std::back_insert_iterator<std::string> iter(generated);
 		const builfile_gen<decltype(iter)> gen;

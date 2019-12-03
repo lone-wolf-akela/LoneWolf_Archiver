@@ -153,7 +153,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="basic_read.cpp" />
+    <ClCompile Include="basic_readwrite.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="helper.h" />
