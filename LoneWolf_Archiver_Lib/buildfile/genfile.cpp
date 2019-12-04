@@ -1,4 +1,8 @@
-﻿#include <cassert>
+﻿// workaround of https://github.com/boostorg/proto/issues/18
+// should be removed after the release of Boost 1.72
+#include "../workaround/generate.hpp"
+
+#include <cassert>
 
 #include <fstream>
 #include <iterator>
