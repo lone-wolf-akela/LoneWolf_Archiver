@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <numeric>
 
-#include <boost/endian/conversion.h>
+#include <boost/endian/conversion.hpp>
 
 #include "../helper/helper.h"
 #include "compressor.h"

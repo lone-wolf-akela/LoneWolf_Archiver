@@ -6,7 +6,6 @@
 
 #pragma warning(push)
 #pragma warning(disable : 4828)
-#include <boost/config/warning_disable.hpp>
 #include <boost/spirit/home/x3.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
 #pragma warning(pop)
@@ -14,13 +13,10 @@
 #include "../encoding/encoding.h"
 #include "buildfile.h"
 
-//BOOST_FUSION_ADAPT_STRUCT(buildfile::FileSettingCommand::Param, wildcard, minsize, maxsize, ct)
-
 BOOST_FUSION_ADAPT_STRUCT(buildfile::FileSettingCommand, command, param)
 BOOST_FUSION_ADAPT_STRUCT(buildfile::FileSettings::Param, defcompression)
 BOOST_FUSION_ADAPT_STRUCT(buildfile::FileSettings, param, commands)
 
-//BOOST_FUSION_ADAPT_STRUCT(buildfile::TOC::Param, name, alias, relativeroot)
 
 BOOST_FUSION_ADAPT_STRUCT(buildfile::TOC, param, filesetting, files)
 BOOST_FUSION_ADAPT_STRUCT(buildfile::Archive, name, TOCs)

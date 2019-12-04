@@ -1,0 +1,83 @@
+﻿<Window x:Class="LoneWolf_Archiver_GUI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:LoneWolf_Archiver_GUI"
+        mc:Ignorable="d"
+        Title="LoneWolf Archiver GUI" Height="760" Width="1280" Loaded="Window_Loaded" Closing="Window_Closing">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" MinHeight="19"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <Grid Margin="0" RenderTransformOrigin="0.5,0.5" Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="12*"/>
+                <ColumnDefinition Width="37*"/>
+                <ColumnDefinition Width="133*"/>
+            </Grid.ColumnDefinitions>
+            <TreeView x:Name="filetree" Margin="0,0,0.4,0.2" FontSize="14" FontFamily="DengXian" SelectedItemChanged="filetree_SelectedItemChanged" Grid.ColumnSpan="2">
+                <!--TreeView.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="File" IsEnabled="False"/>
+                        <MenuItem Header="Save" Click="MenuItem_Click"/>
+                        <MenuItem Header="SaveAs"/>
+                        <MenuItem Header="Recent Files">
+                            <MenuItem Header="ReadMe.txt"/>
+                            <MenuItem Header="Schedule.xls"/>
+                        </MenuItem>
+                    </ContextMenu>
+                </-->
+                <TreeView.ItemContainerStyle>
+                    <Style TargetType="{x:Type TreeViewItem}">
+                        <Setter Property="IsExpanded" Value="True"/>
+                    </Style>
+                </TreeView.ItemContainerStyle>
+                <TreeView.ItemTemplate>
+                    <HierarchicalDataTemplate ItemsSource="{Binding Items}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Title}"/>
+                            <TextBlock Text="{Binding Alias}" Foreground="Red"/>
+                        </StackPanel>
+                    </HierarchicalDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+            <ListView x:Name="filegrid" Grid.Column="1" Margin="258.2,0,-0.4,0.2" SelectionChanged="filegrid_SelectionChanged" Foreground="Black" Grid.ColumnSpan="2">
+                <!--ListView.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="File" IsEnabled="False"/>
+                        <MenuItem Header="Save" Click="MenuItem_Click_1"/>
+                        <MenuItem Header="SaveAs"/>
+                        <MenuItem Header="Recent Files">
+                            <MenuItem Header="ReadMe.txt"/>
+                            <MenuItem Header="Schedule.xls"/>
+                        </MenuItem>
+                    </>
+                </-->
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="File Name" DisplayMemberBinding="{Binding Filename}" />
+                        <GridViewColumn Header="Uncompressed Size" DisplayMemberBinding="{Binding SizeUncompressed}" />
+                        <GridViewColumn Header="Compressed Size" DisplayMemberBinding="{Binding SizeCompressed}" />
+                        <GridViewColumn Header="Compress Method" DisplayMemberBinding="{Binding CompressMethod}" />
+                        <GridViewColumn Header="File Last Modified Time" DisplayMemberBinding="{Binding ModificationDate}" />
+                    </GridView>
+                </ListView.View>
+            </ListView>
+        </Grid>
+        <Menu Margin="0,0,0,0.326" VerticalContentAlignment="Center" d:LayoutOverrides="Height">
+            <MenuItem Header="File" FontSize="16" FontFamily="DengXian">
+                <MenuItem x:Name="MenuOpen" Header="Open" Click="MenuOpen_Click"/>
+                <MenuItem Header="Create" IsEnabled="False"/>
+            </MenuItem>
+            <MenuItem Header="Operation" FontSize="16" FontFamily="DengXian">
+                <MenuItem x:Name="MenuExtract" Header="Extract All Files" Click="MenuExtract_Click"/>
+                <MenuItem Header="Export Archive" IsEnabled="False"/>
+            </MenuItem>
+            <MenuItem Header="Help" FontSize="16" FontFamily="DengXian">
+                <MenuItem Header="About" IsEnabled="False"/>
+            </MenuItem>
+        </Menu>
+    </Grid>
+</Window>
