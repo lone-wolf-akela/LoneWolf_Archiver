@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿#if !defined(LONEWOLF_ARCHIVER_LIB_STREAM_CIPHERSTREAM_H)
+#define LONEWOLF_ARCHIVER_LIB_STREAM_CIPHERSTREAM_H
+
 #include <cstdint>
 #include <fstream>
 #include <vector>
@@ -65,3 +67,5 @@ namespace stream
 		uint16_t _keySize = 0;
 	};
 }
+
+#endif

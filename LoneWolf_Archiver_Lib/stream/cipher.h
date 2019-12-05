@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿#if !defined(LONEWOLF_ARCHIVER_LIB_STREAM_CIPHER_H)
+#define LONEWOLF_ARCHIVER_LIB_STREAM_CIPHER_H
+
 #include <cstdint>
 
 namespace stream
@@ -112,3 +114,5 @@ namespace stream
 
 	inline const uint32_t* cipherConst = reinterpret_cast<const uint32_t*>(cipherRaw);
 }
+
+#endif

@@ -1,4 +1,5 @@
-﻿#pragma once
+﻿#if !defined(LONEWOLF_ARCHIVER_LIB_EXPORT_H)
+#define LONEWOLF_ARCHIVER_LIB_EXPORT_H
 
 #include <memory>
 #include <string>
@@ -55,3 +56,5 @@ namespace libexport
 		std::unique_ptr<Internal> _internal;
 	};
 }
+
+#endif

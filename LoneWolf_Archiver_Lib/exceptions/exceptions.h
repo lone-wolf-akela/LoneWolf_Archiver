@@ -1,4 +1,5 @@
-﻿#pragma once
+﻿#if !defined(LONEWOLF_ARCHIVER_LIB_EXCEPTIONS_EXCEPTIONS_H)
+#define LONEWOLF_ARCHIVER_LIB_EXCEPTIONS_EXCEPTIONS_H
 
 #include <stdexcept>
 #include <string>
@@ -66,3 +67,5 @@ public:
 		runtime_error(message)
 	{}
 };
+
+#endif

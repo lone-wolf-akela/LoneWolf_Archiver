@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿#if !defined(LONEWOLF_ARCHIVER_LIB_STREAM_MEMMAPFILESTREAM_H)
+#define LONEWOLF_ARCHIVER_LIB_STREAM_MEMMAPFILESTREAM_H
+
 #include <filesystem>
 
 #include <boost/iostreams/device/mapped_file.hpp>
@@ -42,3 +44,5 @@ namespace stream
 		size_t _pos = 0;
 	};
 }
+
+#endif

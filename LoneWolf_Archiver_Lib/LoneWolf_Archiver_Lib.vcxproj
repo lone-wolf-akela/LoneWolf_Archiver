@@ -24,7 +24,8 @@
     <ClInclude Include="stream\cipherstream.h" />
     <ClInclude Include="stream\filestream.h" />
     <ClInclude Include="stream\memmapfilestream.h" />
-    <ClInclude Include="ThreadPool\ThreadPool.h" />
+    <ClInclude Include="ThreadPool\ThreadPool.hpp" />
+    <ClInclude Include="workaround\generate.hpp" />
     <ClInclude Include="zopfli\src\zopfli\blocksplitter.h" />
     <ClInclude Include="zopfli\src\zopfli\cache.h" />
     <ClInclude Include="zopfli\src\zopfli\deflate.h" />
@@ -55,6 +56,7 @@
     <ClCompile Include="stream\cipherstream.cpp" />
     <ClCompile Include="stream\filestream.cpp" />
     <ClCompile Include="stream\memmapfilestream.cpp" />
+    <ClCompile Include="ThreadPool\ThreadPool.cpp" />
     <ClCompile Include="zopfli\src\zopfli\blocksplitter.c">
       <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">TurnOffAllWarnings</WarningLevel>
       <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</TreatWarningAsError>

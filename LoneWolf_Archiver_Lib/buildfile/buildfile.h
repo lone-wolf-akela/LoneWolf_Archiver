@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿#if !defined(LONEWOLF_ARCHIVER_LIB_BUILDFILE_BUILDFILE_H)
+#define LONEWOLF_ARCHIVER_LIB_BUILDFILE_BUILDFILE_H
+
 #include <cstdint>
 
 #include <string>
@@ -65,3 +67,5 @@ namespace buildfile
 	void genFile(const std::filesystem::path& filepath, const Archive& archive);
 	std::vector<Archive> scanFiles(const std::filesystem::path& rootpath, bool allinone);
 }
+
+#endif

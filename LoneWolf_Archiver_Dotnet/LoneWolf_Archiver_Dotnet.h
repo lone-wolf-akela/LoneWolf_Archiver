@@ -1,4 +1,5 @@
-﻿#pragma once
+﻿#if !defined(LONEWOLF_ARCHIVER_DOTNET_LONEWOLF_ARCHIVER_DOTNET_H)
+#define LONEWOLF_ARCHIVER_DOTNET_LONEWOLF_ARCHIVER_DOTNET_H
 
 using namespace System;
 using namespace System::Collections::Generic;
@@ -48,3 +49,5 @@ namespace LoneWolfArchiverDotnet
 		libexport::Interface* _interface;
 	};
 }
+
+#endif

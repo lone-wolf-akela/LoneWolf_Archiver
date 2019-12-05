@@ -394,7 +394,7 @@ namespace stream
 		for (decltype(_keySize) i = 0; i < _keySize; i += 4)
 		{
 			auto currentKey = *reinterpret_cast<uint32_t*>(&_fileKey[i]);
-			for (auto byte = 0; byte < 4; byte++)
+			for (size_t byte = 0; byte < 4; byte++)
 			{
 				uint32_t tempVal = ROTL(currentKey + _cipherBegPos, 8);
 				const auto tempBytes = reinterpret_cast<uint8_t*>(&tempVal);

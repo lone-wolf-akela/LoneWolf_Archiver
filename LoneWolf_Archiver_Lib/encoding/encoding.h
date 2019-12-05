@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿#if !defined(LONEWOLF_ARCHIVER_LIB_ENCODING_ENCODING_H)
+#define LONEWOLF_ARCHIVER_LIB_ENCODING_ENCODING_H
+
 #include <concepts>
 #include <string>
 #include <string_view>
@@ -155,3 +157,5 @@ namespace encoding
 		return converter.toUChars(in);
 	}
 }
+
+#endif

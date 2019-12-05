@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿#if !defined(LONEWOLF_ARCHIVER_LIB_STREAM_FILESTREAM_H)
+#define LONEWOLF_ARCHIVER_LIB_STREAM_FILESTREAM_H
+
 #include <cstddef>
 
 #include <concepts>
@@ -72,3 +74,5 @@ namespace stream
 		virtual void movepos(ptrdiff_t diff) = 0;
 	};
 }
+
+#endif

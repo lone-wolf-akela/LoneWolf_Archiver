@@ -37,7 +37,7 @@ namespace core
 			{
 				const auto progress = double(current) * 100 / max;
 				// only output progress when progress at least 1%
-				if (lround(progress) != lround(double(current - 1) * 100 / max))
+				if (lround(progress) != lround((double(current) - 1) * 100 / max))
 				{
 					const auto complete = lround(progress * 0.3);
 					const auto incomplete = size_t(30) - complete;

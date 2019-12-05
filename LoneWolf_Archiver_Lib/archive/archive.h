@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿#if !defined(LONEWOLF_ARCHIVER_LIB_ARCHIVE_ARCHIVE_H)
+#define LONEWOLF_ARCHIVER_LIB_ARCHIVE_ARCHIVE_H
+
 #include <future>
 #include <string_view>
 #include <cstdint>
@@ -8,7 +10,7 @@
 
 #include "../export.h"
 #include "../buildfile/buildfile.h"
-#include "../ThreadPool/ThreadPool.h"
+#include "../ThreadPool/ThreadPool.hpp"
 #include "../exceptions/exceptions.h"
 
 namespace archive
@@ -59,3 +61,5 @@ namespace archive
 		std::unique_ptr<ArchiveInternal> _internal;		
 	};
 }
+
+#endif

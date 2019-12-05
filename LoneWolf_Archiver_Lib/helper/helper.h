@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿#if !defined(LONEWOLF_ARCHIVER_LIB_HELPER_HELPER_H)
+#define LONEWOLF_ARCHIVER_LIB_HELPER_HELPER_H
+
 #include <cstdlib>
 #include <cassert>
 #include <cstddef>
@@ -54,3 +56,5 @@ bit_cast(const From& src) noexcept
 	std::memcpy(&dst, &src, sizeof(To));
 	return dst;
 }
+
+#endif

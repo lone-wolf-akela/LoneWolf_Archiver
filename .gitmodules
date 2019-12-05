@@ -6,4 +6,4 @@
 	url = https://github.com/gabime/spdlog.git
 [submodule "LoneWolf_Archiver_Lib/ThreadPool"]
 	path = LoneWolf_Archiver_Lib/ThreadPool
-	url = https://github.com/progschj/ThreadPool.git
+	url = git@github.com:lone-wolf-akela/ThreadPool.git

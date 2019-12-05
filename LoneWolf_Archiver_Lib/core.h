@@ -1,4 +1,5 @@
-﻿#pragma once
+﻿#if !defined(LONEWOLF_ARCHIVER_LIB_CORE_H)
+#define LONEWOLF_ARCHIVER_LIB_CORE_H
 
 #include <cstdint>
 #include <filesystem>
@@ -46,3 +47,5 @@ namespace core
 		std::optional<archive::ProgressCallback> callback = std::nullopt
 	);
 }
+
+#endif

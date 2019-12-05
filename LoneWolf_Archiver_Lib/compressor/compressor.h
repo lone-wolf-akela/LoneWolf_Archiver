@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿#if !defined(LONEWOLF_ARCHIVER_LIB_COMPRESSOR_COMPRESSOR_H)
+#define LONEWOLF_ARCHIVER_LIB_COMPRESSOR_COMPRESSOR_H
+
 #include <cstddef>
 
 #include <vector>
@@ -12,7 +14,7 @@
 #include "../zopfli/src/zopfli/deflate.h"
 #include "../zopfli/src/zopfli/zopfli.h"
 
-#include "../ThreadPool/ThreadPool.h"
+#include "../ThreadPool/ThreadPool.hpp"
 #include "../exceptions/exceptions.h"
 
 namespace compressor
@@ -22,3 +24,5 @@ namespace compressor
 	std::future<std::vector<std::byte>> uncompress(
 		ThreadPool& pool, const std::byte* data, size_t inputsize, size_t outputsize);
 }
+
+#endif
