@@ -462,15 +462,14 @@ namespace archive
 			}
 			// else
 			{
-				auto r = compressor::compress(pool,
+				return compressor::compress(pool,
 					f.decompressedData.get_const(),
-					entry.decompressedLen, compress_level);
-				return std::async(std::launch::deferred,
-					[f = std::move(f), r = std::move(r), &entry]() mutable
+					entry.decompressedLen, compress_level,
+					[f = std::move(f), &entry]
+				(std::vector<std::byte>&& compressed_data) mutable
 				{
-					auto v = r.get();
-					entry.compressedLen = chkcast<uint32_t>(v.size());
-					f.compressedData = std::move(v);
+					entry.compressedLen = chkcast<uint32_t>(compressed_data.size());
+					f.compressedData = std::move(compressed_data);
 					// drop the decompressedData to free some memory
 					f.decompressedData.reset();
 					f.mappedfile.close();
