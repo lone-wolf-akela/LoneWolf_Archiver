@@ -5,9 +5,10 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <type_traits>
+#include <tuple>
 
-#include <unicode/ucnv.h>
-#include <unicode/ucsdet.h>
+#include <boost/locale.hpp>
 
 #include "../exceptions/exceptions.h"
 
@@ -18,143 +19,71 @@ namespace encoding
 		std::same_as<T, signed char> ||
 		std::same_as<T, unsigned char> ||
 		std::same_as<T, char8_t>;
-	///\brief	Convert string to utf8.
+	
+
 	template<Char8 CharTOut, Char8 CharTIn>
 	std::basic_string<CharTOut> toUTF8(std::basic_string_view<CharTIn> in);
-	
 	template<Char8 CharT>
-	std::u16string toUTF16(std::basic_string_view<CharT> in, const char* codepage);
+	std::u16string toUTF16(std::basic_string_view<CharT> in, std::locale codepage);
 	template<Char8 CharT>
-	std::basic_string<CharT> fromUTF16(std::u16string in, const char* codepage);
-}
+	std::basic_string<CharT> fromUTF16(std::u16string_view in, std::locale codepage);
 
-namespace encoding
-{
-	using namespace std::literals;
-
-	inline void icuCheckFailure(UErrorCode status)
-	{
-		if (U_FAILURE(status))
-		{
-			throw EncodingError("Error: "s + u_errorName(status));
-		}
-	}
-
-	class EncodingDetector
-	{
-	public:
-		EncodingDetector() :
-			_status(U_ZERO_ERROR),
-			_ptr(ucsdet_open(&_status))
-		{
-			icuCheckFailure(_status);
-		}
-
-		std::vector<std::string> detectAll(std::string_view in)
-		{
-			ucsdet_setText(_ptr.getAlias(), in.data(), int32_t(in.size()), &_status);
-			icuCheckFailure(_status);
-
-			int32_t matches_num;
-			const auto matches = ucsdet_detectAll(_ptr.getAlias(), &matches_num, &_status);
-			icuCheckFailure(_status);
-
-			std::vector<std::string> result;
-			result.reserve(matches_num);
-			for (int32_t i = 0; i < matches_num; i++)
-			{
-				result.emplace_back(ucsdet_getName(matches[i], &_status));
-				icuCheckFailure(_status);
-			}
-			return result;
-		}
-	private:
-		UErrorCode _status;
-		icu::LocalUCharsetDetectorPointer _ptr;
-	};
-
-	class EncodingConverter
-	{
-	public:
-		EncodingConverter(const char* codepage) :
-			_status(U_ZERO_ERROR),
-			_ptr(ucnv_open(codepage, &_status))
-		{
-			icuCheckFailure(_status);
-		}
-		template<Char8 CharT>
-		std::basic_string<CharT> fromUChars(std::u16string_view in)
-		{
-			const auto buffersize = UCNV_GET_MAX_BYTES_FOR_STRING(in.size(), ucnv_getMaxCharSize(_ptr.getAlias()));
-			std::basic_string<CharT> out(buffersize, 0);
-			const auto outlen = ucnv_fromUChars(_ptr.getAlias(),
-				reinterpret_cast<char*>(out.data()), int32_t(out.size()),
-				in.data(), int32_t(in.size()),
-				&_status);
-			icuCheckFailure(_status);
-			out.resize(outlen);
-			return out;
-		}
-		template<Char8 CharT>
-		std::u16string toUChars(std::basic_string_view<CharT> in)
-		{
-			const auto buffersize = 2 * in.size();
-			std::u16string out(buffersize, 0);
-			const auto outlen = ucnv_toUChars(_ptr.getAlias(),
-				out.data(), int32_t(out.size()),
-				reinterpret_cast<const char*>(in.data()), int32_t(in.size()),
-				&_status);
-			icuCheckFailure(_status);
-			out.resize(outlen);
-			return out;
-		}
-	private:
-		UErrorCode _status;
-		icu::LocalUConverterPointer _ptr;
-	};
-
-	template<Char8 CharTOut, Char8 CharTIn>
-	std::basic_string<CharTOut>toUTF8(std::basic_string_view<CharTIn> in)
-	{
-		EncodingDetector detector;
-		const auto encodings = detector.detectAll(in);
-
-		// try every possible codepage
-		std::u16string u16;
-		bool success = false;
-		for (const auto& encoding : encodings)
-		{
-			try
-			{
-				u16 = toUTF16(in, encoding.c_str());
-			}
-			catch (EncodingError&)
-			{
-				continue;
-			}
-			success = true;
-			break;
-		}
-		if (!success)
-		{
-			throw EncodingError("String encoding coversion failed.");
-		}
-
-		return fromUTF16<CharTOut>(u16, "utf8");
-	}
-
-	template<Char8 CharT>
-	std::basic_string<CharT> fromUTF16(std::u16string in, const char* codepage)
-	{
-		EncodingConverter converter(codepage);
-		return converter.fromUChars<CharT>(in);
-	}
-	
 	template<Char8 CharT>
 	std::u16string toUTF16(std::basic_string_view<CharT> in, const char* codepage)
 	{
-		EncodingConverter converter(codepage);
-		return converter.toUChars(in);
+		auto locale = boost::locale::generator().generate(codepage);
+		return toUTF16(in, locale);
+	}
+	template<Char8 CharT>
+	std::basic_string<CharT> fromUTF16(std::u16string in, const char* codepage)
+	{
+		auto locale = boost::locale::generator().generate(codepage);
+		return fromUTF16<CharT>(in, locale);
+	}
+	
+	template<Char8 CharTOut, Char8 CharTIn>
+	std::basic_string<CharTOut>toUTF8(std::basic_string_view<CharTIn> in)
+	{
+		// try parse as utf8
+		try
+		{
+			std::ignore = toUTF16(in, "utf8");
+			// success
+			return std::basic_string<CharTOut>(reinterpret_cast<const CharTOut*>(in.data()), in.length());
+		}
+		catch(boost::locale::conv::conversion_error&)
+		{
+			// not utf8, use system codepage
+			auto system_locale = boost::locale::generator().generate("");
+			auto u16 = toUTF16(in, system_locale);
+			return fromUTF16<CharTOut>(u16, "utf8");
+		}
+	}
+
+	template<Char8 CharT>
+	std::basic_string<CharT> fromUTF16(std::u16string_view in, std::locale codepage)
+	{
+		const auto w = boost::locale::conv::utf_to_utf<wchar_t, char16_t>(in.data(), in.data() + in.length());
+		if constexpr(std::is_same_v<CharT, char>)
+		{
+			return boost::locale::conv::from_utf(w, codepage);
+		}
+		else
+		{
+			const auto s = boost::locale::conv::from_utf(w, codepage);
+			return std::basic_string<CharT>(reinterpret_cast<const CharT*>(s.c_str()), s.length());
+		}
+	}
+	
+	template<Char8 CharT>
+	std::u16string toUTF16(std::basic_string_view<CharT> in, std::locale codepage)
+	{
+		const auto w = boost::locale::conv::to_utf<wchar_t>(
+			reinterpret_cast<const char*>(in.data()),
+			reinterpret_cast<const char*>(in.data() + in.length()),
+			codepage
+			);
+		return boost::locale::conv::utf_to_utf<char16_t, wchar_t>(w);
 	}
 }
 
