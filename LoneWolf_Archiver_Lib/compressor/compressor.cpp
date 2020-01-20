@@ -2,9 +2,6 @@
 #include <algorithm>
 #include <numeric>
 
-#include <boost/endian/conversion.hpp>
-
-#include "../helper/helper.h"
 #include "compressor.h"
 
 /*
@@ -42,11 +39,25 @@ namespace
 		return p;
 	}
 
-	constexpr size_t partinsize = 8 * 1024 * 1024; // 4MB per part
-	constexpr size_t partboundsize = 12 * 1024 * 1024; // file smaller than this won't be partitioned
 	constexpr int windowBits = 15; // larger = better compression & more memory use
 	constexpr int memLevel = 9; // similar to windowBits, larger = better compression & memory use
 
+	std::vector<std::byte> uncompress_worker(
+		const std::byte* data, size_t inputsize, size_t outputsize)
+	{
+		std::vector<std::byte> r(outputsize);
+		auto ul_outputsize = uLongf(outputsize);
+		checkErr(Z_OK == uncompress(
+			reinterpret_cast<Bytef*>(r.data()),
+			&ul_outputsize,
+			reinterpret_cast<const Bytef*>(data),
+			uLong(inputsize)) && ul_outputsize == outputsize);
+		return r;
+	}
+}
+
+namespace compressor
+{
 	///\note this function is copied from pigz
 	uint32_t adler32_comb(uint32_t adler1, uint32_t adler2, size_t len2)
 	{
@@ -58,7 +69,7 @@ namespace
 		unsigned long sum1 = adler1 & LOW16;
 		unsigned long sum2 = (rem * sum1) % BASE;
 		sum1 += (adler2 & LOW16) + BASE - 1;
-		sum2 += ((adler1 >> 16) & LOW16) + ((adler2 >> 16) & LOW16) + BASE - rem;
+		sum2 += ((adler1 >> 16)& LOW16) + ((adler2 >> 16)& LOW16) + BASE - rem;
 		if (sum1 >= BASE) sum1 -= BASE;
 		if (sum1 >= BASE) sum1 -= BASE;
 		if (sum2 >= (BASE << 1)) sum2 -= (BASE << 1);
@@ -66,7 +77,7 @@ namespace
 		return sum1 | (sum2 << 16);
 	}
 	///\note this function is copied from pigz
-	auto get_header(int level)
+	std::array<std::byte, 2> get_header(int level)
 	{
 		uint16_t head = (0x78 << 8) +        // deflate, 32K window
 			(level >= 9 ? 3 << 6 :
@@ -75,22 +86,22 @@ namespace
 				2 << 6);            // optional compression level clue
 		head += 31 - (head % 31);   // make it a multiple of 31
 		// zlib format uses big-endian order
-		return bit_cast<std::array<std::byte, sizeof(head)>>(boost::endian::native_to_big(head));
+		return bit_cast<std::array<std::byte, 2>>(boost::endian::native_to_big(head));
 	}
-
-	/// \return <output_length, checksum>
-	std::tuple<uLong, uint32_t> compress_worker_zlib_part(
+	
+	/// \return <output_data, output_length, checksum>
+	std::tuple<unique_c_ptr<std::byte[]>, size_t, uint32_t> compress_worker_zlib_part(
 		const std::byte* in,
-		std::byte* out,
 		size_t insize,
 		size_t outsize,
 		int level,
 		bool lastpart)
 	{
+		unique_c_ptr<std::byte[]> out(reinterpret_cast<std::byte*>(malloc(outsize)));
 		z_stream strm{
 			.next_in = reinterpret_cast<const Bytef*>(in),
 			.avail_in = chkcast<uInt>(insize),
-			.next_out = reinterpret_cast<Bytef*>(out),
+			.next_out = reinterpret_cast<Bytef*>(out.get()),
 			.avail_out = chkcast<uInt>(outsize),
 			.zalloc = nullptr,
 			.zfree = nullptr,
@@ -105,7 +116,7 @@ namespace
 		{
 			checkErr(Z_OK == deflate(&strm, Z_FULL_FLUSH));
 		}
-		uLong outlen = strm.total_out;
+		size_t output_length = strm.total_out;
 		uint32_t check = adler32(0, nullptr, 0);
 		check = adler32(check, reinterpret_cast<const Bytef*>(in), chkcast<uInt>(insize));
 		// deflateEnd is supposed to return Z_OK
@@ -113,7 +124,7 @@ namespace
 		// so I don't check it
 		// checkErr(Z_OK == deflateEnd(&strm));
 		deflateEnd(&strm);
-		return { outlen, check };
+		return { std::move(out), output_length, check };
 	}
 
 	/// \return <output_data, output_length, checksum>
@@ -186,123 +197,6 @@ namespace
 		return r;
 	}
 
-	std::future<std::vector<std::byte>> compress_zlib_part(
-		ThreadPool& pool, const std::byte* data, size_t inputsize, int level)
-	{
-		const size_t partnum = CEIL_DIV(inputsize, partinsize);
-		const uLong partoutsize = compressBound(partinsize);
-		std::vector<std::byte> compressed(partnum * partoutsize);
-		std::vector<std::future<std::tuple<uLong, uint32_t>>> futures;
-		for (size_t i = 0; i < partnum; i++)
-		{
-			const bool lastpart = partnum == i + 1;
-			futures.push_back(pool.enqueue(compress_worker_zlib_part,
-				data + i * partinsize,
-				compressed.data() + i * partoutsize,
-				lastpart ? inputsize - i * partinsize : partinsize,
-				partoutsize,
-				level,
-				lastpart));
-		}
-		return std::async(std::launch::deferred,
-			[futures = std::move(futures),
-			compressed = std::move(compressed),
-			level,
-			partoutsize,
-			inputsize]() mutable
-		{
-			uint32_t check_comb = adler32(0, nullptr, 0);
-			const auto header = get_header(level);
-			// reserve bytes for header
-			auto p = compressed.begin() + header.size();
-			// merge data
-			for (size_t i = 0; i < futures.size(); i++)
-			{
-				auto [outlen, check] = futures[i].get();
-				// we have to use memmove here, because the memory range may be overlapped
-				memmove(&(*p), compressed.data() + i * size_t(partoutsize), outlen);
-				p += outlen;
-				check_comb = adler32_comb(check_comb,
-					check,
-					futures.size() == i + 1 ? inputsize - i * partinsize : partinsize);
-			}
-			// write header
-			std::copy(header.begin(), header.end(), compressed.begin());
-			// write trailer
-			const auto trailer = bit_cast<std::array<std::byte, sizeof(check_comb)>>
-				(boost::endian::native_to_big(check_comb));
-			std::copy(trailer.begin(), trailer.end(), p);
-			compressed.resize(p + sizeof(check_comb) - compressed.begin());
-			compressed.shrink_to_fit();
-			return compressed;
-		});
-	}
-
-	std::future<std::vector<std::byte>> compress_zopfli_part(
-		ThreadPool& pool, const std::byte* data, size_t inputsize, int level)
-	{
-		const size_t partnum = CEIL_DIV(inputsize, partinsize);
-		std::vector<std::future<std::tuple<unique_c_ptr<std::byte[]>, size_t, uint32_t>>>
-			futures;
-		for (size_t i = 0; i < partnum; i++)
-		{
-			const bool lastpart = partnum == i + 1;
-			futures.push_back(pool.enqueue(compress_worker_zopfli_part,
-				data,
-				i * partinsize,
-				i * partinsize +
-				(lastpart ? inputsize - i * partinsize : partinsize),
-				lastpart));
-		}
-		return std::async(std::launch::deferred,
-			[futures = std::move(futures),
-			level,
-			inputsize]() mutable
-		{
-			// get all compressed part
-			// <output_data, output_length, checksum>
-			std::vector<std::tuple<unique_c_ptr<std::byte[]>, size_t, uint32_t>>
-				worker_results;
-			worker_results.reserve(futures.size());
-			for (auto& f : futures)
-			{
-				worker_results.push_back(f.get());
-			}
-			// get compressed size and allocate a vector
-			const size_t compressed_size = std::accumulate(
-				worker_results.begin(),
-				worker_results.end(), size_t(0),
-				[](auto sum, auto& res) {return sum + std::get<1>(res); });
-			auto header = get_header(level);
-			// reserve bytes for header & trailer
-			std::vector<std::byte> compressed(header.size() +
-				compressed_size +
-				sizeof(uint32_t)
-			);
-			auto p = compressed.begin() + header.size();
-			
-			uint32_t check_comb = adler32(0, nullptr, 0);
-			// merge data
-			for (size_t i = 0; i < worker_results.size(); i++)
-			{
-				const auto& [outdata, outlen, check] = worker_results[i];
-				std::copy_n(outdata.get(), outlen, p);
-				p += outlen;
-				check_comb = adler32_comb(check_comb,
-					check,
-					futures.size() == i + 1 ? inputsize - i * partinsize : partinsize);
-			}
-
-			// write header
-			std::copy(header.begin(), header.end(), compressed.begin());
-			// write trailer
-			const auto trailer = bit_cast<std::array<std::byte, sizeof(check_comb)>>
-				(boost::endian::native_to_big(check_comb));
-			std::copy(trailer.begin(), trailer.end(), p);
-			return compressed;
-		});
-	}
-
 	std::vector<std::byte> compress_worker_zopfli_nonpart(
 		const std::byte* data, size_t inputsize)
 	{
@@ -321,42 +215,10 @@ namespace
 			&out_c_ptr,
 			&outsize);
 		const auto out = unique_c_ptr<std::byte[]>(reinterpret_cast<std::byte*>(out_c_ptr));
-		std::vector<std::byte> r(outsize);
-		std::copy_n(out.get(), outsize, r.begin());
+		std::vector<std::byte> r(out.get(), out.get() + outsize);
 		return r;
 	}
-
-	std::vector<std::byte> uncompress_worker(
-		const std::byte* data, size_t inputsize, size_t outputsize)
-	{
-		std::vector<std::byte> r(outputsize);
-		auto ul_outputsize = uLongf(outputsize);
-		checkErr(Z_OK == uncompress(
-			reinterpret_cast<Bytef*>(r.data()),
-			&ul_outputsize,
-			reinterpret_cast<const Bytef*>(data),
-			uLong(inputsize)) && ul_outputsize == outputsize);
-		return r;
-	}
-}
-
-namespace compressor
-{
-	std::future<std::vector<std::byte>> compress(
-		ThreadPool& pool, const std::byte* data, size_t inputsize, int level)
-	{
-		if (inputsize >= partboundsize)
-		{
-			if (level <= 9) return compress_zlib_part(pool, data, inputsize, level);
-			else return compress_zopfli_part(pool, data, inputsize, level);
-		}
-		else
-		{
-			if (level <= 9) return pool.enqueue(compress_worker_zlib_nonpart, data, inputsize, level);
-			else return pool.enqueue(compress_worker_zopfli_nonpart, data, inputsize);
-		}
-	}
-
+	
 	std::future<std::vector<std::byte>> uncompress(
 		ThreadPool& pool, const std::byte* data, size_t inputsize, size_t outputsize)
 	{
