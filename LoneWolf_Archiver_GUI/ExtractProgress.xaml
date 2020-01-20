@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:LoneWolf_Archiver_GUI"
         mc:Ignorable="d"
-        Title="ExtractProgress" Height="259.2" Width="482.915" Background="#FFE6E6E6" WindowStartupLocation="CenterScreen" ShowInTaskbar="False" AllowsTransparency="True" WindowStyle="None">
+        Title="ExtractProgress" Height="259.2" Width="482.915" Background="#FFE6E6E6" WindowStartupLocation="CenterScreen" ShowInTaskbar="False" WindowStyle="ToolWindow">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="38*"/>
