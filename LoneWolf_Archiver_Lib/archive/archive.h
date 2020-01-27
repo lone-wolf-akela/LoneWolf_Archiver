@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <functional>
 
-#include <json/json.h>
+#include <nlohmann/json.hpp>
 
 #include "../export.h"
 #include "../buildfile/buildfile.h"
@@ -49,7 +49,7 @@ namespace archive
 			const ProgressCallback& callback
 		);
 		void listFiles() const;
-		[[nodiscard]] Json::Value getFileTree() const;
+		[[nodiscard]] nlohmann::json getFileTree() const;
 		[[nodiscard]] std::future<bool> testArchive(ThreadPool& pool, const ProgressCallback& callback);
 		[[nodiscard]] std::string getArchiveSignature() const;
 

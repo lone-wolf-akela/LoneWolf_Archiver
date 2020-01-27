@@ -1,6 +1,8 @@
 ﻿#include <optional>
 #include <sstream>
 
+#include <nlohmann/json.hpp>
+
 #include "exceptions/exceptions.h"
 #include "core.h"
 #include "archive/archive.h"
@@ -63,13 +65,7 @@ namespace libexport
 
 	std::string Interface::GetFiletree() const
 	{
-		Json::StreamWriterBuilder builder;
-		builder["commentStyle"] = "None";
-		builder["indentation"] = "";
-		std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
-		std::ostringstream strm;
-		writer->write(_internal->file->getFileTree(), &strm);
-		return strm.str();
+		return _internal->file->getFileTree().dump();
 	}
 
 	void Interface::Generate(

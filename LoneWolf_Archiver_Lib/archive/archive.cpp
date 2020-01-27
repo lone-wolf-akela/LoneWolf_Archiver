@@ -19,6 +19,36 @@
 #include "../helper/helper.h"
 #include "archive.h"
 
+// fix nlohmann::json wstring parsing
+namespace nlohmann {
+	template <>
+	struct adl_serializer<std::wstring> {
+		static void to_json(json& j, const std::wstring& str) {
+			j = encoding::wide_to_narrow<char>(str, "utf8");
+		}
+	};
+	template <>
+	struct adl_serializer<std::u16string> {
+		static void to_json(json& j, const std::u16string& str) {
+			const auto t = encoding::utf16_to_wide(str);
+			j = encoding::wide_to_narrow<char>(t, "utf8");
+		}
+	};
+	template <>
+	struct adl_serializer<const wchar_t*> {
+		static void to_json(json& j, const wchar_t* str) {
+			j = encoding::wide_to_narrow<char>(str, "utf8");
+		}
+	};
+	template <>
+	struct adl_serializer<const char16_t*> {
+		static void to_json(json& j, const char16_t* str) {
+			const auto t = encoding::utf16_to_wide(str);
+			j = encoding::wide_to_narrow<char>(t, "utf8");
+		}
+	};
+}
+
 namespace
 {
 	/// \brief			simple function to match filename with wildcard
@@ -265,15 +295,13 @@ namespace archive
 
 		std::unordered_map<uint32_t, FileName*> fileNameLookUpTable = {};
 
-		Json::Value getFolderTree(uint16_t folderIndex)
+		nlohmann::json getFolderTree(uint16_t folderIndex)
 		{
 			FolderEntry& fo = folderList[folderIndex];
 
-			Json::Value r(Json::objectValue);
-			r["path"] = encoding::wide_to_narrow<char>(
-				fileNameLookUpTable[fo.fileNameOffset]->name_get(), "utf8"
-				).c_str();
-			r["files"] = Json::Value(Json::arrayValue);
+			nlohmann::json r;
+			r["path"] = fileNameLookUpTable[fo.fileNameOffset]->name_get();
+			r["files"] = {};
 			for (uint16_t i = fo.firstFileIndex; i < fo.lastFileIndex; i++)
 			{
 				FileInfoEntry& fi = fileInfoList[i];
@@ -282,10 +310,8 @@ namespace archive
 				FileDataHeader fileDataHeader;
 				stream.peek(pos - FileDataHeader::length(), &fileDataHeader, FileDataHeader::length());
 				
-				Json::Value f(Json::objectValue);
-				f["name"] = encoding::wide_to_narrow<char>(
-					fileNameLookUpTable[fi.fileNameOffset]->name_get(), "utf8"
-					).c_str();
+				nlohmann::json f;
+				f["name"] = fileNameLookUpTable[fi.fileNameOffset]->name_get();
 				f["date"] = fileDataHeader.modificationDate;
 				f["compressedlen"] = fi.compressedLen;
 				f["decompressedlen"] = fi.decompressedLen;
@@ -296,12 +322,12 @@ namespace archive
 				default: /*Decompress_All_At_Once*/	f["storage"] = "compress_buffer"; break;
 				}
 
-				r["files"].append(f);
+				r["files"].emplace_back(f);
 			}
-			r["subfolders"] = Json::Value(Json::arrayValue);
+			r["subfolders"] = {};
 			for (uint16_t i = fo.firstSubFolderIndex; i < fo.lastSubFolderIndex; i++)
 			{
-				r["subfolders"].append(getFolderTree(i));
+				r["subfolders"].emplace_back(getFolderTree(i));
 			}
 			return r;
 		}
@@ -1182,26 +1208,23 @@ namespace archive
 		}
 		std::cout << '\n';
 	}
-	Json::Value Archive::getFileTree() const
+	nlohmann::json Archive::getFileTree() const
 	{
 		assert(Mode::Read == _internal->mode);
 
-		Json::Value r(Json::objectValue);
+		nlohmann::json r;
 		// use .c_str() to trim '\0' at end
-		r["name"] = encoding::wide_to_narrow<char>(encoding::utf16_to_wide(
-			std::u16string_view(_internal->archiveHeader.archiveName.data(),
-				_internal->archiveHeader.archiveName.size())
-		), "utf8").c_str();
-		r["tocs"] = Json::Value(Json::arrayValue);
+		r["name"] = std::u16string(_internal->archiveHeader.archiveName.data(), _internal->archiveHeader.archiveName.size()).c_str();
+		r["tocs"] = {};
 		for (TocEntry& toc : _internal->tocList)
 		{
-			Json::Value t(Json::objectValue);
+			nlohmann::json t;
 			// use .c_str() to trim '\0' at end
 			t["name"] = std::string(toc.name.data(), toc.name.size()).c_str();
 			t["alias"] = std::string(toc.alias.data(), toc.alias.size()).c_str();
 			t["tocfolder"] = _internal->getFolderTree(toc.startHierarchyFolderIndex);
 
-			r["tocs"].append(t);
+			r["tocs"].emplace_back(t);
 		}
 		return r;
 	}
