@@ -1235,12 +1235,6 @@ namespace archive
 			_internal->archiveHeader.archiveSignature.size()
 		);
 	}
-	void Archive::close()
-	{
-		_internal->stream.close();
-	}
-	Archive::~Archive()
-	{
-		close();
-	}
+
+	Archive::~Archive() = default;
 }

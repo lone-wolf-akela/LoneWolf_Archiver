@@ -53,8 +53,6 @@ namespace archive
 		[[nodiscard]] std::future<bool> testArchive(ThreadPool& pool, const ProgressCallback& callback);
 		[[nodiscard]] std::string getArchiveSignature() const;
 
-		// finish
-		void close();
 		~Archive();
 	private:
 		std::unique_ptr<ArchiveInternal> _internal;		
