@@ -30,12 +30,18 @@ namespace
 {
 	void checkErr(bool b)
 	{
-		if (!b) throw ZlibError();
+		if (!b)
+		{
+			throw ZlibError();
+		}
 	}
 	template <typename T>
 	T* checkNull(T* p)
 	{
-		if (nullptr == p) throw ZlibError();
+		if (nullptr == p)
+		{
+			throw ZlibError();
+		}
 		return p;
 	}
 
@@ -97,7 +103,7 @@ namespace compressor
 		int level,
 		bool lastpart)
 	{
-		unique_c_ptr<std::byte[]> out(pointer_cast<std::byte, void>(malloc(outsize)));
+		unique_c_ptr<std::byte[]> out(static_cast<std::byte*>(malloc(outsize)));
 		z_stream strm{
 			.next_in = pointer_cast<const Bytef, std::byte>(in),
 			.avail_in = chkcast<uInt>(insize),
@@ -153,7 +159,7 @@ namespace compressor
 			&bits,
 			pointer_cast<unsigned char*, std::byte*>(&out_c_ptr),
 			&outsize);
-		auto out = unique_c_ptr<std::byte[]>(pointer_cast<std::byte, void>(
+		auto out = unique_c_ptr<std::byte[]>(static_cast<std::byte*>(
 			checkNull(realloc(out_c_ptr, outsize + 10))));
 		if (!lastpart) {
 			bits &= 7;

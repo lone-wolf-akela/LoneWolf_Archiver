@@ -3,52 +3,23 @@
 
 #include <cstddef>
 
-#include <concepts>
-#include <utility>
 #include <vector>
-#include <tuple>
-#include <variant>
+#include <filesystem>
+#include <fstream>
+
+#include "../exceptions/exceptions.h"
 
 namespace stream
 {
-	template <typename T>
-	concept OptionalData = std::same_as<T, const std::byte*> ||
-		std::same_as<T, std::byte*> ||
-		std::same_as<T, std::vector<std::byte> >;
-	template <typename T>
-	concept OptionalPointer = std::same_as<T, const std::byte*> ||
-		std::same_as<T, std::byte*>;
-	
-	class OptionalOwnerBuffer
+	enum class State
 	{
-	public:
-		OptionalOwnerBuffer() noexcept = default;
-		OptionalOwnerBuffer(const OptionalOwnerBuffer&) = delete;
-		OptionalOwnerBuffer& operator=(const OptionalOwnerBuffer&) = delete;
-		template<OptionalData T>
-			explicit OptionalOwnerBuffer(T && in) noexcept : data(std::move(in)) {}
-		OptionalOwnerBuffer(OptionalOwnerBuffer&&) noexcept = default;
-		template<OptionalData T>
-			OptionalOwnerBuffer & operator=(T && in) noexcept
-		{
-			data = std::move(in);
-			return *this;
-		}
-		OptionalOwnerBuffer& operator=(OptionalOwnerBuffer&&) noexcept = default;
-		template<OptionalPointer T>
-			OptionalOwnerBuffer & operator=(T & in) noexcept
-		{
-			data = in;
-			return *this;
-		}
-		~OptionalOwnerBuffer() = default;
-		[[nodiscard]] std::byte* get();
-		[[nodiscard]] const std::byte* get_const() const;
-		void reset();
-	private:
-		std::variant<const std::byte*, std::byte*, std::vector<std::byte>> data;
+		Read_EncryptionUnknown,
+		Read_Encrypted,
+		Read_NonEncrypted,
+		Write_Encrypted,
+		Write_NonEncrypted
 	};
-
+	
 	class FileStream
 	{
 	public:
@@ -59,19 +30,46 @@ namespace stream
 		FileStream& operator=(FileStream&&) = delete;
 		virtual ~FileStream() = default;
 
-		virtual size_t read(void* dst, size_t length) = 0;
-		virtual std::tuple<OptionalOwnerBuffer, size_t>
-			optionalOwnerRead(size_t length) = 0;
-		virtual void write(const void* src, size_t length) = 0;
+		FileStream(const std::filesystem::path& file,
+			State state,
+			uint_fast32_t encryption_key_seed = 0)
+		{
+			open(file, state, encryption_key_seed);
+		}
+		void open(const std::filesystem::path& file,
+			State state,
+			uint_fast32_t encryption_key_seed = 0);
+		void close();
+		
+		size_t read(void* dst, size_t length);
+		void write(const void* src, size_t length);
 
-		//these two do not move the read ptr
-		virtual size_t read(size_t pos, void* dst, size_t length) = 0;
-		virtual std::tuple<OptionalOwnerBuffer, size_t>
-			optionalOwnerRead(size_t pos, size_t length) = 0;
+		//this do not move the read ptr
+		size_t peek(size_t pos, void* dst, size_t length);
 
-		virtual void setpos(size_t pos) = 0;
-		virtual size_t getpos() = 0;
-		virtual void movepos(ptrdiff_t diff) = 0;
+		void setpos(size_t pos);
+		[[nodiscard]] size_t getpos();
+		void movepos(ptrdiff_t diff);
+
+		void writeKey();
+		void writeEncryptionEnd();
+
+	private:
+		void _cipherInit();
+		void _cipher_magic();
+
+		bool _state_is_read = false;
+		bool _state_is_encrypted = false;
+		
+		std::fstream _filestream = {};
+		std::uintmax_t _filesize = 0;
+		
+		uint32_t _cipherBegBackPos = 0;
+		uint32_t _cipherBegPos = 0;
+		uint32_t _deadbe7a = 0;
+		std::vector<uint8_t> _cipherKey = {};
+		std::vector<uint8_t> _fileKey = {};
+		uint16_t _keySize = 0;
 	};
 }
 

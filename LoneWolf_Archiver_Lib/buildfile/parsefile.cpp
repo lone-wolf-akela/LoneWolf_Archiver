@@ -156,8 +156,10 @@ namespace buildfile
 		
 		bool r = phrase_parse(iter, eof, builfile_parser, bf_skipper, archive);
 		
-		if (!(r && iter == eof)) throw FormatError("Cannot parse input build file");
-
+		if (!(r && iter == eof))
+		{
+			throw FormatError("Cannot parse input build file");
+		}
 		return archive;
 	}
 }

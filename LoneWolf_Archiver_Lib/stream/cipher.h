@@ -114,7 +114,7 @@ namespace stream
 		0x8D, 0xEF, 0x02, 0x2D
 	};
 
-	inline const uint32_t* cipherConst = pointer_cast<const uint32_t, uint8_t>(cipherRaw);
+	inline const uint32_t* const cipherConst = pointer_cast<const uint32_t, uint8_t>(cipherRaw);
 }
 
 #endif

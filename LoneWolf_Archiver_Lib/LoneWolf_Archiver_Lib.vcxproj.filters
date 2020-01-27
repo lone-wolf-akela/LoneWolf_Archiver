@@ -132,13 +132,7 @@
     <ClInclude Include="stream\cipher.h">
       <Filter>头文件\stream</Filter>
     </ClInclude>
-    <ClInclude Include="stream\cipherstream.h">
-      <Filter>头文件\stream</Filter>
-    </ClInclude>
     <ClInclude Include="stream\filestream.h">
-      <Filter>头文件\stream</Filter>
-    </ClInclude>
-    <ClInclude Include="stream\memmapfilestream.h">
       <Filter>头文件\stream</Filter>
     </ClInclude>
     <ClInclude Include="core.h">
@@ -224,15 +218,6 @@
     <ClCompile Include="stream\cipher.cpp">
       <Filter>源文件\stream</Filter>
     </ClCompile>
-    <ClCompile Include="stream\cipherstream.cpp">
-      <Filter>源文件\stream</Filter>
-    </ClCompile>
-    <ClCompile Include="stream\filestream.cpp">
-      <Filter>源文件\stream</Filter>
-    </ClCompile>
-    <ClCompile Include="stream\memmapfilestream.cpp">
-      <Filter>源文件\stream</Filter>
-    </ClCompile>
     <ClCompile Include="core.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -244,6 +229,9 @@
     </ClCompile>
     <ClCompile Include="ThreadPool\ThreadPool.cpp">
       <Filter>源文件\ThreadPool</Filter>
+    </ClCompile>
+    <ClCompile Include="stream\filestream.cpp">
+      <Filter>源文件\stream</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

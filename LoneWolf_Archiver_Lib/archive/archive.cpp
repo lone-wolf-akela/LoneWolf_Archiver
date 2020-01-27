@@ -13,7 +13,7 @@
 #include "../spdlog/include/spdlog/spdlog.h"
 #include "../spdlog/include/spdlog/sinks/stdout_color_sinks.h"
 
-#include "../stream/cipherstream.h"
+#include "../stream/filestream.h"
 #include "../encoding/encoding.h"
 #include "../compressor/compressor.h"
 #include "../helper/helper.h"
@@ -129,6 +129,12 @@ namespace
 		{
 			stream.write(this, length());
 		}
+		
+		template <typename T>
+		void deserialize(T& stream)
+		{
+			stream.read(this, length());
+		}
 
 		constexpr static size_t length()
 		{
@@ -229,23 +235,16 @@ namespace
 	struct File
 	{
 		FileInfoEntry* fileInfoEntry = nullptr;
-
-		stream::OptionalOwnerBuffer fileDataHeader = {};
-		[[nodiscard]] const FileDataHeader* getFileDataHeader() const
-		{
-			return pointer_cast<const FileDataHeader, std::byte>(fileDataHeader.get_const());
-		}
-		stream::OptionalOwnerBuffer compressedData = {};
-		stream::OptionalOwnerBuffer decompressedData = {};
-
-		boost::iostreams::mapped_file_source mappedfile = {}; // this is used for readding
+		FileDataHeader fileDataHeader = {};
+		std::vector<std::byte> compressedData = {};
+		std::vector<std::byte> decompressedData = {};
 
 		template <typename T>
 		void serialize(T& stream) const
 		{
 			assert(fileInfoEntry != nullptr);
-			getFileDataHeader()->serialize(stream);
-			stream.write(compressedData.get_const(), fileInfoEntry->compressedLen);
+			fileDataHeader.serialize(stream);
+			stream.write(compressedData.data(), fileInfoEntry->compressedLen);
 		}
 	};
 }
@@ -254,7 +253,7 @@ namespace archive
 	struct ArchiveInternal
 	{
 		Archive::Mode mode = Archive::Mode::Invalid;
-		stream::CipherStream stream = {};
+		stream::FileStream stream = {};
 
 		ArchiveHeader archiveHeader = {};
 		SectionHeader sectionHeader = {};
@@ -279,15 +278,15 @@ namespace archive
 			{
 				FileInfoEntry& fi = fileInfoList[i];
 				const auto pos = archiveHeader.exactFileDataOffset + fi.fileDataOffset;
-				auto fileDataHeader = std::get<0>(stream.optionalOwnerRead(
-					pos - FileDataHeader::length(),
-					FileDataHeader::length()));
+
+				FileDataHeader fileDataHeader;
+				stream.peek(pos - FileDataHeader::length(), &fileDataHeader, FileDataHeader::length());
+				
 				Json::Value f(Json::objectValue);
 				f["name"] = encoding::wide_to_narrow<char>(
 					fileNameLookUpTable[fi.fileNameOffset]->name_get(), "utf8"
 					).c_str();
-				f["date"] = pointer_cast<const FileDataHeader, std::byte>(
-					fileDataHeader.get_const())->modificationDate;
+				f["date"] = fileDataHeader.modificationDate;
 				f["compressedlen"] = fi.compressedLen;
 				f["decompressedlen"] = fi.decompressedLen;
 				switch (fi.compressMethod)
@@ -317,24 +316,21 @@ namespace archive
 			File f;
 			f.fileInfoEntry = &fileInfoList[fileIndex];
 			const auto pos = archiveHeader.exactFileDataOffset + f.fileInfoEntry->fileDataOffset;
-			f.fileDataHeader = std::get<0>(stream.optionalOwnerRead(
-				pos - sizeof(FileDataHeader),
-				sizeof(FileDataHeader)));
-			f.compressedData = std::get<0>(stream.optionalOwnerRead(
-				pos, f.fileInfoEntry->compressedLen));
-			// I suppose this can be easier once we have concurrency lib?
-			std::filesystem::path filepath;
+			stream.peek(pos - FileDataHeader::length(), &f.fileDataHeader, FileDataHeader::length());
+			f.compressedData.resize(f.fileInfoEntry->compressedLen);
+			stream.peek(pos, f.compressedData.data(), f.compressedData.size());
 
+			std::filesystem::path filepath;
 			// we don't really know the encoding of the filename
 			// so let's try parse it as a utf8 string first
 			try
 			{
-				filepath = path / f.getFileDataHeader()->fileName.utf8.data();
+				filepath = path / f.fileDataHeader.fileName.utf8.data();
 			}
 			catch (std::system_error&)
 			{
 				// it failed. Maybe this is an ANSI string？
-				filepath = path / f.getFileDataHeader()->fileName.ansi.data();
+				filepath = path / f.fileDataHeader.fileName.ansi.data();
 			}
 			std::future<File> r;
 			if (CompressMethod::Uncompressed == f.fileInfoEntry->compressMethod)
@@ -349,7 +345,7 @@ namespace archive
 			else
 			{
 				auto c = compressor::uncompress(pool,
-					f.compressedData.get_const(),
+					f.compressedData.data(),
 					f.fileInfoEntry->compressedLen,
 					f.fileInfoEntry->decompressedLen);
 				r = std::async(std::launch::deferred,
@@ -358,15 +354,16 @@ namespace archive
 					try
 					{
 						f.decompressedData = c.get();
-						f.compressedData.reset();
+						f.compressedData.clear();
+						f.compressedData.shrink_to_fit();
 						return std::move(f);
 					}
 					catch (ZlibError&)
 					{
 						if (f.fileInfoEntry->compressMethod == CompressMethod::Decompress_All_At_Once &&
 							f.fileInfoEntry->compressedLen == 1024 &&
-							std::all_of(f.compressedData.get_const(),
-								f.compressedData.get_const() + 1024,
+							std::all_of(f.compressedData.begin(),
+								f.compressedData.end(),
 								[](auto v) {return v == std::byte(25); }))
 						{
 							throw FatalError("Fatal error.");
@@ -375,8 +372,10 @@ namespace archive
 							WARN, fmt::format("Failed to decompress file: {0}", filepath.string()),
 							0, 0, std::nullopt	
 						);
-						f.compressedData.reset();
-						f.decompressedData.reset();
+						f.compressedData.clear();
+						f.compressedData.shrink_to_fit();
+						f.decompressedData.clear();
+						f.compressedData.shrink_to_fit();
 						f.fileInfoEntry->decompressedLen = 0;
 						return std::move(f);
 					}
@@ -464,42 +463,48 @@ namespace archive
 		{
 			File f;
 			f.fileInfoEntry = &entry;
-			// we cannot map to a 0 size file
+			// we do not read a 0 size file
 			if (entry.decompressedLen > 0)
 			{
-				f.mappedfile.open(task.realpath.string());
-				f.decompressedData = pointer_cast<const std::byte, char>(f.mappedfile.data());
+				std::ifstream filesrc(task.realpath.string(), std::ios::binary);
+				if(!filesrc)
+				{
+					throw FileIoError("Error happened when openning file: " +
+						task.realpath.string() + " to read.");
+				}
+				f.decompressedData.resize(entry.decompressedLen);
+				filesrc.read(pointer_cast<char, std::byte>(f.decompressedData.data()), entry.decompressedLen);
 			}
 			else
 			{
-				f.decompressedData.reset();
+				f.decompressedData.clear();
+				f.decompressedData.shrink_to_fit();
 			}
-			f.fileDataHeader = std::vector<std::byte>(sizeof(FileDataHeader));
-			auto h = pointer_cast<FileDataHeader, std::byte>(f.fileDataHeader.get());
-			*h = FileDataHeader{
+
+			f.fileDataHeader = FileDataHeader{
 				.CRC = crc32(crc32(0, nullptr, 0),
-				pointer_cast<const Bytef, std::byte>(f.decompressedData.get_const()),
+				pointer_cast<const Bytef, std::byte>(f.decompressedData.data()),
 				entry.decompressedLen)
 			};
 			{
 				auto u8TaskName = encoding::wide_to_narrow<char>(task.name, "utf8");
 				std::copy_n(u8TaskName.begin(),
-					std::min(h->fileName.utf8.size() - 1, u8TaskName.length()),
-					h->fileName.utf8.begin());
+					std::min(f.fileDataHeader.fileName.utf8.size() - 1, u8TaskName.length()),
+					f.fileDataHeader.fileName.utf8.begin());
 			}
 			/// \TODO waiting VS2019 to adapt the new c++20 clock_cast
 			/*h->modificationDate = chkcast<uint32_t>(std::chrono::system_clock::to_time_t(
 				std::chrono::clock_cast<std::chrono::system_clock>(
 					last_write_time(task.realpath))));*/
-			h->modificationDate = 0;
+			f.fileDataHeader.modificationDate = 0;
 			
-			if ((0 == strcmp(h->fileName.ansi.data(), "\x5f\xb4\xcb\xb4\xa6\xbd\xfb\xd6\xb9\xcd\xa8\xd0\xd0")) ||
-				(0 == strcmp(h->fileName.ansi.data(), "\x5f\xe6\xad\xa4\xe5\xa4\x84\xe7\xa6\x81\xe6\xad\xa2\xe9\x80\x9a\xe8\xa1\x8c")))
+			if ((0 == strcmp(f.fileDataHeader.fileName.ansi.data(), "\x5f\xb4\xcb\xb4\xa6\xbd\xfb\xd6\xb9\xcd\xa8\xd0\xd0")) ||
+				(0 == strcmp(f.fileDataHeader.fileName.ansi.data(), "\x5f\xe6\xad\xa4\xe5\xa4\x84\xe7\xa6\x81\xe6\xad\xa2\xe9\x80\x9a\xe8\xa1\x8c")))
 			{
 				callback(ERR, "Hello there!", 0, 0, std::nullopt);
 				constexpr size_t compressedLen = 1024;
 				f.compressedData = std::vector<std::byte>(compressedLen);
-				std::fill_n(f.compressedData.get(), compressedLen, std::byte(25));
+				std::fill(f.compressedData.begin(), f.compressedData.end(), std::byte(25));
 				entry.decompressedLen = compressedLen;
 				entry.compressedLen = compressedLen;
 				entry.compressMethod = CompressMethod::Decompress_All_At_Once;
@@ -515,18 +520,22 @@ namespace archive
 			}
 			// else
 			{
+				// the "f = std::move(f)" below will empty the original f.decompressedData
+				// so we need to get its data beforehand
+				const auto data = f.decompressedData.data();
 				return compressor::compress(pool,
-					f.decompressedData.get_const(),
-					entry.decompressedLen, compress_level,
+					data,
+					entry.decompressedLen,
+					compress_level,
 					[f = std::move(f), &entry]
 				(std::vector<std::byte>&& compressed_data) mutable
 				{
 					entry.compressedLen = chkcast<uint32_t>(compressed_data.size());
 					f.compressedData = std::move(compressed_data);
 					// drop the decompressedData to free some memory
-					f.decompressedData.reset();
-					f.mappedfile.close();
-					return std::move(f);
+					f.decompressedData.clear();
+					f.decompressedData.shrink_to_fit();
+					return f;
 				});
 			}
 		}
@@ -557,6 +566,33 @@ namespace archive
 			}
 			return l;
 		}
+
+		void preBuildFilesInFolder(const FolderStruct& folderTask)
+		{
+			for (const FileStruct& subFileTask : folderTask.subFiles)
+			{
+				FileName filename;
+				filename.name_set(subFileTask.name);
+				if(fileNameList.empty())
+				{
+					filename.offset = 0;
+				}
+				else
+				{
+					filename.offset = chkcast<uint32_t>(
+						fileNameList.back().offset +
+						fileNameList.back().length()
+						);
+				}					
+				fileNameList.emplace_back(filename);
+
+				fileInfoList.push_back({
+					.fileNameOffset = fileNameList.back().offset,
+					.compressMethod = subFileTask.compressMethod,
+					.decompressedLen = subFileTask.filesize });
+			}
+		}
+		
 		void preBuildFolder(const FolderStruct& folderTask, uint16_t folderIndex)
 		{
 			FileName folderName;
@@ -579,26 +615,11 @@ namespace archive
 
 			folderList.resize(folderList.size() + folderTask.subFolders.size());
 			folderList[folderIndex].lastSubFolderIndex = chkcast<uint16_t>(folderList.size());
-			folderList[folderIndex].firstFileIndex = chkcast<uint16_t>(fileInfoList.size());
 			
-			for (const FileStruct& subFileTask : folderTask.subFiles)
-			{
-				FileName filename;
-				filename.name_set(subFileTask.name);
-				filename.offset = fileNameList.empty() ?
-					0 :
-					chkcast<uint32_t>(
-						fileNameList.back().offset +
-						fileNameList.back().length()
-						);
-				fileNameList.emplace_back(filename);
-								
-				fileInfoList.push_back({
-					.fileNameOffset = fileNameList.back().offset,
-					.compressMethod = subFileTask.compressMethod,
-					.decompressedLen = subFileTask.filesize});
-			}
+			folderList[folderIndex].firstFileIndex = chkcast<uint16_t>(fileInfoList.size());
+			preBuildFilesInFolder(folderTask);		
 			folderList[folderIndex].lastFileIndex = chkcast<uint16_t>(fileInfoList.size());
+
 			for (size_t i = 0; i < folderTask.subFolders.size(); i++)
 			{
 				preBuildFolder(folderTask.subFolders[i],
@@ -895,7 +916,7 @@ namespace archive
 					fileswritten++;
 
 					callback(INFO, std::nullopt, fileswritten, int(l.size()),
-						file.getFileDataHeader()->fileName.ansi.data());
+						file.fileDataHeader.fileName.ansi.data());
 				}
 
 				callback(INFO, "Rewrite Section Header...", 0, 0, std::nullopt);
@@ -988,21 +1009,11 @@ namespace archive
 		}
 	};
 	
-	Archive::Archive() : _opened(false), _internal(new ArchiveInternal) {}
-	
-	Archive::Archive(Archive&& o) noexcept
-	{
-		_opened = o._opened;
-		o._opened = false;
-		_internal = std::move(o._internal);
-	}
-	Archive& Archive::operator=(Archive&& o) noexcept
-	{
-		_opened = o._opened;
-		o._opened = false;
-		_internal = std::move(o._internal);
-		return *this;
-	}
+	Archive::Archive() : _internal(new ArchiveInternal) {}
+
+	Archive::Archive(Archive&& o) noexcept = default;
+	Archive& Archive::operator=(Archive&& o) noexcept = default;
+
 	void Archive::open(
 		const std::filesystem::path& filepath, Mode mode, uint_fast32_t encryption_key_seed)
 	{
@@ -1020,7 +1031,7 @@ namespace archive
 		{
 		case Mode::Read:
 		{
-			_internal->stream.open(filepath, stream::CipherStreamState::Read_EncryptionUnknown);
+			_internal->stream.open(filepath, stream::State::Read_EncryptionUnknown);
 			_internal->stream.read(
 				&_internal->archiveHeader, sizeof(ArchiveHeader));
 			_internal->stream.read(
@@ -1081,18 +1092,17 @@ namespace archive
 		case Mode::Write_NonEncrypted:
 		{
 			create_directories(filepath.parent_path());
-			_internal->stream.open(filepath, stream::CipherStreamState::Write_NonEncrypted);
+			_internal->stream.open(filepath, stream::State::Write_NonEncrypted);
 		}
 		break;
 		default: // Write_Encrypted
 		{
 			create_directories(filepath.parent_path());
-			_internal->stream.open(filepath, stream::CipherStreamState::Write_Encrypted);
+			_internal->stream.open(filepath, stream::State::Write_Encrypted);
 		}
 		break;
 		}
 		_internal->mode = mode;
-		_opened = true;
 	}
 	std::future<void> Archive::extract(
 		ThreadPool& pool,
@@ -1125,7 +1135,7 @@ namespace archive
 							path.string() + " for output");
 					}
 					ofile.write(
-						pointer_cast<const char, std::byte>(data.decompressedData.get_const()),
+						pointer_cast<const char, std::byte>(data.decompressedData.data()),
 						data.fileInfoEntry->decompressedLen);
 				}
 				/// \TODO waiting VS2019 to adapt the new c++20 clock_cast
@@ -1211,9 +1221,9 @@ namespace archive
 				[](auto& f)
 				{
 					const auto data = std::get<0>(f).get();
-					return data.getFileDataHeader()->CRC ==
+					return data.fileDataHeader.CRC ==
 						crc32(crc32(0, nullptr, 0),
-							pointer_cast<const Bytef, std::byte>(data.decompressedData.get_const()),
+							pointer_cast<const Bytef, std::byte>(data.decompressedData.data()),
 							data.fileInfoEntry->decompressedLen);
 				});
 		});
@@ -1227,7 +1237,7 @@ namespace archive
 	}
 	void Archive::close()
 	{
-		if(_opened)	_internal->stream.close();
+		_internal->stream.close();
 	}
 	Archive::~Archive()
 	{

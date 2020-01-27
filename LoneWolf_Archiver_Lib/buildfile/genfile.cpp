@@ -112,10 +112,12 @@ namespace buildfile
 		const builfile_gen<decltype(iter)> gen;
 		const bool r = generate(iter, gen, archive);
 
-		if (!r) throw UnkownError("Unkown error happened when generating build file");
-
+		if (!r)
+		{
+			throw UnkownError("Unkown error happened when generating build file");
+		}
 		///\note	we need to output ANSI(std::string) instead of UTF8(std::u8string)
-///			to keep compatible with Relic's old Archive.exe
+		///			to keep compatible with Relic's old Archive.exe
 		ofile << encoding::wide_to_narrow<char>(generated, "");
 	}
 }

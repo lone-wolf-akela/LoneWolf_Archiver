@@ -57,7 +57,6 @@ namespace archive
 		void close();
 		~Archive();
 	private:
-		bool _opened;
 		std::unique_ptr<ArchiveInternal> _internal;		
 	};
 }
