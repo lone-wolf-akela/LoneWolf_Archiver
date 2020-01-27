@@ -25,18 +25,18 @@ namespace
 	/// \param needle	filename with wildcard
 	/// \param haystack	actual filename to test
 	/// \return if the	name match the wildcard
-	bool match(std::u8string_view needle, std::u8string_view haystack)
+	bool match(std::wstring_view needle, std::wstring_view haystack)
 	{
 		auto pNeedle = needle.begin();
 		auto pHaystack = haystack.begin();
 		for (; pNeedle != needle.end(); ++pNeedle) {
 			switch (*pNeedle) {
-			case u8'?':
+			case L'?':
 				if (pHaystack ==haystack.end()) return false;
 				++pHaystack;
 				break;
-			case u8'*': {
-				if (pNeedle+1 == needle.end())
+			case L'*': {
+				if (pNeedle + 1 == needle.end())
 					return true;
 				for (; pHaystack != haystack.end(); ++pHaystack)
 				{
@@ -80,27 +80,27 @@ namespace
 	/*archive structure*/
 	struct FileStruct
 	{
-		std::u8string name = u8"";
+		std::wstring name = L"";
 		std::filesystem::path realpath = {};
 		CompressMethod compressMethod = {};
 		uint32_t filesize = 0;
 	};
 	struct FolderStruct
 	{
-		std::u8string name = u8""; // only used during parsing
-		std::u8string path_relative_to_root = u8"";
+		std::wstring name = L""; // only used during parsing
+		std::wstring path_relative_to_root = L"";
 		std::vector<FolderStruct> subFolders = {};
 		std::vector<FileStruct> subFiles = {};
 	};
 	struct TocStruct
 	{
-		std::u8string name = u8"";
-		std::u8string alias = u8"";
+		std::wstring name = L"";
+		std::wstring alias = L"";
 		FolderStruct rootFolder = {};
 	};
 	struct ArchiveStruct
 	{
-		std::u8string name = u8"";
+		std::wstring name = L"";
 		std::vector<TocStruct> TOCs = {};
 	};
 
@@ -121,7 +121,22 @@ namespace
 	constexpr std::string_view ARCHIVE_SIG = "DFC9AF62-FC1B-4180-BC27-11CCE87D3EFF";
 	/*data struct*/
 #pragma pack (1)
-	struct ArchiveHeader
+	template <typename ChildClass>
+	struct SimpleSerializable
+	{
+		template <typename T>
+		void serialize(T& stream) const
+		{
+			stream.write(this, length());
+		}
+
+		constexpr static size_t length()
+		{
+			return sizeof(ChildClass);
+		}
+	};
+
+	struct ArchiveHeader : SimpleSerializable<ArchiveHeader>
 	{
 		std::array<char, 8> _ARCHIVE = {};
 		uint32_t version = 0;
@@ -133,7 +148,7 @@ namespace
 		uint32_t sectionHeaderSize = 0;
 		uint32_t exactFileDataOffset = 0;
 	};
-	struct SectionHeader
+	struct SectionHeader : SimpleSerializable<SectionHeader>
 	{
 		//all offsets are relative to archive header
 		uint32_t TOC_offset = 0;
@@ -145,7 +160,7 @@ namespace
 		uint32_t FileName_offset = 0;
 		uint16_t FileName_count = 0;
 	};
-	struct TocEntry
+	struct TocEntry : SimpleSerializable<TocEntry>
 	{
 		std::array<char, 64> alias = {};
 		std::array<char, 64> name = {};
@@ -155,7 +170,7 @@ namespace
 		uint16_t lastFileIndex = 0;
 		uint16_t startHierarchyFolderIndex = 0;
 	};
-	struct FolderEntry
+	struct FolderEntry : SimpleSerializable<FolderEntry>
 	{
 		uint32_t fileNameOffset = 0;		//relative to FileName_offset
 		uint16_t firstSubFolderIndex = 0;	//[first, last)
@@ -163,7 +178,7 @@ namespace
 		uint16_t firstFileIndex = 0;		//[first, last)
 		uint16_t lastFileIndex = 0;
 	};
-	struct FileInfoEntry
+	struct FileInfoEntry : SimpleSerializable<FileInfoEntry>
 	{
 		uint32_t fileNameOffset = 0;		//relative to FileName_offset
 		CompressMethod compressMethod = {};
@@ -171,7 +186,7 @@ namespace
 		uint32_t compressedLen = 0;
 		uint32_t decompressedLen = 0;
 	};
-	struct FileDataHeader
+	struct FileDataHeader : SimpleSerializable<FileDataHeader>
 	{
 		// we don't really know which encoding was used when compressed the archive...
 		union { std::array<char8_t, 256> utf8; std::array<char, 256> ansi; }fileName = {};
@@ -180,10 +195,36 @@ namespace
 	};
 #pragma pack ()
 	/*container class*/
-	struct FileName
+	class FileName
 	{
-		std::u8string name = u8"";
+	public:
+		[[nodiscard]] std::wstring name_get() const
+		{
+			assert(set);
+			return wname;
+		}
+		void name_set(std::wstring_view v)
+		{
+			assert(!set && "Name should only be set once");
+			set = true;
+			wname = v;
+			u8name = encoding::wide_to_narrow<char8_t>(v, "utf8");
+		}
+		[[nodiscard]] size_t length() const
+		{
+			return u8name.length() + 1;
+		}
 		uint32_t offset = 0;	//relative to FileName_offset
+
+		template <typename T>
+		void serialize(T& stream) const
+		{
+			stream.write(u8name.c_str(), length());
+		}
+	private:
+		std::u8string u8name = u8"";
+		std::wstring wname = L"";
+		bool set = false;
 	};
 	struct File
 	{
@@ -192,12 +233,20 @@ namespace
 		stream::OptionalOwnerBuffer fileDataHeader = {};
 		[[nodiscard]] const FileDataHeader* getFileDataHeader() const
 		{
-			return reinterpret_cast<const FileDataHeader*>(fileDataHeader.get_const());
+			return pointer_cast<const FileDataHeader, std::byte>(fileDataHeader.get_const());
 		}
 		stream::OptionalOwnerBuffer compressedData = {};
 		stream::OptionalOwnerBuffer decompressedData = {};
 
 		boost::iostreams::mapped_file_source mappedfile = {}; // this is used for readding
+
+		template <typename T>
+		void serialize(T& stream) const
+		{
+			assert(fileInfoEntry != nullptr);
+			getFileDataHeader()->serialize(stream);
+			stream.write(compressedData.get_const(), fileInfoEntry->compressedLen);
+		}
 	};
 }
 namespace archive
@@ -222,20 +271,22 @@ namespace archive
 			FolderEntry& fo = folderList[folderIndex];
 
 			Json::Value r(Json::objectValue);
-			r["path"] = reinterpret_cast<const char*>
-				(fileNameLookUpTable[fo.fileNameOffset]->name.c_str());
+			r["path"] = encoding::wide_to_narrow<char>(
+				fileNameLookUpTable[fo.fileNameOffset]->name_get(), "utf8"
+				).c_str();
 			r["files"] = Json::Value(Json::arrayValue);
 			for (uint16_t i = fo.firstFileIndex; i < fo.lastFileIndex; i++)
 			{
 				FileInfoEntry& fi = fileInfoList[i];
 				const auto pos = archiveHeader.exactFileDataOffset + fi.fileDataOffset;
 				auto fileDataHeader = std::get<0>(stream.optionalOwnerRead(
-					pos - sizeof(FileDataHeader),
-					sizeof(FileDataHeader)));
+					pos - FileDataHeader::length(),
+					FileDataHeader::length()));
 				Json::Value f(Json::objectValue);
-				f["name"] = reinterpret_cast<const char*>
-					(fileNameLookUpTable[fi.fileNameOffset]->name.c_str());
-				f["date"] = reinterpret_cast<const FileDataHeader*>(
+				f["name"] = encoding::wide_to_narrow<char>(
+					fileNameLookUpTable[fi.fileNameOffset]->name_get(), "utf8"
+					).c_str();
+				f["date"] = pointer_cast<const FileDataHeader, std::byte>(
 					fileDataHeader.get_const())->modificationDate;
 				f["compressedlen"] = fi.compressedLen;
 				f["decompressedlen"] = fi.decompressedLen;
@@ -347,10 +398,10 @@ namespace archive
 			std::replace(
 				fileNameLookUpTable[f.fileNameOffset]->name.begin(),
 				fileNameLookUpTable[f.fileNameOffset]->name.end(),
-				u8'\\', u8'/');
+				L'\\', L'/');
 #endif
 			const std::filesystem::path filepath =
-				root / fileNameLookUpTable[f.fileNameOffset]->name;
+				root / fileNameLookUpTable[f.fileNameOffset]->name_get();
 			for (auto i = f.firstFileIndex; i < f.lastFileIndex; i++)
 			{
 				r.push_back(extractFile(pool, filepath, i, callback));
@@ -369,8 +420,8 @@ namespace archive
 			{
 				FileInfoEntry& fi = fileInfoList[i];
 				const std::string filename = (std::filesystem::path(
-					fileNameLookUpTable[fo.fileNameOffset]->name) /
-					fileNameLookUpTable[fi.fileNameOffset]->name).string();
+					fileNameLookUpTable[fo.fileNameOffset]->name_get()) /
+					fileNameLookUpTable[fi.fileNameOffset]->name_get()).string();
 
 				const double ratio = double(fi.compressedLen) / double(fi.decompressedLen);
 				std::string storageType;
@@ -417,23 +468,25 @@ namespace archive
 			if (entry.decompressedLen > 0)
 			{
 				f.mappedfile.open(task.realpath.string());
-				f.decompressedData = reinterpret_cast<const std::byte*>(f.mappedfile.data());
+				f.decompressedData = pointer_cast<const std::byte, char>(f.mappedfile.data());
 			}
 			else
 			{
 				f.decompressedData.reset();
 			}
 			f.fileDataHeader = std::vector<std::byte>(sizeof(FileDataHeader));
-			auto h = reinterpret_cast<FileDataHeader*>(f.fileDataHeader.get());
+			auto h = pointer_cast<FileDataHeader, std::byte>(f.fileDataHeader.get());
 			*h = FileDataHeader{
 				.CRC = crc32(crc32(0, nullptr, 0),
-				reinterpret_cast<const Bytef*>(f.decompressedData.get_const()),
+				pointer_cast<const Bytef, std::byte>(f.decompressedData.get_const()),
 				entry.decompressedLen)
 			};
-			std::copy_n(task.name.begin(),
-				std::min(h->fileName.utf8.size() - 1,
-					task.name.length()),
-				h->fileName.utf8.begin());
+			{
+				auto u8TaskName = encoding::wide_to_narrow<char>(task.name, "utf8");
+				std::copy_n(u8TaskName.begin(),
+					std::min(h->fileName.utf8.size() - 1, u8TaskName.length()),
+					h->fileName.utf8.begin());
+			}
 			/// \TODO waiting VS2019 to adapt the new c++20 clock_cast
 			/*h->modificationDate = chkcast<uint32_t>(std::chrono::system_clock::to_time_t(
 				std::chrono::clock_cast<std::chrono::system_clock>(
@@ -507,15 +560,17 @@ namespace archive
 		void preBuildFolder(const FolderStruct& folderTask, uint16_t folderIndex)
 		{
 			FileName folderName;
-			folderName.name = folderTask.path_relative_to_root;
+			folderName.name_set(folderTask.path_relative_to_root);
 			if (folderNameList.empty())
 			{
 				folderName.offset = 0;
 			}
 			else
 			{
-				folderName.offset = chkcast<uint32_t>(folderNameList.back().offset +
-					folderNameList.back().name.length() + 1);
+				folderName.offset = chkcast<uint32_t>(
+					folderNameList.back().offset +
+					folderNameList.back().length()
+					);
 			}
 			folderNameList.push_back(folderName);
 			
@@ -528,12 +583,16 @@ namespace archive
 			
 			for (const FileStruct& subFileTask : folderTask.subFiles)
 			{
-				fileNameList.push_back({
-					.name = subFileTask.name,
-					.offset = fileNameList.empty() ? 0 : chkcast<uint32_t>(
+				FileName filename;
+				filename.name_set(subFileTask.name);
+				filename.offset = fileNameList.empty() ?
+					0 :
+					chkcast<uint32_t>(
 						fileNameList.back().offset +
-						fileNameList.back().name.length() + 1)});
-
+						fileNameList.back().length()
+						);
+				fileNameList.emplace_back(filename);
+								
 				fileInfoList.push_back({
 					.fileNameOffset = fileNameList.back().offset,
 					.compressMethod = subFileTask.compressMethod,
@@ -551,7 +610,7 @@ namespace archive
 			parseTask(
 				buildfile::Archive& archive,
 				const std::filesystem::path& root,
-				std::vector<std::u8string> ignore_list,
+				std::vector<std::wstring> ignore_list,
 				const ProgressCallback& callback)
 		{
 			callback(INFO, "Parsing Build Config...", 0, 0, std::nullopt);
@@ -566,12 +625,12 @@ namespace archive
 				TocStruct tocTask{
 					.name = boost::to_lower_copy(toc.param.name),
 					.alias = boost::to_lower_copy(toc.param.alias),
-					.rootFolder{.name = u8""},
+					.rootFolder{.name = L""},
 				};
 #if defined(_WIN32)
 				//on windows, we should use '\\' instead of '/'
 				std::replace(toc.param.relativeroot.begin(),
-					toc.param.relativeroot.end(), u8'/', u8'\\');
+					toc.param.relativeroot.end(), L'/', L'\\');
 				for (auto& file : toc.files)
 				{
 					file.make_preferred();
@@ -579,11 +638,11 @@ namespace archive
 #else
 				//on linux, we should use '/' instead of '\\'
 				std::replace(toc.param.relativeroot.begin(),
-					toc.param.relativeroot.end(), u8'\\', u8'/');
+					toc.param.relativeroot.end(), L'\\', L'/');
 				for (auto& file : toc.files)
 				{
-					auto t = file.u8string();
-					std::replace(t.begin(), t.end(), u8'\\', u8'/');
+					auto t = file.wstring();
+					std::replace(t.begin(), t.end(), L'\\', L'/');
 					file = t;
 				}
 #endif
@@ -591,14 +650,14 @@ namespace archive
 				// toc file list must be sorted
 				toc.files.sort([](auto a, auto b)
 					{
-						return boost::to_lower_copy(a.u8string()) <
-							boost::to_lower_copy(b.u8string());
+						return boost::to_lower_copy(a.wstring()) <
+							boost::to_lower_copy(b.wstring());
 					});
 				for (auto& file : toc.files)
 				{
 					FileStruct fileTask;
 					fileTask.realpath = absolute(file);
-					fileTask.name = boost::to_lower_copy(fileTask.realpath.filename().u8string());
+					fileTask.name = boost::to_lower_copy(fileTask.realpath.filename().wstring());
 
 					fileTask.filesize = chkcast<uint32_t>(file_size(fileTask.realpath));
 					fileTask.compressMethod = ct_convert(toc.filesetting.param.defcompression);
@@ -606,15 +665,15 @@ namespace archive
 					for (auto &ignore : ignore_list)
 					{
 						// check folder name
-						if (ignore.ends_with(u8'\\') || ignore.ends_with(u8'/'))
+						if (ignore.ends_with(L'\\') || ignore.ends_with(L'/'))
 						{		
 							auto foldername =
-								std::u8string_view(ignore.c_str(), ignore.length() - 1);
+								std::wstring_view(ignore.c_str(), ignore.length() - 1);
 							for (auto iter = fileTask.realpath.begin();
 								iter != fileTask.realpath.end();
 								++iter)
 							{
-								if (boost::to_lower_copy(iter->u8string()) == foldername)
+								if (boost::to_lower_copy(iter->wstring()) == foldername)
 								{
 									goto skip;
 								}
@@ -670,7 +729,7 @@ namespace archive
 						for (FolderStruct& subFolderTask : currentFolder->subFolders)
 						{
 							if (boost::to_lower_copy(subFolderTask.name) ==
-								boost::to_lower_copy(iter->u8string()))
+								boost::to_lower_copy(iter->wstring()))
 							{
 								currentFolder = &subFolderTask;
 								found = true;
@@ -680,11 +739,11 @@ namespace archive
 						if (!found)
 						{
 							FolderStruct newFolder;
-							newFolder.name = boost::to_lower_copy(iter->u8string());
-							newFolder.path_relative_to_root = boost::to_lower_copy(currentPath.u8string());
+							newFolder.name = boost::to_lower_copy(iter->wstring());
+							newFolder.path_relative_to_root = boost::to_lower_copy(currentPath.wstring());
 #if !defined(_WIN32)
 							std::replace(newFolder.path_relative_to_root.begin(),
-								newFolder.path_relative_to_root.end(), u8'/', u8'\\');
+								newFolder.path_relative_to_root.end(), L'/', L'\\');
 #endif
 							currentFolder->subFolders.push_back(newFolder);
 							currentFolder = &currentFolder->subFolders.back();
@@ -708,13 +767,13 @@ namespace archive
 			archiveHeader = ArchiveHeader{
 				._ARCHIVE = {'_','A','R','C','H','I','V','E'},
 				.version = 2};
-			const std::u16string tmpU16str = encoding::toUTF16<char8_t>(task.name, "utf8");
+			const std::u16string tmpU16str = encoding::wide_to_utf16(task.name);
 
 			std::copy_n(tmpU16str.begin(),
 				std::min(archiveHeader.archiveName.size() - 1,
 					tmpU16str.length()),
 				archiveHeader.archiveName.begin());
-			stream.write(&archiveHeader, sizeof(ArchiveHeader));
+			archiveHeader.serialize(stream);
 
 			sectionHeader = SectionHeader{};
 
@@ -725,15 +784,19 @@ namespace archive
 					.firstFolderIndex = chkcast<uint16_t>(folderList.size()),
 					.firstFileIndex = chkcast<uint16_t>(fileInfoList.size()),
 					.startHierarchyFolderIndex = chkcast<uint16_t>(folderList.size()) };
-				std::copy_n(tocTask.name.begin(),
-					std::min(tocEntry.name.size() - 1,
-						tocTask.name.length()),
-					tocEntry.name.begin());
-				std::copy_n(tocTask.alias.begin(),
-					std::min(tocEntry.alias.size() - 1,
-						tocTask.alias.length()),
-					tocEntry.alias.begin());
 
+				{
+					auto u8TocTaskName = encoding::wide_to_narrow<char>(tocTask.name, "utf8");
+					std::copy_n(u8TocTaskName.begin(),
+						std::min(tocEntry.name.size() - 1, u8TocTaskName.length()),
+						tocEntry.name.begin());
+				}
+				{
+					auto u8TocTaskAlias = encoding::wide_to_narrow<char>(tocTask.alias, "utf8");
+					std::copy_n(u8TocTaskAlias.begin(),
+						std::min(tocEntry.alias.size() - 1, u8TocTaskAlias.length()),
+						tocEntry.alias.begin());
+				}
 				folderList.emplace_back();
 				preBuildFolder(tocTask.rootFolder, tocEntry.firstFolderIndex);
 
@@ -743,8 +806,8 @@ namespace archive
 			}
 
 			//concat _folderNameList and _fileNameList
-			const auto baseOffset = chkcast<uint32_t>(folderNameList.back().offset +
-				folderNameList.back().name.length() + 1);
+			const auto baseOffset = chkcast<uint32_t>(
+				folderNameList.back().offset + folderNameList.back().length());
 			folderNameList.splice(folderNameList.end(), fileNameList);
 			
 			//and adjust files' name offset
@@ -752,10 +815,11 @@ namespace archive
 			{
 				entry.fileNameOffset += baseOffset;
 			}
-
+	
 			callback(INFO, "Writing Section Header...", 0, 0, std::nullopt);
 			const size_t sectionHeaderBegPos = stream.getpos();
-			stream.write(&sectionHeader, sizeof(SectionHeader));
+			sectionHeader.serialize(stream);
+
 			sectionHeader.TOC_offset =
 				chkcast<uint32_t>(stream.getpos() - sizeof(ArchiveHeader));
 			
@@ -763,7 +827,7 @@ namespace archive
 			
 			for (TocEntry& entry : tocList)
 			{
-				stream.write(&entry, sizeof(entry));
+				entry.serialize(stream);
 			}
 			sectionHeader.Folder_offset =
 				chkcast<uint32_t>(stream.getpos() - sizeof(ArchiveHeader));
@@ -772,16 +836,16 @@ namespace archive
 			
 			for (FolderEntry& entry : folderList)
 			{
-				stream.write(&entry, sizeof(entry));
+				entry.serialize(stream);
 			}
 			sectionHeader.FileInfo_offset =
 				chkcast<uint32_t>(stream.getpos() - sizeof(ArchiveHeader));
 
 			sectionHeader.FileInfo_count = chkcast<uint16_t>(fileInfoList.size());
-			
+
 			for (FileInfoEntry& entry : fileInfoList)
 			{
-				stream.write(&entry, sizeof(entry));
+				entry.serialize(stream);
 			}
 			sectionHeader.FileName_offset =
 				chkcast<uint32_t>(stream.getpos() - sizeof(ArchiveHeader));
@@ -790,7 +854,7 @@ namespace archive
 			
 			for (FileName& filename : folderNameList)
 			{
-				stream.write(filename.name.c_str(), filename.name.length() + 1);
+				filename.serialize(stream);
 			}
 
 			archiveHeader.sectionHeaderSize =
@@ -821,11 +885,12 @@ namespace archive
 				for (auto& filefuture : l)
 				{
 					auto file = filefuture.get();
-					stream.write(file.getFileDataHeader(), sizeof(FileDataHeader));
+
 					file.fileInfoEntry->fileDataOffset =
-						chkcast<uint32_t>(stream.getpos() - archiveHeader.exactFileDataOffset);
-					stream.write(file.compressedData.get_const(),
-						file.fileInfoEntry->compressedLen);
+						chkcast<uint32_t>(stream.getpos() + sizeof(FileDataHeader) - archiveHeader.exactFileDataOffset);
+					
+					file.serialize(stream);
+					
 					// calculate progress
 					fileswritten++;
 
@@ -836,7 +901,7 @@ namespace archive
 				callback(INFO, "Rewrite Section Header...", 0, 0, std::nullopt);
 				//rewrite sectionHeader
 				stream.setpos(sizeof(ArchiveHeader));
-				stream.write(&sectionHeader, sizeof(SectionHeader));
+				sectionHeader.serialize(stream);
 
 				if (Archive::Mode::Write_Encrypted == mode)
 				{
@@ -844,19 +909,19 @@ namespace archive
 					stream.setpos(sizeof(ArchiveHeader) + sectionHeader.TOC_offset);
 					for (TocEntry& entry : tocList)
 					{
-						stream.write(&entry, sizeof(entry));
+						entry.serialize(stream);
 					}
 					//rewrite FolderEntry part 
 					stream.setpos(sizeof(ArchiveHeader) + sectionHeader.Folder_offset);
 					for (FolderEntry& entry : folderList)
 					{
-						stream.write(&entry, sizeof(entry));
+						entry.serialize(stream);
 					}
 					//rewrite FileName part 
 					stream.setpos(sizeof(ArchiveHeader) + sectionHeader.FileName_offset);
 					for (FileName& filename : folderNameList)
 					{
-						stream.write(filename.name.c_str(), filename.name.length() + 1);
+						filename.serialize(stream);
 					}
 				}
 
@@ -864,7 +929,7 @@ namespace archive
 				stream.setpos(sizeof(ArchiveHeader) + sectionHeader.FileInfo_offset);
 				for (FileInfoEntry& entry : fileInfoList)
 				{
-					stream.write(&entry, sizeof(entry));
+					entry.serialize(stream);
 				}
 
 				//calculate archiveSignature
@@ -884,7 +949,7 @@ namespace archive
 				}
 				stream.read(buffer.data(), lengthToRead);
 				MD5_Update(&md5_context, buffer.data(), lengthToRead);
-				MD5_Final(reinterpret_cast<unsigned char*>(
+				MD5_Final(pointer_cast<unsigned char, std::byte>(
 					archiveHeader.archiveSignature.data()), &md5_context);
 
 				if (skip_tool_signature)
@@ -904,14 +969,14 @@ namespace archive
 						lenthRead = stream.read(buffer.data(), buffer.size());
 						MD5_Update(&md5_context, buffer.data(), lenthRead);
 					}
-					MD5_Final(reinterpret_cast<unsigned char*>(
+					MD5_Final(pointer_cast<unsigned char, std::byte>(
 						archiveHeader.toolSignature.data()), &md5_context);
 				}
 
 				//rewrite archiveHeader
 				callback(INFO, "Rewrite Archive Header...", 0, 0, std::nullopt);
 				stream.setpos(0);
-				stream.write(&archiveHeader, sizeof(ArchiveHeader));
+				archiveHeader.serialize(stream);
 
 				if (Archive::Mode::Write_Encrypted == mode)
 				{
@@ -997,13 +1062,15 @@ namespace archive
 
 				_internal->fileNameList.back().offset = chkcast<uint32_t>(
 					_internal->stream.getpos() - filenameOffset);
-				
-				_internal->fileNameList.back().name = u8"";
-				char8_t c;
+
+				std::string tempstr{};
+				char c;
 				while (_internal->stream.read(&c, 1), bool(c))
 				{
-					_internal->fileNameList.back().name += c;
+					tempstr += c;
 				}
+				_internal->fileNameList.back().name_set(encoding::detect_narrow_to_wide<char>(tempstr));
+				
 			}
 			for (FileName& filename : _internal->fileNameList)
 			{
@@ -1058,7 +1125,7 @@ namespace archive
 							path.string() + " for output");
 					}
 					ofile.write(
-						reinterpret_cast<const char*>(data.decompressedData.get_const()),
+						pointer_cast<const char, std::byte>(data.decompressedData.get_const()),
 						data.fileInfoEntry->decompressedLen);
 				}
 				/// \TODO waiting VS2019 to adapt the new c++20 clock_cast
@@ -1076,7 +1143,7 @@ namespace archive
 		const std::filesystem::path& root,
 		int compress_level,
 		bool skip_tool_signature,
-		const std::vector<std::u8string>& ignore_list,
+		const std::vector<std::wstring>& ignore_list,
 		const ProgressCallback& callback
 	)
 	{
@@ -1111,10 +1178,10 @@ namespace archive
 
 		Json::Value r(Json::objectValue);
 		// use .c_str() to trim '\0' at end
-		r["name"] = encoding::fromUTF16<char>(
-			std::u16string(_internal->archiveHeader.archiveName.data(),
-				_internal->archiveHeader.archiveName.size()).c_str(),
-			"utf8");
+		r["name"] = encoding::wide_to_narrow<char>(encoding::utf16_to_wide(
+			std::u16string_view(_internal->archiveHeader.archiveName.data(),
+				_internal->archiveHeader.archiveName.size())
+		), "utf8").c_str();
 		r["tocs"] = Json::Value(Json::arrayValue);
 		for (TocEntry& toc : _internal->tocList)
 		{
@@ -1146,14 +1213,17 @@ namespace archive
 					const auto data = std::get<0>(f).get();
 					return data.getFileDataHeader()->CRC ==
 						crc32(crc32(0, nullptr, 0),
-							reinterpret_cast<const Bytef*>(data.decompressedData.get_const()),
+							pointer_cast<const Bytef, std::byte>(data.decompressedData.get_const()),
 							data.fileInfoEntry->decompressedLen);
 				});
 		});
 	}
-	std::u8string Archive::getArchiveSignature() const
+	std::string Archive::getArchiveSignature() const
 	{
-		return reinterpret_cast<char8_t*>(_internal->archiveHeader.archiveSignature.data());
+		return std::string(
+			pointer_cast<const char, std::byte>(_internal->archiveHeader.archiveSignature.data()),
+			_internal->archiveHeader.archiveSignature.size()
+		);
 	}
 	void Archive::close()
 	{

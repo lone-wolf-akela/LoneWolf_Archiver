@@ -26,7 +26,7 @@ namespace buildfile
 		enum class Command { Override, SkipFile } command = Command(0);
 		struct Param
 		{
-			std::u8string wildcard = u8"";
+			std::wstring wildcard = L"";
 			int64_t minsize = 0;
 			int64_t maxsize = 0;
 			boost::optional<Compression> ct = boost::none;
@@ -46,9 +46,9 @@ namespace buildfile
 	{
 		struct Param
 		{
-			std::u8string name = u8"";
-			std::u8string alias = u8"";
-			std::u8string relativeroot = u8"";
+			std::wstring name = L"";
+			std::wstring alias = L"";
+			std::wstring relativeroot = L"";
 		}param;
 		FileSettings filesetting = {};
 		std::list<std::filesystem::path> files = {};
@@ -56,7 +56,7 @@ namespace buildfile
 
 	struct Archive
 	{
-		std::u8string name = u8"";
+		std::wstring name = L"";
 		std::vector<TOC> TOCs = {};
 
 		std::string filename = "";

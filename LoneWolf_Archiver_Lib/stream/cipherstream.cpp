@@ -21,7 +21,7 @@ namespace stream
 		case CipherStreamState::Read_EncryptionUnknown:
 		{
 			_memmapStream.open(file);
-			if (0 != strncmp(reinterpret_cast<const char*>(_memmapStream.getReadptr()),
+			if (0 != strncmp(pointer_cast<const char, std::byte>(_memmapStream.getReadptr()),
 				"_ARCHIVE", 8))
 			{
 				_state = CipherStreamState::Read_Encrypted;
@@ -176,7 +176,7 @@ namespace stream
 		{
 		case CipherStreamState::Write_Encrypted:
 		{
-			auto* uint8Src = reinterpret_cast<const uint8_t*>(src);
+			auto* uint8Src = pointer_cast<const uint8_t, void>(src);
 			const size_t begpos = getpos();
 
 			std::vector<uint8_t> buffer(length);
@@ -185,7 +185,7 @@ namespace stream
 				buffer[i] = uint8Src[i] - _cipherKey[(begpos + i) % _keySize];
 			}
 
-			_filestream.write(reinterpret_cast<const char*>(buffer.data()), length);
+			_filestream.write(pointer_cast<const char, uint8_t>(buffer.data()), length);
 			_filestream.seekg(_filestream.tellp());
 			if (!_filestream.good())
 			{
@@ -357,9 +357,9 @@ namespace stream
 
 		_cipherBegPos = chkcast<uint32_t>(getpos());
 
-		_filestream.write(reinterpret_cast<const char*>(&_deadbe7a), sizeof(_deadbe7a));
-		_filestream.write(reinterpret_cast<const char*>(&_keySize), sizeof(_keySize));
-		_filestream.write(reinterpret_cast<const char*>(_fileKey.data()), _keySize);
+		_filestream.write(pointer_cast<const char, uint32_t>(&_deadbe7a), sizeof(_deadbe7a));
+		_filestream.write(pointer_cast<const char, uint16_t>(&_keySize), sizeof(_keySize));
+		_filestream.write(pointer_cast<const char, uint8_t>(_fileKey.data()), _keySize);
 		_filestream.seekg(_filestream.tellp());
 		if (!_filestream.good())
 		{
@@ -376,7 +376,7 @@ namespace stream
 
 		_cipherBegBackPos = chkcast<uint32_t>(filesize + sizeof(_cipherBegBackPos) - _cipherBegPos);
 
-		_filestream.write(reinterpret_cast<const char*>(&_cipherBegBackPos), sizeof(_cipherBegBackPos));
+		_filestream.write(pointer_cast<const char, uint32_t>(&_cipherBegBackPos), sizeof(_cipherBegBackPos));
 
 		_filestream.seekg(_filestream.tellp());
 		if (!_filestream.good())
@@ -393,11 +393,11 @@ namespace stream
 	{
 		for (decltype(_keySize) i = 0; i < _keySize; i += 4)
 		{
-			auto currentKey = *reinterpret_cast<uint32_t*>(&_fileKey[i]);
+			auto currentKey = *pointer_cast<uint32_t, uint8_t>(&_fileKey[i]);
 			for (size_t byte = 0; byte < 4; byte++)
 			{
 				uint32_t tempVal = ROTL(currentKey + _cipherBegPos, 8);
-				const auto tempBytes = reinterpret_cast<uint8_t*>(&tempVal);
+				const auto tempBytes = pointer_cast<uint8_t, uint32_t>(&tempVal);
 				for (uint32_t j = 0; j < 4; j++)
 				{
 					currentKey = cipherConst[uint8_t(currentKey ^ tempBytes[j])] ^ (currentKey >> 8);

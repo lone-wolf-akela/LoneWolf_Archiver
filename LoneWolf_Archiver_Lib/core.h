@@ -36,7 +36,7 @@ namespace core
 		bool encryption,
 		int compressLevel,
 		bool keepSign,
-		const std::vector<std::u8string>& ignoreList,
+		const std::vector<std::wstring>& ignoreList,
 		uint_fast32_t encryption_key_seed,
 		std::optional<archive::ProgressCallback> callback = std::nullopt
 	);

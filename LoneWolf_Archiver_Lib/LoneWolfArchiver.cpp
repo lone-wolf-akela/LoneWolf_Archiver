@@ -12,7 +12,9 @@
 #include "spdlog/include/spdlog/spdlog.h"
 #include "spdlog/include/spdlog/sinks/stdout_color_sinks.h"
 
+#include "helper/helper.h"
 #include "archive/archive.h"
+#include "encoding/encoding.h"
 #include "core.h"
 #include "LoneWolfArchiver.h"
 
@@ -25,7 +27,7 @@ struct
 	bool encryption = false;
 	uint_fast32_t encryption_key_seed = 0;
 
-	std::vector<std::u8string> ignoreList = {};
+	std::vector<std::wstring> ignoreList = {};
 }options;
 
 #if !defined(_DEBUG)
@@ -61,8 +63,7 @@ int lonewolf_archiver(const int argc, const char** argv)
 					options.encryption_key_seed = config.get("encryption_key_seed", 0).asUInt();
 					for (auto& v : config.get("ignore_list", {}))
 					{
-						options.ignoreList.emplace_back(
-							reinterpret_cast<const char8_t*>(v.asCString()));
+						options.ignoreList.emplace_back(encoding::narrow_to_wide<char>(v.asString(), "utf8"));
 					}
 				}
 				catch (const Json::Exception & e)
@@ -263,7 +264,7 @@ int lonewolf_archiver(const int argc, const char** argv)
 		{
 			archive::Archive file;
 			file.open(vm["archive"].as<std::string>(), archive::Archive::Mode::Read);
-			std::cout << reinterpret_cast<const char*>(file.getArchiveSignature().c_str()) << std::endl;
+			std::cout << file.getArchiveSignature() << std::endl;
 		}
 		return 0;
 	}

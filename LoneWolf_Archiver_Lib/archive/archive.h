@@ -45,13 +45,13 @@ namespace archive
 			const std::filesystem::path& root,
 			int compress_level,
 			bool skip_tool_signature,
-			const std::vector<std::u8string>& ignore_list,
+			const std::vector<std::wstring>& ignore_list,
 			const ProgressCallback& callback
 		);
 		void listFiles() const;
 		[[nodiscard]] Json::Value getFileTree() const;
 		[[nodiscard]] std::future<bool> testArchive(ThreadPool& pool, const ProgressCallback& callback);
-		[[nodiscard]] std::u8string getArchiveSignature() const;
+		[[nodiscard]] std::string getArchiveSignature() const;
 
 		// finish
 		void close();

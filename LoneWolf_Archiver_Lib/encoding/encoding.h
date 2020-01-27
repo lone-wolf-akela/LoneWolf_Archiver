@@ -10,6 +10,7 @@
 
 #include <boost/locale.hpp>
 
+#include "../helper/helper.h"
 #include "../exceptions/exceptions.h"
 
 namespace encoding
@@ -19,72 +20,84 @@ namespace encoding
 		std::same_as<T, signed char> ||
 		std::same_as<T, unsigned char> ||
 		std::same_as<T, char8_t>;
-	
-
-	template<Char8 CharTOut, Char8 CharTIn>
-	std::basic_string<CharTOut> toUTF8(std::basic_string_view<CharTIn> in);
-	template<Char8 CharT>
-	std::u16string toUTF16(std::basic_string_view<CharT> in, std::locale codepage);
-	template<Char8 CharT>
-	std::basic_string<CharT> fromUTF16(std::u16string_view in, std::locale codepage);
 
 	template<Char8 CharT>
-	std::u16string toUTF16(std::basic_string_view<CharT> in, const char* codepage)
+	std::basic_string<CharT> wide_to_narrow(std::wstring_view in, std::locale codepage)
 	{
-		auto locale = boost::locale::generator().generate(codepage);
-		return toUTF16(in, locale);
+		if constexpr (std::is_same_v<CharT, char>)
+		{
+			return boost::locale::conv::from_utf(
+				in.data(), in.data() + in.length(), codepage
+			);
+		}
+		else
+		{
+			const auto s = boost::locale::conv::from_utf(
+				in.data(), in.data() + in.length(), codepage
+			);
+			return std::basic_string<CharT>(pointer_cast<const CharT, char>(s.c_str()), s.length());
+		}
 	}
 	template<Char8 CharT>
-	std::basic_string<CharT> fromUTF16(std::u16string in, const char* codepage)
+	std::basic_string<CharT> wide_to_narrow(std::wstring_view in, const char* codepage)
 	{
 		auto locale = boost::locale::generator().generate(codepage);
-		return fromUTF16<CharT>(in, locale);
+		return wide_to_narrow<CharT>(in, locale);
 	}
 	
-	template<Char8 CharTOut, Char8 CharTIn>
-	std::basic_string<CharTOut>toUTF8(std::basic_string_view<CharTIn> in)
+	template<Char8 CharT>
+	std::wstring narrow_to_wide(std::basic_string_view<CharT> in, std::locale codepage)
+	{
+		const auto w = boost::locale::conv::to_utf<wchar_t>(
+			pointer_cast<const char, CharT>(in.data()),
+			pointer_cast<const char, CharT>(in.data() + in.length()),
+			codepage
+			);
+		return boost::locale::conv::utf_to_utf<wchar_t, wchar_t>(w);
+	}
+
+	template<Char8 CharT>
+	std::wstring narrow_to_wide(std::basic_string_view<CharT> in, const char* codepage)
+	{
+		auto locale = boost::locale::generator().generate(codepage);
+		return narrow_to_wide(in, locale);
+	}
+
+	template<Char8 CharT>
+	std::wstring detect_narrow_to_wide(std::basic_string_view<CharT> in)
 	{
 		// try parse as utf8
 		try
 		{
-			std::ignore = toUTF16(in, "utf8");
+			return narrow_to_wide(in, "utf8");
+		}
+		catch (boost::locale::conv::conversion_error&)
+		{
+			// not utf8, use system codepage
+			return narrow_to_wide(in, "");
+		}
+	}
+	
+	template<Char8 CharTOut, Char8 CharTIn>
+	std::basic_string<CharTOut> detect_narrow_to_utf8(std::basic_string_view<CharTIn> in)
+	{
+		// try parse as utf8
+		try
+		{
+			std::ignore = narrow_to_wide(in, "utf8");
 			// success
-			return std::basic_string<CharTOut>(reinterpret_cast<const CharTOut*>(in.data()), in.length());
+			return std::basic_string<CharTOut>(pointer_cast<const CharTOut, CharTIn>(in.data()), in.length());
 		}
 		catch(boost::locale::conv::conversion_error&)
 		{
 			// not utf8, use system codepage
-			auto system_locale = boost::locale::generator().generate("");
-			auto u16 = toUTF16(in, system_locale);
-			return fromUTF16<CharTOut>(u16, "utf8");
+			auto w = narrow_to_wide(in, "");
+			return wide_to_narrow<CharTOut>(w, "utf8");
 		}
 	}
 
-	template<Char8 CharT>
-	std::basic_string<CharT> fromUTF16(std::u16string_view in, std::locale codepage)
-	{
-		const auto w = boost::locale::conv::utf_to_utf<wchar_t, char16_t>(in.data(), in.data() + in.length());
-		if constexpr(std::is_same_v<CharT, char>)
-		{
-			return boost::locale::conv::from_utf(w, codepage);
-		}
-		else
-		{
-			const auto s = boost::locale::conv::from_utf(w, codepage);
-			return std::basic_string<CharT>(reinterpret_cast<const CharT*>(s.c_str()), s.length());
-		}
-	}
-	
-	template<Char8 CharT>
-	std::u16string toUTF16(std::basic_string_view<CharT> in, std::locale codepage)
-	{
-		const auto w = boost::locale::conv::to_utf<wchar_t>(
-			reinterpret_cast<const char*>(in.data()),
-			reinterpret_cast<const char*>(in.data() + in.length()),
-			codepage
-			);
-		return boost::locale::conv::utf_to_utf<char16_t, wchar_t>(w);
-	}
+	std::u16string wide_to_utf16(std::wstring_view in);
+	std::wstring utf16_to_wide(std::u16string_view in);
 }
 
 #endif

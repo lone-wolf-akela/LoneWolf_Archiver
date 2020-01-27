@@ -48,9 +48,9 @@ namespace
 		std::vector<std::byte> r(outputsize);
 		auto ul_outputsize = uLongf(outputsize);
 		checkErr(Z_OK == uncompress(
-			reinterpret_cast<Bytef*>(r.data()),
+			pointer_cast<Bytef, std::byte>(r.data()),
 			&ul_outputsize,
-			reinterpret_cast<const Bytef*>(data),
+			pointer_cast<const Bytef, std::byte>(data),
 			uLong(inputsize)) && ul_outputsize == outputsize);
 		return r;
 	}
@@ -97,11 +97,11 @@ namespace compressor
 		int level,
 		bool lastpart)
 	{
-		unique_c_ptr<std::byte[]> out(reinterpret_cast<std::byte*>(malloc(outsize)));
+		unique_c_ptr<std::byte[]> out(pointer_cast<std::byte, void>(malloc(outsize)));
 		z_stream strm{
-			.next_in = reinterpret_cast<const Bytef*>(in),
+			.next_in = pointer_cast<const Bytef, std::byte>(in),
 			.avail_in = chkcast<uInt>(insize),
-			.next_out = reinterpret_cast<Bytef*>(out.get()),
+			.next_out = pointer_cast<Bytef, std::byte>(out.get()),
 			.avail_out = chkcast<uInt>(outsize),
 			.zalloc = nullptr,
 			.zfree = nullptr,
@@ -118,7 +118,7 @@ namespace compressor
 		}
 		size_t output_length = strm.total_out;
 		uint32_t check = adler32(0, nullptr, 0);
-		check = adler32(check, reinterpret_cast<const Bytef*>(in), chkcast<uInt>(insize));
+		check = adler32(check, pointer_cast<const Bytef, std::byte>(in), chkcast<uInt>(insize));
 		// deflateEnd is supposed to return Z_OK
 		// but its seems to return a strange value
 		// so I don't check it
@@ -147,13 +147,13 @@ namespace compressor
 		ZopfliDeflatePart(&options,
 			btype_blocks_with_dynamic_tree,
 			lastpart,
-			reinterpret_cast<const unsigned char*>(in),
+			pointer_cast<const unsigned char, std::byte>(in),
 			instart,
 			inend,
 			&bits,
-			reinterpret_cast<unsigned char**>(&out_c_ptr),
+			pointer_cast<unsigned char*, std::byte*>(&out_c_ptr),
 			&outsize);
-		auto out = unique_c_ptr<std::byte[]>(reinterpret_cast<std::byte*>(
+		auto out = unique_c_ptr<std::byte[]>(pointer_cast<std::byte, void>(
 			checkNull(realloc(out_c_ptr, outsize + 10))));
 		if (!lastpart) {
 			bits &= 7;
@@ -175,7 +175,7 @@ namespace compressor
 		}
 
 		uint32_t check = adler32(0, nullptr, 0);
-		check = adler32(check, reinterpret_cast<const Bytef*>(in) + instart,
+		check = adler32(check, pointer_cast<const Bytef, std::byte>(in) + instart,
 			chkcast<uInt>(inend - instart));
 
 		return { std::move(out), outsize, check };
@@ -187,9 +187,9 @@ namespace compressor
 		uLongf compressed_size = compressBound(uLong(inputsize));
 		std::vector<std::byte> r(compressed_size);
 		checkErr(Z_OK == compress2(
-			reinterpret_cast<Bytef*>(r.data()),
+			pointer_cast<Bytef, std::byte>(r.data()),
 			&compressed_size,
-			reinterpret_cast<const Bytef*>(data),
+			pointer_cast<const Bytef, std::byte>(data),
 			uLong(inputsize),
 			level));
 		r.resize(compressed_size);
@@ -210,11 +210,11 @@ namespace compressor
 		size_t outsize = 0;
 		ZopfliCompress(&options,
 			ZOPFLI_FORMAT_ZLIB,
-			reinterpret_cast<const unsigned char*>(data),
+			pointer_cast<const unsigned char, std::byte>(data),
 			inputsize,
 			&out_c_ptr,
 			&outsize);
-		const auto out = unique_c_ptr<std::byte[]>(reinterpret_cast<std::byte*>(out_c_ptr));
+		const auto out = unique_c_ptr<std::byte[]>(pointer_cast<std::byte, unsigned char>(out_c_ptr));
 		std::vector<std::byte> r(out.get(), out.get() + outsize);
 		return r;
 	}

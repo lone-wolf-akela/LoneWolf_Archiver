@@ -84,12 +84,10 @@ namespace libexport
 		uint_fast32_t seed
 	)
 	{
-		std::vector<std::u8string> v_ignorelist;
+		std::vector<std::wstring> v_ignorelist;
 		for (const auto& l : ignore_list)
 		{
-			std::string_view t(reinterpret_cast<const char*>(l.c_str()),
-				l.length() * sizeof(l[0]));
-			v_ignorelist.emplace_back(encoding::toUTF8<char8_t>(t));
+			v_ignorelist.emplace_back(l);
 		}
 		
 		core::generate(

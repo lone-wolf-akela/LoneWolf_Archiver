@@ -8,6 +8,7 @@
 #include <memory>
 #include <limits>
 #include <array>
+#include <type_traits>
 #include <concepts>
 
 template<typename T>
@@ -55,6 +56,16 @@ bit_cast(const From& src) noexcept
 	To dst;
 	std::memcpy(&dst, &src, sizeof(To));
 	return dst;
+}
+
+template<typename Tout, typename TinExpect, typename TinReal>
+constexpr Tout* pointer_cast(TinReal* in)
+{
+	static_assert(std::is_same_v<
+		std::remove_cv_t<std::decay_t<TinExpect>>,
+		std::remove_cv_t<std::decay_t<TinReal>>
+	>);
+	return reinterpret_cast<Tout*>(in);
 }
 
 #endif

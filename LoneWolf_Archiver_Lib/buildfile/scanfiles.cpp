@@ -55,7 +55,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.*",
+			.wildcard = L"*.*",
 			.minsize = -1,
 			.maxsize = 100,
 			.ct = Compression::Uncompressed} });
@@ -63,7 +63,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.mp3",
+			.wildcard = L"*.mp3",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Uncompressed} });
@@ -71,7 +71,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.wav",
+			.wildcard = L"*.wav",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Uncompressed} });
@@ -79,7 +79,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.jpg",
+			.wildcard = L"*.jpg",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Uncompressed} });
@@ -87,7 +87,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.lua",
+			.wildcard = L"*.lua",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -95,7 +95,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.fda",
+			.wildcard = L"*.fda",
 			.minsize = -1,
 			.maxsize = -1,
 			//.ct = Uncompressed} 
@@ -105,7 +105,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.txt",
+			.wildcard = L"*.txt",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -113,7 +113,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.ship",
+			.wildcard = L"*.ship",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -121,7 +121,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.resource",
+			.wildcard = L"*.resource",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -129,7 +129,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.pebble",
+			.wildcard = L"*.pebble",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -137,7 +137,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.level",
+			.wildcard = L"*.level",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -145,7 +145,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.wepn",
+			.wildcard = L"*.wepn",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -153,7 +153,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.subs",
+			.wildcard = L"*.subs",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -161,7 +161,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.miss",
+			.wildcard = L"*.miss",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -169,7 +169,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.events",
+			.wildcard = L"*.events",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -177,7 +177,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.madstate",
+			.wildcard = L"*.madstate",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -185,7 +185,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.script",
+			.wildcard = L"*.script",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -193,7 +193,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.ti",
+			.wildcard = L"*.ti",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -201,7 +201,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.st",
+			.wildcard = L"*.st",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -209,7 +209,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.vp",
+			.wildcard = L"*.vp",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -217,7 +217,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.wf",
+			.wildcard = L"*.wf",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -225,7 +225,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.anim",
+			.wildcard = L"*.anim",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -233,7 +233,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.mres",
+			.wildcard = L"*.mres",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -241,7 +241,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.navs",
+			.wildcard = L"*.navs",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -249,7 +249,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.mc",
+			.wildcard = L"*.mc",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -257,7 +257,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.mtga",
+			.wildcard = L"*.mtga",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -265,7 +265,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.levels",
+			.wildcard = L"*.levels",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -273,7 +273,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.campaign",
+			.wildcard = L"*.campaign",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -281,7 +281,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.flare",
+			.wildcard = L"*.flare",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -289,7 +289,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.dustcloud",
+			.wildcard = L"*.dustcloud",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -297,7 +297,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.cloud",
+			.wildcard = L"*.cloud",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -305,7 +305,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.ahod",
+			.wildcard = L"*.ahod",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -313,7 +313,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::Override ,
 			.param{
-			.wildcard = u8"*.lod",
+			.wildcard = L"*.lod",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = Compression::Decompress_All_At_Once} });
@@ -321,7 +321,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::SkipFile ,
 			.param{
-			.wildcard = u8"Keeper.txt",
+			.wildcard = L"Keeper.txt",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = boost::none} });
@@ -329,7 +329,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::SkipFile ,
 			.param{
-			.wildcard = u8"*.big",
+			.wildcard = L"*.big",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = boost::none} });
@@ -337,7 +337,7 @@ namespace buildfile
 		filesettings_template.commands.emplace_back(FileSettingCommand{
 			.command = FileSettingCommand::Command::SkipFile ,
 			.param{
-			.wildcard = u8"_.*",
+			.wildcard = L"_.*",
 			.minsize = -1,
 			.maxsize = -1,
 			.ct = boost::none} });
@@ -373,33 +373,33 @@ namespace buildfile
 			}
 		}
 		const std::string modname = lastNotEmptyFilename(rootpath).string();
-		const std::u8string u8modname = lastNotEmptyFilename(rootpath).u8string();
+		const std::wstring wmodname = lastNotEmptyFilename(rootpath).wstring();
 		std::vector<Archive> archive_list;
 		// build our base archive
-		archive_list.emplace_back(Archive{ .name = u8"MOD" + u8modname,.filename = modname });
+		archive_list.emplace_back(Archive{ .name = L"MOD" + wmodname,.filename = modname });
 		archive_list.back().TOCs.emplace_back(TOC{
 			.param{
-			.name = u8"TOC" + u8modname,
-			.alias = u8"Data",
-			.relativeroot = u8""},
+			.name = L"TOC" + wmodname,
+			.alias = L"Data",
+			.relativeroot = L""},
 			.filesetting = filesettings_template,
 			.files = std::move(allfiles) });
 		// then build all the locale archive
 		for (auto& [loc, locpath] : locales)
 		{
 			std::string locname = loc.string();
-			std::u8string u8locname = loc.u8string();
+			std::wstring wlocname = loc.wstring();
 			if (!allinone)
 			{
 				// create a new archive for this locale
 				archive_list.emplace_back(Archive{
-					.name = u8"MOD" + u8modname + u8locname,.filename = locname });
+					.name = L"MOD" + wmodname + wlocname,.filename = locname });
 			}
 			archive_list.back().TOCs.emplace_back(TOC{
 				.param{
-				.name = u8"TOC" + u8modname + u8locname,
-				.alias = u8"Locale",
-				.relativeroot = u8"locale\\" + u8locname },
+				.name = L"TOC" + wmodname + wlocname,
+				.alias = L"Locale",
+				.relativeroot = L"locale\\" + wlocname },
 				.filesetting = filesettings_template,
 				.files = std::move(locpath) });
 		}

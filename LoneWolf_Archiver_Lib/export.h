@@ -32,15 +32,15 @@ namespace libexport
 		~Interface();
 		Interface(const Interface&) = delete;
 		Interface& operator=(const Interface&) = delete;
-		Interface(Interface&&) = default;
-		Interface& operator=(Interface&&) = default;
+		Interface(Interface&&) = delete;
+		Interface& operator=(Interface&&) = delete;
 		
 		void Open(std::wstring_view file) const;
 		void ExtractAll(std::wstring output_path, const ProgressCallback& callback) const;
 		void ExtractFile(std::wstring output_path, std::wstring file_path, const ProgressCallback& callback) const;
 		void ExtractFolder(std::wstring output_path, std::wstring folder_path, const ProgressCallback& callback) const;
 		void ExtractToc(std::wstring output_path, std::wstring toc, const ProgressCallback& callback) const;
-		std::string GetFiletree() const;
+		[[nodiscard]] std::string GetFiletree() const;
 		void Generate(
 			std::wstring_view root,
 			bool all_in_one,

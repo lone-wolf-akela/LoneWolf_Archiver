@@ -1,6 +1,8 @@
 ﻿#include <cstring>
 #include <algorithm>
 
+#include "../helper/helper.h"
+
 #include "memmapfilestream.h"
 
 namespace stream
@@ -46,7 +48,7 @@ namespace stream
 		const size_t lengthToRead = std::min(size_t(_filesize - pos), length);
 		std::copy_n(_filesrc.begin() + pos,
 			lengthToRead,
-			reinterpret_cast<char*>(dst));
+			pointer_cast<char, void>(dst));
 		return lengthToRead;
 	}
 
@@ -56,7 +58,7 @@ namespace stream
 		//brackets around std::min is required to prevent some problems
 		const size_t lengthToRead = (std::min)(size_t(_filesize - pos), length);
 		return { OptionalOwnerBuffer(
-			reinterpret_cast<const std::byte*>(_filesrc.data()) + pos),
+			pointer_cast<const std::byte, char>(_filesrc.data()) + pos),
 			lengthToRead };
 	}
 
@@ -86,9 +88,9 @@ namespace stream
 
 	const std::byte* MemMapFileStream::getReadptr() const
 	{
-		return reinterpret_cast<const std::byte*>(_filesrc.data()) + _pos;
+		return pointer_cast<const std::byte, char>(_filesrc.data()) + _pos;
 	}
-
+	
 	uintmax_t MemMapFileStream::getFileSize() const
 	{
 		return _filesize;

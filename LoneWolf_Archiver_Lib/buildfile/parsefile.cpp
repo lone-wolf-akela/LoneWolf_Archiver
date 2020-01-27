@@ -24,55 +24,51 @@ BOOST_FUSION_ADAPT_STRUCT(buildfile::Archive, name, TOCs)
 namespace
 {
 	namespace x3 = boost::spirit::x3;
+	namespace stdw = x3::standard_wide;
 	using boost::fusion::operator<<;
 	
 	const x3::rule<class bf_skipper> bf_skipper = "bf_skipper";
 	const auto bf_skipper_def =
-		(x3::eol >> *x3::space >> "//" >> *(x3::char_ - x3::eol)) | x3::space;
+		(x3::eol >> *stdw::space >> L"//" >> *(stdw::char_ - x3::eol)) | stdw::space;
 	BOOST_SPIRIT_DEFINE(bf_skipper);
-
-	struct command_sym_ : x3::symbols<buildfile::FileSettingCommand::Command>
+	
+	struct command_sym_ : stdw::symbols<buildfile::FileSettingCommand::Command>
 	{
 		command_sym_()
 		{
-			add("Override", buildfile::FileSettingCommand::Command::Override)
-				("SkipFile", buildfile::FileSettingCommand::Command::SkipFile);
+			add(L"Override", buildfile::FileSettingCommand::Command::Override)
+				(L"SkipFile", buildfile::FileSettingCommand::Command::SkipFile);
 		}
 	} command_sym;
-	struct compression_sym_ : x3::symbols<buildfile::Compression>
+	struct compression_sym_ : stdw::symbols<buildfile::Compression>
 	{
 		compression_sym_()
 		{
 			add
-			("\"0\"", buildfile::Compression(0))
-				("\"1\"", buildfile::Compression(1))
-				("\"2\"", buildfile::Compression(2));
+			(L"\"0\"", buildfile::Compression(0))
+				(L"\"1\"", buildfile::Compression(1))
+				(L"\"2\"", buildfile::Compression(2));
 		}
 	} compression_sym;
 
-	constexpr auto string_u8 = [&](auto& ctx)
-	{
-		x3::_val(ctx) = std::u8string(reinterpret_cast<char8_t*>(x3::_attr(ctx).data()), x3::_attr(ctx).size());
-	};
-	
-	const x3::rule<class quoted_string, std::u8string> quoted_string = "quoted_string";
-	const auto quoted_string_def = x3::lexeme['"' > *(x3::char_ - '"') > '"'][string_u8];
+	const x3::rule<class quoted_string, std::wstring> quoted_string = "quoted_string";
+	const auto quoted_string_def = x3::lexeme[L'"' > *(stdw::char_ - L'"') > L'"'];
 	BOOST_SPIRIT_DEFINE(quoted_string);
 
-	const x3::rule<class line, std::u8string> line = "line";
-	const auto line_def = x3::lexeme[*(x3::char_ - x3::eol) > &x3::eol][string_u8];
+	const x3::rule<class line, std::wstring> line = "line";
+	const auto line_def = x3::lexeme[*(stdw::char_ - x3::eol) > &x3::eol];
 	BOOST_SPIRIT_DEFINE(line);
 
-	const auto quoted_int64 = x3::lit('"') > x3::int64 > '"';
+	const auto quoted_int64 = x3::lit(L"\"") > x3::int64 > L'"';
 	
 	const x3::rule<class toc_param, buildfile::TOC::Param> toc_param = "toc_param";
 	constexpr auto toc_param_name = [&](auto& ctx) {x3::_val(ctx).name = x3::_attr(ctx); };
 	constexpr auto toc_param_alias = [&](auto& ctx) {x3::_val(ctx).alias = x3::_attr(ctx); };
 	constexpr auto toc_param_relativeroot = [&](auto& ctx) {x3::_val(ctx).relativeroot = x3::_attr(ctx); };
 	const auto toc_param_def = +(
-		(x3::lit("name") > '=' > quoted_string[toc_param_name]) |
-		(x3::lit("alias") > '=' > quoted_string[toc_param_alias]) |
-		(x3::lit("relativeroot") > '=' > quoted_string[toc_param_relativeroot])
+		(x3::lit(L"name") > L'=' > quoted_string[toc_param_name]) |
+		(x3::lit(L"alias") > L'=' > quoted_string[toc_param_alias]) |
+		(x3::lit(L"relativeroot") > L'=' > quoted_string[toc_param_relativeroot])
 		);
 	BOOST_SPIRIT_DEFINE(toc_param);
 
@@ -83,44 +79,44 @@ namespace
 	constexpr auto filesetting_cmd_param_maxsize = [&](auto& ctx) {x3::_val(ctx).maxsize = x3::_attr(ctx); };
 	constexpr auto filesetting_cmd_param_ct = [&](auto& ctx) {x3::_val(ctx).ct = x3::_attr(ctx); };
 	const auto filesetting_cmd_param_def = +(
-		(x3::lit("wildcard") > '=' > quoted_string[filesetting_cmd_param_wildcard]) |
-		(x3::lit("minsize") > '=' > quoted_int64[filesetting_cmd_param_minsize]) |
-		(x3::lit("maxsize") > '=' > quoted_int64[filesetting_cmd_param_maxsize]) |
-		(x3::lit("ct") > '=' > compression_sym[filesetting_cmd_param_ct])
+		(x3::lit(L"wildcard") > L'=' > quoted_string[filesetting_cmd_param_wildcard]) |
+		(x3::lit(L"minsize") > L'=' > quoted_int64[filesetting_cmd_param_minsize]) |
+		(x3::lit(L"maxsize") > L'=' > quoted_int64[filesetting_cmd_param_maxsize]) |
+		(x3::lit(L"ct") > L'=' > compression_sym[filesetting_cmd_param_ct])
 		);
 	BOOST_SPIRIT_DEFINE(filesetting_cmd_param);
 	
 	const x3::rule<class builfile_parser, buildfile::Archive> builfile_parser = "builfile_parser";
 	const auto filesettings_param =
-		x3::lit("defcompression") > '=' > compression_sym;
+		x3::lit(L"defcompression") > L'=' > compression_sym;
 	const auto filesetting_command =
 		command_sym >
 		filesetting_cmd_param;
 
 	const x3::rule<class filesettings, buildfile::FileSettings> filesettings = "filesettings";
 	const auto filesettings_def = 
-		x3::lit("FileSettingsStart") >
+		x3::lit(L"FileSettingsStart") >
 		filesettings_param >
 		*filesetting_command >
-		"FileSettingsEnd";
+		L"FileSettingsEnd";
 	BOOST_SPIRIT_DEFINE(filesettings);
 
 	const x3::rule<class file, std::filesystem::path> file = "file";
-	const auto file_def = !x3::lit("TOCEnd") > line;
+	const auto file_def = !x3::lit(L"TOCEnd") > line;
 	BOOST_SPIRIT_DEFINE(file);
 	
 	const x3::rule<class toc, buildfile::TOC> toc = "toc";
 	const auto toc_def = 
-		x3::lit("TOCStart") >
+		x3::lit(L"TOCStart") >
 		toc_param >
 		filesettings >
 		*file >
-		"TOCEnd";
+		L"TOCEnd";
 	BOOST_SPIRIT_DEFINE(toc);
 	
 	const auto builfile_parser_def = x3::eps >>
-		"Archive" >
-		(x3::lit("name") > '=' > quoted_string) > 
+		L"Archive" >
+		(x3::lit(L"name") > L'=' > quoted_string) >
 		*toc >
 		x3::eoi;
 	BOOST_SPIRIT_DEFINE(builfile_parser);
@@ -139,24 +135,22 @@ namespace buildfile
 		std::stringstream buffer;
 		buffer << ifile.rdbuf();
 		
-		std::string bufstr = encoding::toUTF8<char, char>(buffer.str());
-		std::string::iterator iter, eof;
+		std::wstring bufstr = encoding::detect_narrow_to_wide<char>(buffer.str());
+		std::wstring::iterator iter, eof;
 		// check & skip BOM head
 		// Also add a '\n', which is a hack to skip possible comment in the first line
-		if (0 == strncmp(bufstr.c_str(), "\xef\xbb\xbf", 3))
+		if (L'\uFEFF' == bufstr[0])
 		{
 			//has BOM
-			bufstr[2] = '\n';
-			iter = bufstr.begin() + 2;
-			eof = bufstr.end();
+			bufstr[0] = L'\n';
 		}
 		else
 		{
 			//no BOM
-			bufstr = '\n' + bufstr;
-			iter = bufstr.begin();
-			eof = bufstr.end();
+			bufstr = L'\n' + bufstr;
 		}
+		iter = bufstr.begin();
+		eof = bufstr.end();
 		
 		Archive archive{ .filename = filepath.filename().string() };
 		
