@@ -1,0 +1,21 @@
+{
+  "name": "lonewolf-archiver",
+  "version-string": "2.0.0",
+  "builtin-baseline": "83f9a6c469bcfe5bca6c990099e321427ad0db97",
+  "supports": "x64",
+  "dependencies": [
+    "spdlog",
+    "zlib",
+    "openssl",
+    "nlohmann-json",
+    "boost-program-options",
+    "jsoncpp",
+    "boost-fusion",
+    "boost-spirit",
+    "boost-optional",
+    "boost-endian",
+    "boost-locale",
+    "boost-test",
+    "boost-algorithm"
+  ]
+}

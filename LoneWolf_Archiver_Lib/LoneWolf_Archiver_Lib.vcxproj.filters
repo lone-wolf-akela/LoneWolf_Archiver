@@ -64,9 +64,6 @@
     <Filter Include="源文件\zopfli">
       <UniqueIdentifier>{99d27df4-6c7a-43b4-a525-705befe112b4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="头文件\workaround">
-      <UniqueIdentifier>{81837b85-623f-4d26-9b09-2791c83bf6f0}</UniqueIdentifier>
-    </Filter>
     <Filter Include="源文件\ThreadPool">
       <UniqueIdentifier>{2a6f7dee-380a-42cd-b229-3fe83cec5e11}</UniqueIdentifier>
     </Filter>
@@ -143,9 +140,6 @@
     </ClInclude>
     <ClInclude Include="export.h">
       <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="workaround\generate.hpp">
-      <Filter>头文件\workaround</Filter>
     </ClInclude>
     <ClInclude Include="ThreadPool\ThreadPool.hpp">
       <Filter>头文件\ThreadPool</Filter>

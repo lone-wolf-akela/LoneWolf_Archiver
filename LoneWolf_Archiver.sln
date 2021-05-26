@@ -8,6 +8,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F3E1081D-65FC-4EAD-8D0E-B7B9B25129C0}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
+		vcpkg.json = vcpkg.json
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Test", "Test\Test.vcxproj", "{0774F126-E08F-45A9-8668-20AFAA801253}"
@@ -16,10 +17,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Test", "Test\Test.vcxproj",
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LoneWolf_Archiver_Lib", "LoneWolf_Archiver_Lib\LoneWolf_Archiver_Lib.vcxproj", "{EDE78693-8040-4828-A141-35DD10DED7F9}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LoneWolf_Archiver_Dotnet", "LoneWolf_Archiver_Dotnet\LoneWolf_Archiver_Dotnet.vcxproj", "{0A15FB1A-C9A2-42CD-B4B2-6EB319470A37}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LoneWolf_Archiver_GUI", "LoneWolf_Archiver_GUI\LoneWolf_Archiver_GUI.csproj", "{58796E0A-4A89-4509-86C0-C433B982D823}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,14 +36,6 @@ Global
 		{EDE78693-8040-4828-A141-35DD10DED7F9}.Debug|x64.Build.0 = Debug|x64
 		{EDE78693-8040-4828-A141-35DD10DED7F9}.Release|x64.ActiveCfg = Release|x64
 		{EDE78693-8040-4828-A141-35DD10DED7F9}.Release|x64.Build.0 = Release|x64
-		{0A15FB1A-C9A2-42CD-B4B2-6EB319470A37}.Debug|x64.ActiveCfg = Debug|x64
-		{0A15FB1A-C9A2-42CD-B4B2-6EB319470A37}.Debug|x64.Build.0 = Debug|x64
-		{0A15FB1A-C9A2-42CD-B4B2-6EB319470A37}.Release|x64.ActiveCfg = Release|x64
-		{0A15FB1A-C9A2-42CD-B4B2-6EB319470A37}.Release|x64.Build.0 = Release|x64
-		{58796E0A-4A89-4509-86C0-C433B982D823}.Debug|x64.ActiveCfg = Debug|x64
-		{58796E0A-4A89-4509-86C0-C433B982D823}.Debug|x64.Build.0 = Debug|x64
-		{58796E0A-4A89-4509-86C0-C433B982D823}.Release|x64.ActiveCfg = Release|x64
-		{58796E0A-4A89-4509-86C0-C433B982D823}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

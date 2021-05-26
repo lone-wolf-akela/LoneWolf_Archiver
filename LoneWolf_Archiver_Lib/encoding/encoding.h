@@ -48,12 +48,17 @@ namespace encoding
 	template<Char8 CharT>
 	std::wstring narrow_to_wide(std::basic_string_view<CharT> in, std::locale codepage)
 	{
-		const auto w = boost::locale::conv::to_utf<wchar_t>(
+		/*const auto w = boost::locale::conv::to_utf<wchar_t>(
 			pointer_cast<const char, CharT>(in.data()),
 			pointer_cast<const char, CharT>(in.data() + in.length()),
 			codepage
 			);
-		return boost::locale::conv::utf_to_utf<wchar_t, wchar_t>(w);
+		return boost::locale::conv::utf_to_utf<wchar_t, wchar_t>(w);*/
+		return boost::locale::conv::to_utf<wchar_t>(
+			pointer_cast<const char, CharT>(in.data()),
+			pointer_cast<const char, CharT>(in.data() + in.length()),
+			codepage
+			);
 	}
 
 	template<Char8 CharT>

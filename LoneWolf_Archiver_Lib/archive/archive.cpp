@@ -10,8 +10,8 @@
 
 #include <boost/algorithm/string.hpp>
 #include <openssl/md5.h>
-#include "../spdlog/include/spdlog/spdlog.h"
-#include "../spdlog/include/spdlog/sinks/stdout_color_sinks.h"
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 #include "../stream/filestream.h"
 #include "../encoding/encoding.h"
@@ -518,11 +518,9 @@ namespace archive
 					std::min(f.fileDataHeader.fileName.utf8.size() - 1, u8TaskName.length()),
 					f.fileDataHeader.fileName.utf8.begin());
 			}
-			/// \TODO waiting VS2019 to adapt the new c++20 clock_cast
-			/*h->modificationDate = chkcast<uint32_t>(std::chrono::system_clock::to_time_t(
+			f.fileDataHeader.modificationDate = chkcast<uint32_t>(std::chrono::system_clock::to_time_t(
 				std::chrono::clock_cast<std::chrono::system_clock>(
-					last_write_time(task.realpath))));*/
-			f.fileDataHeader.modificationDate = 0;
+					last_write_time(task.realpath))));
 			
 			if ((0 == strcmp(f.fileDataHeader.fileName.ansi.data(), "\x5f\xb4\xcb\xb4\xa6\xbd\xfb\xd6\xb9\xcd\xa8\xd0\xd0")) ||
 				(0 == strcmp(f.fileDataHeader.fileName.ansi.data(), "\x5f\xe6\xad\xa4\xe5\xa4\x84\xe7\xa6\x81\xe6\xad\xa2\xe9\x80\x9a\xe8\xa1\x8c")))
@@ -1164,8 +1162,7 @@ namespace archive
 						pointer_cast<const char, std::byte>(data.decompressedData.data()),
 						data.fileInfoEntry->decompressedLen);
 				}
-				/// \TODO waiting VS2019 to adapt the new c++20 clock_cast
-				// last_write_time(path, std::chrono::clock_cast<file_clock>(system_clock::from_time_t(data.getFileDataHeader()->modificationDate)));
+				last_write_time(path, std::chrono::clock_cast<std::chrono::file_clock>(std::chrono::system_clock::from_time_t(data.fileDataHeader.modificationDate)));
 
 				// calculate progress
 				fileswritten++;
